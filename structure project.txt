@@ -1,0 +1,28 @@
+app/src/main/java/com/example/cafesim/
+│
+├── MainActivity.kt
+│
+├── engine/
+│   ├── model/
+│   │   ├── BusinessModels.kt
+│   │   ├── OperationsModels.kt
+│   │   ├── FinanceModels.kt
+│   │   └── SimulationModels.kt
+│   │
+│   ├── simulation/
+│   │   └── CafeSimulationEngine.kt
+│   │
+│   └── accounting/
+│       └── AccountingEngine.kt
+│
+├── data/
+│   └── GameRepository.kt
+│
+└── ui/
+    ├── screens/
+    │   ├── CafeScreen.kt
+    │   ├── FinanceScreen.kt
+    │   └── ManagementScreen.kt
+    │
+    ├── components/
+    └── theme/
