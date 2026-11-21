@@ -134,6 +134,33 @@ class GameRepository(context: Context) {
         }
     }
 
+    /** Temporary v4 compatibility writer: keep legacy café fields synchronized atomically. */
+    suspend fun updateSharedLocation(location: BusinessLocation) = withContext(Dispatchers.IO) {
+        require(location.name.isNotBlank())
+        require(location.openingHour in 0..23)
+        require(location.closingHour in 1..24)
+        require(location.openingHour < location.closingHour)
+        require(location.monthlyRentCents >= 0L)
+        db.withTransaction {
+            val existing = locations.getLocation(location.id)
+                ?: error("Location does not exist: ${location.id}")
+            require(existing.businessId == location.businessId) {
+                "Cannot transfer a location between businesses"
+            }
+            val updated = locations.updateSharedFields(
+                location.id, location.name, location.openingHour, location.closingHour,
+                location.monthlyRentCents, location.isOpen
+            )
+            check(updated == 1)
+            // v4 still has a legacy cafe_locations table with shared columns.
+            // Update both or roll back both. Other industries will not have this row.
+            locations.updateCafeLegacyFields(
+                location.id, location.name, location.openingHour, location.closingHour,
+                location.monthlyRentCents, location.isOpen
+            )
+        }
+    }
+
     /** Shared location identity loaded from SQLite. */
     suspend fun loadBusinessLocations(sessionId: String = "debug_session_001"): List<BusinessLocation> =
         withContext(Dispatchers.IO) {
