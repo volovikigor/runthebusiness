@@ -1,0 +1,7 @@
+<resources>
+    <string name="debug_database_title">Inspector de base de datos</string>
+    <string name="debug_database_notice">Solo para desarrollo. La carga inicial guarda las transacciones contables, no toda la partida.</string>
+    <string name="debug_refresh">Actualizar</string>
+    <string name="debug_seed">Crear asientos iniciales</string>
+    <string name="debug_empty">Sin registros</string>
+</resources>
