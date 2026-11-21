@@ -128,7 +128,7 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                     ), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Text("Served groups: ${todayVisitors.count { it.status == \"SERVED\" }} • Turned away: ${todayVisitors.count { it.status == \"NO_SEATS\" || it.status == \"NO_STOCK\" }}",
+            Text("Served groups: ${todayVisitors.count { it.status == "SERVED" }} • Turned away: ${todayVisitors.count { it.status == "NO_SEATS" || it.status == "NO_STOCK" }}",
                 style = MaterialTheme.typography.bodySmall)
             Text("Each served group currently buys one menu item; seats are occupied for the average visit duration.",
                 style = MaterialTheme.typography.bodySmall)
