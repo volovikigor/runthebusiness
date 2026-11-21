@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.CafeSaleRepository
+import com.example.runthebusiness.data.local.CafeArrivalRepository
+import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
 import kotlinx.coroutines.launch
@@ -32,15 +34,18 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
+    val arrivals = remember(context) { CafeArrivalRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
+    var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
         state = dashboard.snapshot()
         recent = sales.loadDemoSales().take(6)
+        visitors = arrivals.recent()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -109,6 +114,20 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                 SummaryTile("Orders", "${cafe.salesCount}", Modifier.weight(1f))
                 SummaryTile("Output IVA", euro(cafe.outputVatCents), Modifier.weight(1f))
             }
+            Text("Visitor arrivals", style = MaterialTheme.typography.titleMedium)
+            val todayVisitors = visitors.filter { it.gameDay == cafe.time.day }
+            Text("${todayVisitors.sumOf { it.guests }} visitors in ${todayVisitors.size} arrival events today")
+            if (visitors.isEmpty()) {
+                Text("Advance the clock during opening hours to generate visitors.")
+            } else {
+                visitors.take(5).forEach { visitor ->
+                    Text("Day ${visitor.gameDay} • %02d:%02d — ${visitor.guests} guests arrived".format(
+                        Locale.ROOT, visitor.gameHour, visitor.gameMinute
+                    ), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Text("Visitors are currently arrival events only: no automatic orders or seating yet.",
+                style = MaterialTheme.typography.bodySmall)
             Text("Recent sales", style = MaterialTheme.typography.titleMedium)
             if (recent.isEmpty()) {
                 Text("No recorded sales yet. Use the Menu tab to sell your first item.")
@@ -132,7 +151,7 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
-            Text("Totals include all recorded days. Advancing time does not yet generate customers or costs.",
+            Text("Sales totals include all recorded days. Time generates visitor arrivals, but not orders or recurring costs yet.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

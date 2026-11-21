@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.runthebusiness.data.local.dao.CafeArrivalDao
 import com.example.runthebusiness.data.local.dao.CafeMenuDao
 import com.example.runthebusiness.data.local.dao.CafeSalesDao
 import com.example.runthebusiness.data.local.dao.AccountingDao
@@ -24,12 +25,14 @@ import com.example.runthebusiness.data.local.entity.*
         InventoryItemEntity::class, InventoryBatchEntity::class,
         BusinessLocationEntity::class,
         CustomerOrderEntity::class,
-        CafeProductEntity::class, CafeRecipeItemEntity::class
+        CafeProductEntity::class, CafeRecipeItemEntity::class,
+        CafeArrivalEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
+    abstract fun cafeArrivalDao(): CafeArrivalDao
     abstract fun cafeMenuDao(): CafeMenuDao
     abstract fun cafeSalesDao(): CafeSalesDao
     abstract fun accountingDao(): AccountingDao
@@ -272,13 +275,26 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `cafe_arrivals` (
+                    `id` TEXT NOT NULL, `locationId` TEXT NOT NULL,
+                    `gameDay` INTEGER NOT NULL, `gameHour` INTEGER NOT NULL,
+                    `gameMinute` INTEGER NOT NULL, `guests` INTEGER NOT NULL,
+                    `status` TEXT NOT NULL, PRIMARY KEY(`id`),
+                    FOREIGN KEY(`locationId`) REFERENCES `locations`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_cafe_arrivals_locationId` ON `cafe_arrivals` (`locationId`)")
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build().also { INSTANCE = it }
             }
     }
 }
