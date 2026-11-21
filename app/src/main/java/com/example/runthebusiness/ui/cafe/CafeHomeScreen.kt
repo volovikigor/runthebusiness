@@ -18,6 +18,7 @@ import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
+import com.example.runthebusiness.data.local.CafeServiceRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
@@ -35,6 +36,7 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
     val game = remember(context) { GameRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
     val arrivals = remember(context) { CafeArrivalRepository(context) }
+    val service = remember(context) { CafeServiceRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
@@ -59,7 +61,7 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
             } finally { loading = false }
         }
     }
-    LaunchedEffect(Unit) { run { } }
+    LaunchedEffect(Unit) { run { service.processPending() } }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -97,10 +99,10 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
             }
             Text("Game clock", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { run { game.advanceGameTime(15L) } }, enabled = !loading) {
+                Button(onClick = { run { game.advanceGameTime(15L); service.processPending() } }, enabled = !loading) {
                     Text("+15 min")
                 }
-                Button(onClick = { run { game.advanceGameTime(60L) } }, enabled = !loading) {
+                Button(onClick = { run { game.advanceGameTime(60L); service.processPending() } }, enabled = !loading) {
                     Text("+1 hour")
                 }
                 OutlinedButton(onClick = { run { } }, enabled = !loading) { Text("Refresh") }
@@ -126,7 +128,9 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                     ), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Text("Visitors are currently arrival events only: no automatic orders or seating yet.",
+            Text("Served groups: ${todayVisitors.count { it.status == \"SERVED\" }} • Turned away: ${todayVisitors.count { it.status == \"NO_SEATS\" || it.status == \"NO_STOCK\" }}",
+                style = MaterialTheme.typography.bodySmall)
+            Text("Each served group currently buys one menu item; seats are occupied for the average visit duration.",
                 style = MaterialTheme.typography.bodySmall)
             Text("Recent sales", style = MaterialTheme.typography.titleMedium)
             if (recent.isEmpty()) {
@@ -151,7 +155,7 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
-            Text("Sales totals include all recorded days. Time generates visitor arrivals, but not orders or recurring costs yet.",
+            Text("Sales totals include all recorded days. Time now serves eligible visitor groups; staff queues and recurring costs are not yet simulated.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
