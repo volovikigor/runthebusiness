@@ -1,6 +1,5 @@
 package com.example.runthebusiness.ui.debug
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -63,11 +62,19 @@ fun DatabaseInspectorScreen(modifier: Modifier = Modifier) {
             if (table.rows.isEmpty()) {
                 Text(stringResource(R.string.debug_empty))
             } else {
-                Column(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                    Text(table.columns.joinToString("  |  "), style = MaterialTheme.typography.labelMedium)
-                    table.rows.forEach { row ->
-                        Text(row.joinToString("  |  "), style = MaterialTheme.typography.bodySmall)
-                        HorizontalDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    table.rows.forEachIndexed { index, record ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("#${index + 1}", style = MaterialTheme.typography.labelMedium)
+                                table.columns.forEachIndexed { columnIndex, column ->
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Text(column, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+                                        Text(record[columnIndex], modifier = Modifier.weight(1.4f), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
