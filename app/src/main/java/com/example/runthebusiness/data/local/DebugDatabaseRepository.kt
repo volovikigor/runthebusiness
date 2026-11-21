@@ -37,7 +37,7 @@ class DebugDatabaseRepository(private val context: Context) {
 
     suspend fun inspect(): List<DebugTable> = withContext(Dispatchers.IO) {
         // Fixed allowlist: never interpolate user-supplied table names into SQL.
-        val tables = listOf("game_sessions", "businesses", "locations", "ledger_accounts", "loans", "cafe_locations", "employees", "equipment", "inventory_items", "inventory_batches", "business_events", "customer_orders", "cafe_products", "cafe_recipe_items")
+        val tables = listOf("game_sessions", "businesses", "locations", "ledger_accounts", "loans", "cafe_locations", "employees", "equipment", "inventory_items", "inventory_batches", "business_events", "customer_orders", "cafe_products", "cafe_recipe_items", "cafe_arrivals")
         val sqlDb = database.openHelper.readableDatabase
         tables.map { table ->
             sqlDb.query("SELECT * FROM \"$table\" LIMIT 100").use { cursor ->
