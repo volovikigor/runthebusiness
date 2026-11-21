@@ -19,9 +19,13 @@ class CafeSaleRepository(context: Context) {
     private val operations = db.operationsDao()
     private val locations = db.businessLocationDao()
     private val sales = db.cafeSalesDao()
+    private val menu = db.cafeMenuDao()
     private val useCase = CompleteCafeSaleUseCase()
 
     suspend fun sellDemoItem(sessionId: String = "debug_session_001"): CustomerOrderEntity =
+        sellMenuItem(null, sessionId)
+
+    suspend fun sellMenuItem(productId: String?, sessionId: String = "debug_session_001"): CustomerOrderEntity =
         withContext(Dispatchers.IO) {
             db.withTransaction {
                 val session = checkNotNull(accounting.getSession(sessionId)) {
@@ -33,11 +37,25 @@ class CafeSaleRepository(context: Context) {
                 val item = operations.getInventoryItems(business.id).single()
                 val storedBatch = operations.getInventoryBatches(business.id).single()
                 val currentTime = GameTime(session.currentDay, session.currentHour, session.currentMinute)
-                val product = Product(
-                    id = "demo_product", locationId = location.id, name = "Diagnostic sale item",
-                    sellingPriceCents = 5_000L,
-                    recipe = listOf(RecipeItem(item.id, 0.01))
-                )
+                val product = if (productId == null) {
+                    Product(
+                        id = "demo_product", locationId = location.id, name = "Diagnostic sale item",
+                        sellingPriceCents = 5_000L,
+                        recipe = listOf(RecipeItem(item.id, 0.01))
+                    )
+                } else {
+                    val saved = menu.getProducts(location.id).firstOrNull { it.id == productId }
+                        ?: error("Unknown menu item: $productId")
+                    Product(
+                        id = saved.id, locationId = saved.locationId, name = saved.name,
+                        type = ProductType.valueOf(saved.type),
+                        sellingPriceCents = saved.sellingPriceCents,
+                        taxCategoryCode = saved.taxCategoryCode,
+                        preparationMinutes = saved.preparationMinutes,
+                        recipe = menu.getRecipe(saved.id).map { RecipeItem(it.ingredientId, it.quantity) },
+                        isAvailable = saved.isAvailable
+                    )
+                }
                 val state = SimulationState(
                     currentTime = currentTime,
                     businesses = listOf(Business(business.id, business.name, business.ownerId,

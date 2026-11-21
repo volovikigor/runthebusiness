@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.GameRepository
+import com.example.runthebusiness.data.local.CafeMenuRepository
+import com.example.runthebusiness.data.local.CafeMenuItem
+import com.example.runthebusiness.data.local.CafeSaleRepository
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -19,7 +22,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dashboard = remember(context) { CafeDashboardRepository(context.applicationContext) }
     val game = remember(context) { GameRepository(context.applicationContext) }
+    val menuRepository = remember(context) { CafeMenuRepository(context.applicationContext) }
+    val salesRepository = remember(context) { CafeSaleRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
+    var menuItems by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
     var snapshot by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -30,6 +36,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
             error = null
             try {
                 snapshot = dashboard.snapshot()
+                menuItems = menuRepository.loadMenu()
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
             } finally {
@@ -56,6 +63,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                     try {
                         game.initializeOpeningGame()
                         snapshot = dashboard.snapshot()
+                        menuItems = menuRepository.loadMenu()
                     } catch (e: Exception) {
                         error = e.message ?: e.javaClass.simpleName
                     } finally { busy = false }
@@ -81,6 +89,54 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                     }
                 }, enabled = !busy) { Text("Advance 1 hour") }
                 OutlinedButton(onClick = { refresh() }, enabled = !busy) { Text("Refresh") }
+            }
+            HorizontalDivider()
+            Text("Menu", style = MaterialTheme.typography.titleMedium)
+            if (menuItems.isEmpty()) {
+                Text("No menu yet. Set up the starter menu to begin serving products.")
+                Button(onClick = {
+                    scope.launch {
+                        busy = true
+                        error = null
+                        try {
+                            menuRepository.seedMenu()
+                            menuItems = menuRepository.loadMenu()
+                        } catch (e: Exception) {
+                            error = e.message ?: e.javaClass.simpleName
+                        } finally { busy = false }
+                    }
+                }, enabled = !busy) { Text("Create starter menu") }
+            } else {
+                menuItems.forEach { product ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(product.name, style = MaterialTheme.typography.titleMedium)
+                                Text("€%.2f · %d min".format(
+                                    Locale.ROOT, product.priceCents / 100.0, product.preparationMinutes
+                                ))
+                            }
+                            Button(onClick = {
+                                scope.launch {
+                                    busy = true
+                                    error = null
+                                    try {
+                                        salesRepository.sellMenuItem(product.id)
+                                        snapshot = dashboard.snapshot()
+                                        menuItems = menuRepository.loadMenu()
+                                    } catch (e: Exception) {
+                                        error = e.message ?: e.javaClass.simpleName
+                                    } finally { busy = false }
+                                }
+                            }, enabled = !busy) { Text("Sell 1") }
+                        }
+                    }
+                }
+                Text("Starter recipes use provisional opening inventory. Prices and COGS are simulation values.",
+                    style = MaterialTheme.typography.bodySmall)
             }
             HorizontalDivider()
             Text("Café capacity", style = MaterialTheme.typography.titleMedium)
