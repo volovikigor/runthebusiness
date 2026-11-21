@@ -26,7 +26,7 @@ import com.example.runthebusiness.data.local.entity.*
         CustomerOrderEntity::class,
         CafeProductEntity::class, CafeRecipeItemEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
@@ -262,13 +262,23 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `cafe_products` ADD COLUMN `fulfillment` TEXT NOT NULL DEFAULT 'PREPARED'")
+                db.execSQL("ALTER TABLE `cafe_products` ADD COLUMN `finishedStockItemId` TEXT")
+                // Existing croissant recipes consume a placeholder ingredient. Keep their
+                // current behavior until the stock conversion is implemented in v9.
+                // Do not silently relabel them RESALE while those recipes remain.
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build().also { INSTANCE = it }
             }
     }
 }
