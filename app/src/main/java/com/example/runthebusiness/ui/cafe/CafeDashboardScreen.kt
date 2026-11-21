@@ -167,10 +167,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
             MetricRow("Cost of goods sold", state.cogsCents)
             MetricRow("Gross profit", state.grossProfitCents)
             HorizontalDivider()
-            Text("Placeholder inventory", style = MaterialTheme.typography.titleMedium)
-            Text("%.3f / %.3f units remaining".format(
-                Locale.ROOT, state.stockRemaining, state.stockOriginal
-            ))
+            Text("Inventory", style = MaterialTheme.typography.titleMedium)
+            Text("Beans (g), milk (ml) and croissants (pcs) are tracked separately in Database. Mixed stock units must not be summed.")
             Text("Sales shown here are currently diagnostic transactions. No customer arrival or real menu simulation yet.",
                 style = MaterialTheme.typography.bodySmall)
         }
