@@ -27,7 +27,7 @@ class CafeSaleRepository(context: Context) {
     suspend fun sellDemoItem(sessionId: String = "debug_session_001"): CustomerOrderEntity =
         sellMenuItem(null, sessionId)
 
-    suspend fun sellMenuItem(productId: String?, sessionId: String = "debug_session_001"): CustomerOrderEntity =
+    suspend fun sellMenuItem(productId: String?, sessionId: String = "debug_session_001", saleTime: GameTime? = null): CustomerOrderEntity =
         withContext(Dispatchers.IO) {
             db.withTransaction {
                 val session = checkNotNull(accounting.getSession(sessionId)) {
@@ -38,7 +38,7 @@ class CafeSaleRepository(context: Context) {
                 val cafe = operations.getLocations(business.id).single()
                 val items = operations.getInventoryItems(business.id)
                 val storedBatches = operations.getInventoryBatches(business.id)
-                val currentTime = GameTime(session.currentDay, session.currentHour, session.currentMinute)
+                val currentTime = saleTime ?: GameTime(session.currentDay, session.currentHour, session.currentMinute)
                 val product = if (productId == null) {
                     Product(
                         id = "demo_product", locationId = location.id, name = "Diagnostic sale item",
