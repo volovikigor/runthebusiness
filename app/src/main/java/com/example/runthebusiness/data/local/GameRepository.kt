@@ -3,7 +3,8 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
-import com.example.runthebusiness.engine.InitialGameFactory
+import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
+import com.example.runthebusiness.industries.cafe.usecase.CreateCafeUseCase
 import com.example.runthebusiness.engine.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,7 +19,7 @@ class GameRepository(context: Context) {
     private val operations = db.operationsDao()
 
     suspend fun initializeOpeningGame(sessionId: String = "debug_session_001") = withContext(Dispatchers.IO) {
-        val state = InitialGameFactory.create()
+        val state = CreateCafeUseCase()(CafeStartingConfiguration())
         val business = state.businesses.single()
         db.withTransaction {
             val existing = accounting.getSession(sessionId)
