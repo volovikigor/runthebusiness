@@ -9,6 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.runthebusiness.data.local.dao.AccountingDao
 import com.example.runthebusiness.data.local.dao.OperationsDao
 import com.example.runthebusiness.data.local.dao.JournalViewDao
+import com.example.runthebusiness.data.local.dao.BusinessLocationDao
 import com.example.runthebusiness.data.local.dao.GameSetupDao
 import com.example.runthebusiness.data.local.entity.*
 
@@ -18,15 +19,17 @@ import com.example.runthebusiness.data.local.entity.*
         JournalEntryEntity::class, JournalLineEntity::class,
         BusinessEntity::class, LedgerAccountEntity::class, LoanEntity::class,
         CafeLocationEntity::class, EmployeeEntity::class, EquipmentEntity::class,
-        InventoryItemEntity::class, InventoryBatchEntity::class
+        InventoryItemEntity::class, InventoryBatchEntity::class,
+        BusinessLocationEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
     abstract fun accountingDao(): AccountingDao
     abstract fun gameSetupDao(): GameSetupDao
     abstract fun operationsDao(): OperationsDao
+    abstract fun businessLocationDao(): BusinessLocationDao
     abstract fun journalViewDao(): JournalViewDao
 
     companion object {
@@ -120,13 +123,31 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `locations` (
+                    `id` TEXT NOT NULL, `businessId` TEXT NOT NULL,
+                    `name` TEXT NOT NULL, `openingHour` INTEGER NOT NULL,
+                    `closingHour` INTEGER NOT NULL, `monthlyRentCents` INTEGER NOT NULL,
+                    `isOpen` INTEGER NOT NULL, PRIMARY KEY(`id`),
+                    FOREIGN KEY(`businessId`) REFERENCES `businesses`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_locations_businessId` ON `locations` (`businessId`)")
+                // Preserve existing v3 locations, including player-customized values.
+                db.execSQL("""INSERT INTO `locations`
+                    (`id`, `businessId`, `name`, `openingHour`, `closingHour`, `monthlyRentCents`, `isOpen`)
+                    SELECT `id`, `businessId`, `name`, `openingHour`, `closingHour`, `monthlyRentCents`, `isOpen`
+                    FROM `cafe_locations`""")
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { INSTANCE = it }
             }
     }
 }

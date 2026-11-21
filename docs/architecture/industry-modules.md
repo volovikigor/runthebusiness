@@ -24,3 +24,13 @@ The shared `BusinessLocation` is a domain projection, **not yet a new Room table
 4. Add another industry only when café flows validate the shared abstraction.
 
 The app currently stores only opening objects; runtime game-state mutation persistence is not complete.
+
+## Room v4: shared location bridge
+
+Room v4 introduces `locations` (id, businessId, name, opening/closing hours, monthly rent, isOpen) with a foreign key to `businesses`. Migration 3→4 copies **existing values** from `cafe_locations`; it does not reconstruct them from defaults.
+
+New games insert both `locations` and `cafe_locations` in the same Room transaction. `GameRepository.loadBusinessLocations` reads the cross-industry table. `GameRepository.updateSharedLocation` updates both representations atomically, preserving compatibility with existing `loadOperations` and foreign keys.
+
+**Deliberate limitation:** `cafe_locations` still contains duplicate shared columns, and employee/equipment/inventory foreign keys still target `cafe_locations`. Do not write directly to either table outside the repository; doing so can cause divergence. Full normalization requires rebuilding the café extension and dependent foreign keys in a subsequent migration. This is a safe compatibility bridge, not the final relational design.
+
+To verify on device: upgrade an existing v3 install (do not clear app data), inspect `locations` and `cafe_locations`, confirm identical shared values, and confirm all existing employees, equipment, inventory and journal entries remain. Re-run Seed opening entries and verify no duplicates.

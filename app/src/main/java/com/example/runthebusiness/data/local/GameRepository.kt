@@ -3,6 +3,8 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
+import com.example.runthebusiness.core.business.BusinessLocation
+import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.industries.cafe.usecase.CreateCafeUseCase
 import com.example.runthebusiness.engine.model.*
@@ -17,6 +19,7 @@ class GameRepository(context: Context) {
     private val accounting = db.accountingDao()
     private val setup = db.gameSetupDao()
     private val operations = db.operationsDao()
+    private val locations = db.businessLocationDao()
 
     suspend fun initializeOpeningGame(sessionId: String = "debug_session_001") = withContext(Dispatchers.IO) {
         val state = CreateCafeUseCase()(CafeStartingConfiguration())
@@ -54,6 +57,17 @@ class GameRepository(context: Context) {
                         nextPaymentHour = it.nextPaymentAt.hour,
                         nextPaymentMinute = it.nextPaymentAt.minute,
                         isActive = it.isActive
+                    )
+                })
+            }
+            // Existing v3 locations are migrated before this method is invoked.
+            if (locations.countLocations(business.id) == 0) {
+                locations.insertLocations(state.locations.map {
+                    val shared = it.toBusinessLocation()
+                    BusinessLocationEntity(
+                        id = shared.id, businessId = shared.businessId, name = shared.name,
+                        openingHour = shared.openingHour, closingHour = shared.closingHour,
+                        monthlyRentCents = shared.monthlyRentCents, isOpen = shared.isOpen
                     )
                 })
             }
@@ -119,6 +133,44 @@ class GameRepository(context: Context) {
             }
         }
     }
+
+    /** Temporary v4 compatibility writer: keep legacy café fields synchronized atomically. */
+    suspend fun updateSharedLocation(location: BusinessLocation) = withContext(Dispatchers.IO) {
+        require(location.name.isNotBlank())
+        require(location.openingHour in 0..23)
+        require(location.closingHour in 1..24)
+        require(location.openingHour < location.closingHour)
+        require(location.monthlyRentCents >= 0L)
+        db.withTransaction {
+            val existing = locations.getLocation(location.id)
+                ?: error("Location does not exist: ${location.id}")
+            require(existing.businessId == location.businessId) {
+                "Cannot transfer a location between businesses"
+            }
+            val updated = locations.updateSharedFields(
+                location.id, location.name, location.openingHour, location.closingHour,
+                location.monthlyRentCents, location.isOpen
+            )
+            check(updated == 1)
+            // v4 still has a legacy cafe_locations table with shared columns.
+            // Update both or roll back both. Other industries will not have this row.
+            locations.updateCafeLegacyFields(
+                location.id, location.name, location.openingHour, location.closingHour,
+                location.monthlyRentCents, location.isOpen
+            )
+        }
+    }
+
+    /** Shared location identity loaded from SQLite. */
+    suspend fun loadBusinessLocations(sessionId: String = "debug_session_001"): List<BusinessLocation> =
+        withContext(Dispatchers.IO) {
+            val business = setup.getBusinesses(sessionId).singleOrNull()
+                ?: return@withContext emptyList()
+            locations.getLocations(business.id).map {
+                BusinessLocation(it.id, it.businessId, it.name, it.openingHour,
+                    it.closingHour, it.monthlyRentCents, it.isOpen)
+            }
+        }
 
     /** Read operational records from SQLite, not from InitialGameFactory. */
     suspend fun loadOperations(sessionId: String = "debug_session_001"): OpeningOperations? =
