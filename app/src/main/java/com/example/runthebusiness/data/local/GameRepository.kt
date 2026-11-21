@@ -3,6 +3,8 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
+import com.example.runthebusiness.core.business.BusinessLocation
+import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.industries.cafe.usecase.CreateCafeUseCase
 import com.example.runthebusiness.engine.model.*
@@ -17,6 +19,7 @@ class GameRepository(context: Context) {
     private val accounting = db.accountingDao()
     private val setup = db.gameSetupDao()
     private val operations = db.operationsDao()
+    private val locations = db.businessLocationDao()
 
     suspend fun initializeOpeningGame(sessionId: String = "debug_session_001") = withContext(Dispatchers.IO) {
         val state = CreateCafeUseCase()(CafeStartingConfiguration())
@@ -54,6 +57,17 @@ class GameRepository(context: Context) {
                         nextPaymentHour = it.nextPaymentAt.hour,
                         nextPaymentMinute = it.nextPaymentAt.minute,
                         isActive = it.isActive
+                    )
+                })
+            }
+            // Existing v3 locations are migrated before this method is invoked.
+            if (locations.countLocations(business.id) == 0) {
+                locations.insertLocations(state.locations.map {
+                    val shared = it.toBusinessLocation()
+                    BusinessLocationEntity(
+                        id = shared.id, businessId = shared.businessId, name = shared.name,
+                        openingHour = shared.openingHour, closingHour = shared.closingHour,
+                        monthlyRentCents = shared.monthlyRentCents, isOpen = shared.isOpen
                     )
                 })
             }
@@ -119,6 +133,17 @@ class GameRepository(context: Context) {
             }
         }
     }
+
+    /** Shared location identity loaded from SQLite. */
+    suspend fun loadBusinessLocations(sessionId: String = "debug_session_001"): List<BusinessLocation> =
+        withContext(Dispatchers.IO) {
+            val business = setup.getBusinesses(sessionId).singleOrNull()
+                ?: return@withContext emptyList()
+            locations.getLocations(business.id).map {
+                BusinessLocation(it.id, it.businessId, it.name, it.openingHour,
+                    it.closingHour, it.monthlyRentCents, it.isOpen)
+            }
+        }
 
     /** Read operational records from SQLite, not from InitialGameFactory. */
     suspend fun loadOperations(sessionId: String = "debug_session_001"): OpeningOperations? =
