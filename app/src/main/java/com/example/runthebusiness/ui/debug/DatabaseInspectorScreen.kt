@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.R
+import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.DebugTable
@@ -19,9 +20,11 @@ import kotlinx.coroutines.launch
 fun DatabaseInspectorScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val repository = remember(context) { DebugDatabaseRepository(context.applicationContext) }
+    val saleRepository = remember(context) { CafeSaleRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var tables by remember { mutableStateOf<List<DebugTable>>(emptyList()) }
     var journal by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
+    var lastSale by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -57,6 +60,31 @@ fun DatabaseInspectorScreen(modifier: Modifier = Modifier) {
                 Text(stringResource(R.string.debug_seed))
             }
         }
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    loading = true
+                    error = null
+                    try {
+                        val sale = saleRepository.sellDemoItem()
+                        lastSale = "Sale: €%.2f · Net: €%.2f · IVA: €%.2f · COGS: €%.2f".format(
+                            sale.grossCents / 100.0, sale.netCents / 100.0,
+                            sale.vatCents / 100.0, sale.cogsCents / 100.0
+                        )
+                        tables = repository.inspect()
+                        journal = repository.journal()
+                    } catch (e: Exception) {
+                        error = e.message ?: e.javaClass.simpleName
+                    } finally {
+                        loading = false
+                    }
+                }
+            },
+            enabled = !loading
+        ) { Text("Sell diagnostic item (€50)") }
+        Text("Test only: uses 1% of placeholder opening inventory. Not a real café product.",
+            style = MaterialTheme.typography.bodySmall)
+        if (lastSale != null) Text(lastSale!!, style = MaterialTheme.typography.titleSmall)
         if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         JournalSection(journal)
