@@ -38,6 +38,9 @@ interface AccountingDao {
         sessionId: String
     ): GameSessionEntity?
 
+    @Query("UPDATE game_sessions SET currentDay = :day, currentHour = :hour, currentMinute = :minute, updatedAtMillis = :updatedAt WHERE id = :sessionId")
+    suspend fun updateGameTime(sessionId: String, day: Int, hour: Int, minute: Int, updatedAt: Long): Int
+
     @Query("""
         SELECT * FROM journal_entries
         WHERE sessionId = :sessionId
