@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">runthebusiness</string>
+    <string name="debug_database_title">Database inspector</string>
+    <string name="debug_database_notice">Development only. Seeding saves opening accounting entries, not the complete game.</string>
+    <string name="debug_refresh">Refresh</string>
+    <string name="debug_seed">Seed opening entries</string>
+    <string name="debug_empty">No records</string>
 </resources>
