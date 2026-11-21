@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.runthebusiness.data.local.dao.CafeSalesDao
 import com.example.runthebusiness.data.local.dao.AccountingDao
 import com.example.runthebusiness.data.local.dao.OperationsDao
 import com.example.runthebusiness.data.local.dao.JournalViewDao
@@ -20,12 +21,14 @@ import com.example.runthebusiness.data.local.entity.*
         BusinessEntity::class, LedgerAccountEntity::class, LoanEntity::class,
         CafeLocationEntity::class, EmployeeEntity::class, EquipmentEntity::class,
         InventoryItemEntity::class, InventoryBatchEntity::class,
-        BusinessLocationEntity::class
+        BusinessLocationEntity::class,
+        CustomerOrderEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
+    abstract fun cafeSalesDao(): CafeSalesDao
     abstract fun accountingDao(): AccountingDao
     abstract fun gameSetupDao(): GameSetupDao
     abstract fun operationsDao(): OperationsDao
@@ -220,13 +223,28 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `customer_orders` (
+                    `id` TEXT NOT NULL, `locationId` TEXT NOT NULL,
+                    `gameDay` INTEGER NOT NULL, `gameHour` INTEGER NOT NULL,
+                    `gameMinute` INTEGER NOT NULL, `grossCents` INTEGER NOT NULL,
+                    `netCents` INTEGER NOT NULL, `vatCents` INTEGER NOT NULL,
+                    `cogsCents` INTEGER NOT NULL, `paymentMethod` TEXT NOT NULL,
+                    `status` TEXT NOT NULL, PRIMARY KEY(`id`),
+                    FOREIGN KEY(`locationId`) REFERENCES `locations`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_customer_orders_locationId` ON `customer_orders` (`locationId`)")
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
             }
     }
 }
