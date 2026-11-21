@@ -3,6 +3,7 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
+import com.example.runthebusiness.core.simulation.GameClock
 import com.example.runthebusiness.core.business.BusinessLocation
 import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
@@ -132,6 +133,30 @@ class GameRepository(context: Context) {
             }
         }
     }
+
+    /** Persist game-time advancement; later event processing must share this transaction. */
+    suspend fun advanceGameTime(minutes: Long, sessionId: String = "debug_session_001"): GameTime =
+        withContext(Dispatchers.IO) {
+            db.withTransaction {
+                val session = checkNotNull(accounting.getSession(sessionId)) {
+                    "Game session not found: $sessionId"
+                }
+                val next = GameClock.advance(
+                    GameTime(session.currentDay, session.currentHour, session.currentMinute), minutes
+                )
+                check(accounting.updateGameTime(
+                    sessionId, next.day, next.hour, next.minute, System.currentTimeMillis()
+                ) == 1)
+                next
+            }
+        }
+
+    suspend fun loadGameTime(sessionId: String = "debug_session_001"): GameTime? =
+        withContext(Dispatchers.IO) {
+            accounting.getSession(sessionId)?.let {
+                GameTime(it.currentDay, it.currentHour, it.currentMinute)
+            }
+        }
 
     /** Shared location writer; café-specific fields are stored separately. */
     suspend fun updateSharedLocation(location: BusinessLocation) = withContext(Dispatchers.IO) {
