@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
 import com.example.runthebusiness.core.simulation.GameClock
+import com.example.runthebusiness.industries.cafe.simulation.CafeArrivalPlanner
 import com.example.runthebusiness.core.business.BusinessLocation
 import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
@@ -144,6 +145,26 @@ class GameRepository(context: Context) {
                 val next = GameClock.advance(
                     GameTime(session.currentDay, session.currentHour, session.currentMinute), minutes
                 )
+                val business = setup.getBusinesses(sessionId).singleOrNull()
+                if (business != null) {
+                    val shared = locations.getLocations(business.id).singleOrNull()
+                    val cafe = operations.getLocations(business.id).singleOrNull()
+                    if (shared != null && cafe != null && shared.isOpen) {
+                        val seats = cafe.tableCount * cafe.seatsPerTable
+                        val arrivals = CafeArrivalPlanner.plan(
+                            GameTime(session.currentDay, session.currentHour, session.currentMinute),
+                            next, shared.openingHour, shared.closingHour, seats
+                        )
+                        db.cafeArrivalDao().insertArrivals(arrivals.map {
+                            CafeArrivalEntity(
+                                id = "${sessionId}_${shared.id}_${it.key}",
+                                locationId = shared.id, gameDay = it.day,
+                                gameHour = it.hour, gameMinute = it.slot * 15,
+                                guests = it.guests, status = "ARRIVED"
+                            )
+                        })
+                    }
+                }
                 check(accounting.updateGameTime(
                     sessionId, next.day, next.hour, next.minute, System.currentTimeMillis()
                 ) == 1)
