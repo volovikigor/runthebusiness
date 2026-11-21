@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
+import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
+import com.example.runthebusiness.ui.cafe.CafeHomeScreen
 import com.example.runthebusiness.ui.debug.DatabaseInspectorScreen
 import com.example.runthebusiness.ui.theme.RunthebusinessTheme
 
@@ -32,16 +34,29 @@ class MainActivity : ComponentActivity() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                icon = { Text("≡") },
-                                label = { Text("Database") }
+                                icon = { Text("▤") },
+                                label = { Text("Menu") }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                icon = { Text("€") },
+                                label = { Text("Finance") }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 3,
+                                onClick = { selectedTab = 3 },
+                                icon = { Text("⚙") },
+                                label = { Text("Dev") }
                             )
                         }
                     }
                 ) { padding ->
-                    if (selectedTab == 0) {
-                        CafeDashboardScreen(modifier = Modifier.padding(padding))
-                    } else {
-                        DatabaseInspectorScreen(modifier = Modifier.padding(padding))
+                    when (selectedTab) {
+                        0 -> CafeHomeScreen(modifier = Modifier.padding(padding))
+                        1 -> CafeDashboardScreen(modifier = Modifier.padding(padding))
+                        2 -> CafeFinanceScreen(modifier = Modifier.padding(padding))
+                        else -> DatabaseInspectorScreen(modifier = Modifier.padding(padding))
                     }
                 }
             }
