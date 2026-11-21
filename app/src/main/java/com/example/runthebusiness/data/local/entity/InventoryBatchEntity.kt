@@ -4,7 +4,7 @@ import androidx.room.*
 @Entity(tableName = "inventory_batches",
     foreignKeys = [
         ForeignKey(entity = InventoryItemEntity::class, parentColumns = ["id"], childColumns = ["inventoryItemId"], onDelete = ForeignKey.RESTRICT),
-        ForeignKey(entity = CafeLocationEntity::class, parentColumns = ["id"], childColumns = ["locationId"], onDelete = ForeignKey.RESTRICT)
+        ForeignKey(entity = BusinessLocationEntity::class, parentColumns = ["id"], childColumns = ["locationId"], onDelete = ForeignKey.RESTRICT)
     ],
     indices = [Index("inventoryItemId"), Index("locationId")])
 data class InventoryBatchEntity(
