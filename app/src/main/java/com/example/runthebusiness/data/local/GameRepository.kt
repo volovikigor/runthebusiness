@@ -3,6 +3,7 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
+import com.example.runthebusiness.core.simulation.GameClock
 import com.example.runthebusiness.core.business.BusinessLocation
 import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
@@ -74,10 +75,9 @@ class GameRepository(context: Context) {
             // Backfill operational objects for existing v2 saves, without duplicating them.
             if (operations.getLocations(business.id).isEmpty()) {
                 operations.insertLocations(state.locations.map {
-                    CafeLocationEntity(it.id, it.businessId, it.name, it.interiorStyle.name,
+                    CafeLocationEntity(it.id, it.interiorStyle.name,
                         it.tableCount, it.seatsPerTable, it.averageVisitMinutes,
-                        it.targetSeatOccupancy, it.takeawayShare, it.openingHour,
-                        it.closingHour, it.monthlyRentCents, it.isOpen)
+                        it.targetSeatOccupancy, it.takeawayShare)
                 })
                 operations.insertEmployees(state.employees.map {
                     EmployeeEntity(it.id, it.locationId, it.name, it.role.name,
@@ -134,7 +134,31 @@ class GameRepository(context: Context) {
         }
     }
 
-    /** Temporary v4 compatibility writer: keep legacy café fields synchronized atomically. */
+    /** Persist game-time advancement; later event processing must share this transaction. */
+    suspend fun advanceGameTime(minutes: Long, sessionId: String = "debug_session_001"): GameTime =
+        withContext(Dispatchers.IO) {
+            db.withTransaction {
+                val session = checkNotNull(accounting.getSession(sessionId)) {
+                    "Game session not found: $sessionId"
+                }
+                val next = GameClock.advance(
+                    GameTime(session.currentDay, session.currentHour, session.currentMinute), minutes
+                )
+                check(accounting.updateGameTime(
+                    sessionId, next.day, next.hour, next.minute, System.currentTimeMillis()
+                ) == 1)
+                next
+            }
+        }
+
+    suspend fun loadGameTime(sessionId: String = "debug_session_001"): GameTime? =
+        withContext(Dispatchers.IO) {
+            accounting.getSession(sessionId)?.let {
+                GameTime(it.currentDay, it.currentHour, it.currentMinute)
+            }
+        }
+
+    /** Shared location writer; café-specific fields are stored separately. */
     suspend fun updateSharedLocation(location: BusinessLocation) = withContext(Dispatchers.IO) {
         require(location.name.isNotBlank())
         require(location.openingHour in 0..23)
@@ -152,12 +176,7 @@ class GameRepository(context: Context) {
                 location.monthlyRentCents, location.isOpen
             )
             check(updated == 1)
-            // v4 still has a legacy cafe_locations table with shared columns.
-            // Update both or roll back both. Other industries will not have this row.
-            locations.updateCafeLegacyFields(
-                location.id, location.name, location.openingHour, location.closingHour,
-                location.monthlyRentCents, location.isOpen
-            )
+
         }
     }
 
@@ -177,12 +196,16 @@ class GameRepository(context: Context) {
         withContext(Dispatchers.IO) {
             val business = setup.getBusinesses(sessionId).singleOrNull() ?: return@withContext null
             val id = business.id
+            val sharedLocations = locations.getLocations(id).associateBy { it.id }
             OpeningOperations(
                 locations = operations.getLocations(id).map {
-                    CafeLocation(it.id, it.businessId, it.name,
+                    val shared = checkNotNull(sharedLocations[it.id]) {
+                        "Missing shared location for café ${it.id}"
+                    }
+                    CafeLocation(it.id, shared.businessId, shared.name,
                         InteriorStyle.valueOf(it.interiorStyle), it.tableCount, it.seatsPerTable,
                         it.averageVisitMinutes, it.targetSeatOccupancy, it.takeawayShare,
-                        it.openingHour, it.closingHour, it.monthlyRentCents, it.isOpen)
+                        shared.openingHour, shared.closingHour, shared.monthlyRentCents, shared.isOpen)
                 },
                 employees = operations.getEmployees(id).map {
                     Employee(it.id, it.locationId, it.name, EmployeeRole.valueOf(it.role),

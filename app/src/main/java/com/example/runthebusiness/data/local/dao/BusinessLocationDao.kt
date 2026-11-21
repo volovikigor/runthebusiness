@@ -19,9 +19,6 @@ interface BusinessLocationDao {
     @Query("UPDATE locations SET name = :name, openingHour = :openingHour, closingHour = :closingHour, monthlyRentCents = :rentCents, isOpen = :isOpen WHERE id = :locationId")
     suspend fun updateSharedFields(locationId: String, name: String, openingHour: Int, closingHour: Int, rentCents: Long, isOpen: Boolean): Int
 
-    @Query("UPDATE cafe_locations SET name = :name, openingHour = :openingHour, closingHour = :closingHour, monthlyRentCents = :rentCents, isOpen = :isOpen WHERE id = :locationId")
-    suspend fun updateCafeLegacyFields(locationId: String, name: String, openingHour: Int, closingHour: Int, rentCents: Long, isOpen: Boolean): Int
-
     @Query("SELECT COUNT(*) FROM locations WHERE businessId = :businessId")
     suspend fun countLocations(businessId: String): Int
 }
