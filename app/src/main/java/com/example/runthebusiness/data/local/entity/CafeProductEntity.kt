@@ -14,7 +14,9 @@ data class CafeProductEntity(
     val sellingPriceCents: Long,
     val taxCategoryCode: String,
     val preparationMinutes: Int,
-    val isAvailable: Boolean
+    val isAvailable: Boolean,
+    val fulfillment: String = "PREPARED",
+    val finishedStockItemId: String? = null
 )
 
 @Entity(tableName = "cafe_recipe_items",
