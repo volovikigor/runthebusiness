@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.R
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
+import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.DebugTable
 import kotlinx.coroutines.launch
 
@@ -20,6 +21,7 @@ fun DatabaseInspectorScreen(modifier: Modifier = Modifier) {
     val repository = remember(context) { DebugDatabaseRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var tables by remember { mutableStateOf<List<DebugTable>>(emptyList()) }
+    var journal by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -30,6 +32,7 @@ fun DatabaseInspectorScreen(modifier: Modifier = Modifier) {
             try {
                 if (seed) repository.seedOpeningJournal()
                 tables = repository.inspect()
+                journal = repository.journal()
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
             } finally {
@@ -56,6 +59,7 @@ fun DatabaseInspectorScreen(modifier: Modifier = Modifier) {
         }
         if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+        JournalSection(journal)
         tables.forEach { table ->
             HorizontalDivider()
             Text("${table.name} (${table.rows.size})", style = MaterialTheme.typography.titleMedium)

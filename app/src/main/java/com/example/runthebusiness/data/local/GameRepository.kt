@@ -15,6 +15,7 @@ class GameRepository(context: Context) {
     private val db = GameDatabase.getInstance(context)
     private val accounting = db.accountingDao()
     private val setup = db.gameSetupDao()
+    private val operations = db.operationsDao()
 
     suspend fun initializeOpeningGame(sessionId: String = "debug_session_001") = withContext(Dispatchers.IO) {
         val state = InitialGameFactory.create()
@@ -55,6 +56,37 @@ class GameRepository(context: Context) {
                     )
                 })
             }
+            // Backfill operational objects for existing v2 saves, without duplicating them.
+            if (operations.getLocations(business.id).isEmpty()) {
+                operations.insertLocations(state.locations.map {
+                    CafeLocationEntity(it.id, it.businessId, it.name, it.interiorStyle.name,
+                        it.tableCount, it.seatsPerTable, it.averageVisitMinutes,
+                        it.targetSeatOccupancy, it.takeawayShare, it.openingHour,
+                        it.closingHour, it.monthlyRentCents, it.isOpen)
+                })
+                operations.insertEmployees(state.employees.map {
+                    EmployeeEntity(it.id, it.locationId, it.name, it.role.name,
+                        it.monthlyGrossSalaryCents, it.weeklyWorkingHours,
+                        it.contractType.name, it.payrollProfileId, it.productivity, it.isActive)
+                })
+                operations.insertEquipment(state.equipment.map {
+                    EquipmentEntity(it.id, it.locationId, it.name, it.purchaseCostCents,
+                        it.usefulLifeMonths, it.conditionPercent, it.capacityPerHour,
+                        it.accumulatedDepreciationCents, it.residualValueCents,
+                        it.placedInServiceAt.day, it.placedInServiceAt.hour,
+                        it.placedInServiceAt.minute, it.isOperational)
+                })
+                operations.insertInventoryItems(state.inventory.map {
+                    InventoryItemEntity(it.id, it.locationId, it.name, it.unit.name,
+                        it.reorderLevel, it.isPerishable, it.shelfLifeDays)
+                })
+                operations.insertInventoryBatches(state.inventoryBatches.map {
+                    InventoryBatchEntity(it.id, it.inventoryItemId, it.locationId,
+                        it.quantityReceived, it.quantityRemaining, it.unitCostCents,
+                        it.receivedAt.day, it.receivedAt.hour, it.receivedAt.minute,
+                        it.expiresAt?.day, it.expiresAt?.hour, it.expiresAt?.minute)
+                })
+            }
             val existingEntryIds = accounting.getJournalEntries(sessionId).map { it.id }.toSet()
             state.journalEntries.filterNot { it.id in existingEntryIds }.forEach { entry ->
                 val event = BusinessEventEntity(
@@ -86,6 +118,46 @@ class GameRepository(context: Context) {
             }
         }
     }
+
+    /** Read operational records from SQLite, not from InitialGameFactory. */
+    suspend fun loadOperations(sessionId: String = "debug_session_001"): OpeningOperations? =
+        withContext(Dispatchers.IO) {
+            val business = setup.getBusinesses(sessionId).singleOrNull() ?: return@withContext null
+            val id = business.id
+            OpeningOperations(
+                locations = operations.getLocations(id).map {
+                    CafeLocation(it.id, it.businessId, it.name,
+                        InteriorStyle.valueOf(it.interiorStyle), it.tableCount, it.seatsPerTable,
+                        it.averageVisitMinutes, it.targetSeatOccupancy, it.takeawayShare,
+                        it.openingHour, it.closingHour, it.monthlyRentCents, it.isOpen)
+                },
+                employees = operations.getEmployees(id).map {
+                    Employee(it.id, it.locationId, it.name, EmployeeRole.valueOf(it.role),
+                        it.monthlyGrossSalaryCents, it.weeklyWorkingHours,
+                        EmploymentContractType.valueOf(it.contractType), it.payrollProfileId,
+                        it.productivity, it.isActive)
+                },
+                equipment = operations.getEquipment(id).map {
+                    Equipment(it.id, it.locationId, it.name, it.purchaseCostCents,
+                        it.usefulLifeMonths, it.conditionPercent, it.capacityPerHour,
+                        it.accumulatedDepreciationCents, it.residualValueCents,
+                        GameTime(it.placedInServiceDay, it.placedInServiceHour,
+                            it.placedInServiceMinute), it.isOperational)
+                },
+                inventory = operations.getInventoryItems(id).map {
+                    InventoryItem(it.id, it.locationId, it.name, StockUnit.valueOf(it.unit),
+                        it.reorderLevel, it.isPerishable, it.shelfLifeDays)
+                },
+                batches = operations.getInventoryBatches(id).map {
+                    InventoryBatch(it.id, it.inventoryItemId, it.locationId,
+                        it.quantityReceived, it.quantityRemaining, it.unitCostCents,
+                        GameTime(it.receivedDay, it.receivedHour, it.receivedMinute),
+                        it.expiresDay?.let { day ->
+                            GameTime(day, it.expiresHour ?: 0, it.expiresMinute ?: 0)
+                        })
+                }
+            )
+        }
 
     suspend fun loadOpeningCompany(sessionId: String = "debug_session_001"): OpeningCompany? =
         withContext(Dispatchers.IO) {
@@ -121,4 +193,12 @@ data class OpeningCompany(
     val businesses: List<Business>,
     val accounts: List<LedgerAccount>,
     val loans: List<Loan>
+)
+
+data class OpeningOperations(
+    val locations: List<CafeLocation>,
+    val employees: List<Employee>,
+    val equipment: List<Equipment>,
+    val inventory: List<InventoryItem>,
+    val batches: List<InventoryBatch>
 )
