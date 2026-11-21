@@ -10,7 +10,7 @@
 
 ## Current compatibility boundary
 
-`InitialGameFactory`, `StartingConfiguration`, `CafeLocation` and `CafeLocationEntity` remain in their original packages for binary/source compatibility with existing repositories and Room v3 saves. The new `CafeIndustryModule` delegates to the existing factory via an explicit adapter; this is an intermediate step, not a claim that the legacy factory is already generic.
+`InitialGameFactory` remains as a thin compatibility facade; actual opening café construction now lives in `industries/cafe/CafeStartingFactory`. `GameRepository` calls `CreateCafeUseCase`. The legacy `StartingConfiguration`, `CafeLocation` and `CafeLocationEntity` remain in their original packages to preserve existing callers and Room v3 saves. `CafeStartingConfiguration` maps to the legacy configuration via an explicit transitional adapter.
 
 The shared `BusinessLocation` is a domain projection, **not yet a new Room table**. Do not duplicate mutable location data in two tables without a single transactional write path. A future schema migration should normalize shared location fields only after the repository uses the new contract for reads and writes.
 
@@ -18,7 +18,7 @@ The shared `BusinessLocation` is a domain projection, **not yet a new Room table
 
 ## Next safe steps
 
-1. Move café construction logic out of `InitialGameFactory` and make the old API a thin compatibility facade.
+1. Completed: move café construction logic out of `InitialGameFactory` and make the old API a thin compatibility facade.
 2. Introduce a normalized shared `locations` table and migrate existing `cafe_locations` without losing foreign-key relationships.
 3. Change `GameRepository` to persist industry-neutral and café-specific records in one transaction.
 4. Add another industry only when café flows validate the shared abstraction.
