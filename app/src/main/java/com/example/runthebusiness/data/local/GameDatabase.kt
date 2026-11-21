@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.runthebusiness.data.local.dao.CafeMenuDao
 import com.example.runthebusiness.data.local.dao.CafeSalesDao
 import com.example.runthebusiness.data.local.dao.AccountingDao
 import com.example.runthebusiness.data.local.dao.OperationsDao
@@ -22,12 +23,14 @@ import com.example.runthebusiness.data.local.entity.*
         CafeLocationEntity::class, EmployeeEntity::class, EquipmentEntity::class,
         InventoryItemEntity::class, InventoryBatchEntity::class,
         BusinessLocationEntity::class,
-        CustomerOrderEntity::class
+        CustomerOrderEntity::class,
+        CafeProductEntity::class, CafeRecipeItemEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
+    abstract fun cafeMenuDao(): CafeMenuDao
     abstract fun cafeSalesDao(): CafeSalesDao
     abstract fun accountingDao(): AccountingDao
     abstract fun gameSetupDao(): GameSetupDao
@@ -238,13 +241,34 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `cafe_products` (
+                    `id` TEXT NOT NULL, `locationId` TEXT NOT NULL,
+                    `name` TEXT NOT NULL, `type` TEXT NOT NULL,
+                    `sellingPriceCents` INTEGER NOT NULL, `taxCategoryCode` TEXT NOT NULL,
+                    `preparationMinutes` INTEGER NOT NULL, `isAvailable` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`),
+                    FOREIGN KEY(`locationId`) REFERENCES `locations`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_cafe_products_locationId` ON `cafe_products` (`locationId`)")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `cafe_recipe_items` (
+                    `productId` TEXT NOT NULL, `ingredientId` TEXT NOT NULL,
+                    `quantity` REAL NOT NULL, PRIMARY KEY(`productId`, `ingredientId`),
+                    FOREIGN KEY(`productId`) REFERENCES `cafe_products`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT,
+                    FOREIGN KEY(`ingredientId`) REFERENCES `inventory_items`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_cafe_recipe_items_ingredientId` ON `cafe_recipe_items` (`ingredientId`)")
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
             }
     }
 }
