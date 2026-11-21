@@ -5,6 +5,8 @@ import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
 import com.example.runthebusiness.engine.model.*
 import com.example.runthebusiness.industries.cafe.usecase.CompleteCafeSaleUseCase
+import com.example.runthebusiness.industries.cafe.model.CafeFulfillment
+import com.example.runthebusiness.industries.cafe.model.CafeFulfillmentRules
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,25 +36,33 @@ class CafeSaleRepository(context: Context) {
                 val business = setup.getBusinesses(sessionId).single()
                 val location = locations.getLocations(business.id).single()
                 val cafe = operations.getLocations(business.id).single()
-                val item = operations.getInventoryItems(business.id).single()
-                val storedBatch = operations.getInventoryBatches(business.id).single()
+                val items = operations.getInventoryItems(business.id)
+                val storedBatches = operations.getInventoryBatches(business.id)
                 val currentTime = GameTime(session.currentDay, session.currentHour, session.currentMinute)
                 val product = if (productId == null) {
                     Product(
                         id = "demo_product", locationId = location.id, name = "Diagnostic sale item",
                         sellingPriceCents = 5_000L,
-                        recipe = listOf(RecipeItem(item.id, 0.01))
+                        recipe = listOf(RecipeItem("inventory_001", 0.01))
                     )
                 } else {
                     val saved = menu.getProducts(location.id).firstOrNull { it.id == productId }
                         ?: error("Unknown menu item: $productId")
+                    val recipes = menu.getRecipe(saved.id).map { RecipeItem(it.ingredientId, it.quantity) }
+                    val fulfillment = CafeFulfillment.valueOf(saved.fulfillment)
+                    CafeFulfillmentRules.validate(fulfillment, recipes.size, saved.finishedStockItemId)
+                    require(fulfillment != CafeFulfillment.BATCH_PRODUCED) {
+                        "Batch production is not implemented"
+                    }
                     Product(
                         id = saved.id, locationId = saved.locationId, name = saved.name,
                         type = ProductType.valueOf(saved.type),
                         sellingPriceCents = saved.sellingPriceCents,
                         taxCategoryCode = saved.taxCategoryCode,
                         preparationMinutes = saved.preparationMinutes,
-                        recipe = menu.getRecipe(saved.id).map { RecipeItem(it.ingredientId, it.quantity) },
+                        recipe = if (fulfillment == CafeFulfillment.RESALE) {
+                            listOf(RecipeItem(requireNotNull(saved.finishedStockItemId), 1.0))
+                        } else recipes,
                         isAvailable = saved.isAvailable
                     )
                 }
@@ -64,12 +74,18 @@ class CafeSaleRepository(context: Context) {
                         InteriorStyle.valueOf(cafe.interiorStyle), cafe.tableCount, cafe.seatsPerTable,
                         cafe.averageVisitMinutes, cafe.targetSeatOccupancy, cafe.takeawayShare,
                         location.openingHour, location.closingHour, location.monthlyRentCents, location.isOpen)),
-                    inventory = listOf(InventoryItem(item.id, item.locationId, item.name,
-                        StockUnit.valueOf(item.unit), item.reorderLevel, item.isPerishable, item.shelfLifeDays)),
-                    inventoryBatches = listOf(InventoryBatch(storedBatch.id, storedBatch.inventoryItemId,
-                        storedBatch.locationId, storedBatch.quantityReceived, storedBatch.quantityRemaining,
-                        storedBatch.unitCostCents, GameTime(storedBatch.receivedDay, storedBatch.receivedHour,
-                            storedBatch.receivedMinute), null)),
+                    inventory = items.map { item ->
+                        InventoryItem(item.id, item.locationId, item.name,
+                            StockUnit.valueOf(item.unit), item.reorderLevel, item.isPerishable, item.shelfLifeDays)
+                    },
+                    inventoryBatches = storedBatches.map { batch ->
+                        InventoryBatch(batch.id, batch.inventoryItemId, batch.locationId,
+                            batch.quantityReceived, batch.quantityRemaining, batch.unitCostCents,
+                            GameTime(batch.receivedDay, batch.receivedHour, batch.receivedMinute),
+                            if (batch.expiresDay == null) null else GameTime(
+                                batch.expiresDay, requireNotNull(batch.expiresHour),
+                                requireNotNull(batch.expiresMinute)))
+                    },
                     products = listOf(product),
                     ledgerAccounts = setup.getAccounts(sessionId).map {
                         LedgerAccount(it.code, it.name, AccountType.valueOf(it.type))
@@ -82,10 +98,15 @@ class CafeSaleRepository(context: Context) {
                     createdAt = currentTime
                 )
                 val result = useCase.execute(state, order)
-                val updatedBatch = result.inventoryBatches.single()
-                check(sales.updateBatchRemaining(
-                    storedBatch.id, updatedBatch.quantityRemaining, storedBatch.quantityRemaining
-                ) == 1) { "Stock changed during sale" }
+                val previousById = storedBatches.associateBy { it.id }
+                result.inventoryBatches.filter { updated ->
+                    updated.quantityRemaining != previousById.getValue(updated.id).quantityRemaining
+                }.forEach { updated ->
+                    val previous = previousById.getValue(updated.id)
+                    check(sales.updateBatchRemaining(
+                        updated.id, updated.quantityRemaining, previous.quantityRemaining
+                    ) == 1) { "Stock changed during sale: ${updated.id}" }
+                }
 
                 val entries = result.journalEntries
                 entries.forEach { entry ->
