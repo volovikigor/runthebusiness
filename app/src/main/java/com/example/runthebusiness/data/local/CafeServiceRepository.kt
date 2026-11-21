@@ -49,14 +49,21 @@ class CafeServiceRepository(context: Context) {
                         // Stable rotation prevents every group from choosing the same product.
                         val offset = ((now.totalMinutes + arrival.guests).rem(
                             products.size.coerceAtLeast(1).toLong())).toInt()
+                        val batches = db.operationsDao().getInventoryBatches(business.id)
                         for (product in products.drop(offset) + products.take(offset)) {
-                            try {
+                            val required = if (product.fulfillment == "RESALE") {
+                                listOf(requireNotNull(product.finishedStockItemId) to 1.0)
+                            } else {
+                                db.cafeMenuDao().getRecipe(product.id).map { it.ingredientId to it.quantity }
+                            }
+                            val stocked = required.isNotEmpty() && required.all { (ingredient, amount) ->
+                                batches.filter { it.inventoryItemId == ingredient }
+                                    .sumOf { it.quantityRemaining } + 1e-8 >= amount
+                            }
+                            if (stocked && product.fulfillment != "BATCH_PRODUCED") {
                                 sale.sellMenuItem(product.id, sessionId, now)
                                 sold = true
                                 break
-                            } catch (e: IllegalArgumentException) {
-                                // Only inventory shortage is an expected fallback condition.
-                                if (e.message?.startsWith("Insufficient stock:") != true) throw e
                             }
                         }
                         check(arrivalDao.markProcessed(arrival.id,
