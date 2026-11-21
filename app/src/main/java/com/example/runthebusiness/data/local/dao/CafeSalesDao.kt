@@ -15,6 +15,6 @@ interface CafeSalesDao {
     @Query("SELECT * FROM customer_orders WHERE id = :orderId")
     suspend fun getOrder(orderId: String): CustomerOrderEntity?
 
-    @Query("UPDATE inventory_batches SET quantityRemaining = :remaining WHERE id = :batchId AND quantityRemaining >= :minimumPrevious")
-    suspend fun updateBatchRemaining(batchId: String, remaining: Double, minimumPrevious: Double): Int
+    @Query("UPDATE inventory_batches SET quantityRemaining = :remaining WHERE id = :batchId AND quantityRemaining = :expectedPrevious")
+    suspend fun updateBatchRemaining(batchId: String, remaining: Double, expectedPrevious: Double): Int
 }
