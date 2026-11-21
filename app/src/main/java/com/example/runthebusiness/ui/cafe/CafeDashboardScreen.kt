@@ -14,6 +14,7 @@ import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeMenuItem
 import com.example.runthebusiness.data.local.CafeSaleRepository
+import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -24,6 +25,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
     val game = remember(context) { GameRepository(context.applicationContext) }
     val menuRepository = remember(context) { CafeMenuRepository(context.applicationContext) }
     val salesRepository = remember(context) { CafeSaleRepository(context.applicationContext) }
+    val inventorySetup = remember(context) { CafeInventorySetupRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var menuItems by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
     var snapshot by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
@@ -92,6 +94,21 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
             }
             HorizontalDivider()
             Text("Menu", style = MaterialTheme.typography.titleMedium)
+            if (menuItems.isNotEmpty()) {
+                OutlinedButton(onClick = {
+                    scope.launch {
+                        busy = true
+                        error = null
+                        try {
+                            inventorySetup.initializeRealStock()
+                            snapshot = dashboard.snapshot()
+                            menuItems = menuRepository.loadMenu()
+                        } catch (e: Exception) {
+                            error = e.message ?: e.javaClass.simpleName
+                        } finally { busy = false }
+                    }
+                }, enabled = !busy) { Text("Set up ingredients and supplier croissants") }
+            }
             if (menuItems.isEmpty()) {
                 Text("No menu yet. Set up the starter menu to begin serving products.")
                 Button(onClick = {
@@ -135,7 +152,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                         }
                     }
                 }
-                Text("Starter recipes use provisional opening inventory. Prices and COGS are simulation values.",
+                Text("Set up ingredients once before selling. Croissants are supplier-delivered finished goods.",
                     style = MaterialTheme.typography.bodySmall)
             }
             HorizontalDivider()
