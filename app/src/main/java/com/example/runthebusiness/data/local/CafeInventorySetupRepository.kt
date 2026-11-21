@@ -38,15 +38,15 @@ class CafeInventorySetupRepository(context: Context) {
                 require(oldBatch.unitCostCents == 300_000L) {
                     "Unexpected opening stock valuation: cannot safely reclassify"
                 }
-                // Transfer 0.35 of the original €3,000 unit (€1,050).
-                // New stock: 1,000g beans at €0.60/g = €600;
-                // 10,000ml milk at €0.03/ml = €300;
-                // 100 purchased croissants at €1.50 each = €150.
-                require(oldBatch.quantityRemaining >= 0.35) {
+                // Transfer 0.10 of the original €3,000 unit (€300).
+                // New stock: 1,000g beans at €0.04/g = €40;
+                // 10,000ml milk at €0.01/ml = €100;
+                // 100 purchased croissants at €1.60 each = €160.
+                require(oldBatch.quantityRemaining >= 0.10) {
                     "Not enough opening stock remains for a value-preserving conversion"
                 }
                 check(sales.updateBatchRemaining(
-                    oldBatch.id, oldBatch.quantityRemaining - 0.35, oldBatch.quantityRemaining
+                    oldBatch.id, oldBatch.quantityRemaining - 0.10, oldBatch.quantityRemaining
                 ) == 1)
                 operations.insertInventoryItems(listOf(
                     InventoryItemEntity("stock_beans_001", location.id, "Coffee beans",
@@ -58,11 +58,11 @@ class CafeInventorySetupRepository(context: Context) {
                 ))
                 operations.insertInventoryBatches(listOf(
                     InventoryBatchEntity("batch_beans_001", "stock_beans_001", location.id,
-                        1000.0, 1000.0, 60L, 1, 8, 0, null, null, null),
+                        1000.0, 1000.0, 4L, 1, 8, 0, null, null, null),
                     InventoryBatchEntity("batch_milk_001", "stock_milk_001", location.id,
-                        10000.0, 10000.0, 3L, 1, 8, 0, null, null, null),
+                        10000.0, 10000.0, 1L, 1, 8, 0, null, null, null),
                     InventoryBatchEntity("batch_croissants_001", "stock_croissants_001", location.id,
-                        100.0, 100.0, 150L, 1, 8, 0, null, null, null)
+                        100.0, 100.0, 160L, 1, 8, 0, null, null, null)
                 ))
                 listOf("espresso_001", "cappuccino_001", "croissant_001")
                     .forEach { menu.deleteRecipe(it) }
