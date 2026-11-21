@@ -48,7 +48,19 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         val state = snapshot
         if (state == null) {
-            Text("No café initialized. Open Database Inspector and tap Seed opening entries.")
+            Text("No café initialized yet.")
+            Button(onClick = {
+                scope.launch {
+                    busy = true
+                    error = null
+                    try {
+                        game.initializeOpeningGame()
+                        snapshot = dashboard.snapshot()
+                    } catch (e: Exception) {
+                        error = e.message ?: e.javaClass.simpleName
+                    } finally { busy = false }
+                }
+            }, enabled = !busy) { Text("Start café") }
             OutlinedButton(onClick = { refresh() }, enabled = !busy) { Text("Refresh") }
         } else {
             Text(state.cafeName, style = MaterialTheme.typography.titleLarge)
