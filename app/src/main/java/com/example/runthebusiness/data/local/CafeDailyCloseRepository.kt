@@ -26,22 +26,19 @@ class CafeDailyCloseRepository(context: Context) {
                 val employees = db.operationsDao().getEmployees(business.id)
                 val equipment = db.operationsDao().getEquipment(business.id)
                 val existing = db.accountingDao().getJournalEntries(sessionId).map { it.id }.toSet()
-                fun post(kind: String, locationId: String, description: String,
-                         debitCode: String, creditCode: String, amount: Long) {
-                    // Nested suspend calls are performed below; this helper only describes data.
-                }
                 data class Accrual(val kind: String, val locationId: String,
                     val description: String, val debit: String, val credit: String, val amount: Long)
                 val accruals = mutableListOf<Accrual>()
+                val dayOfMonth = (day - 1) % 30 + 1
                 locations.forEach { loc ->
                     val rent = loc.monthlyRentCents / 30L +
-                        if (day % 30 <= loc.monthlyRentCents % 30 && day % 30 != 0) 1L else 0L
+                        if (dayOfMonth <= loc.monthlyRentCents % 30) 1L else 0L
                     accruals += Accrual("rent", loc.id, "Daily rent accrual · ${loc.name}",
                         "5400", "2000", rent)
                 }
                 employees.filter { it.isActive }.forEach { employee ->
                     val wage = employee.monthlyGrossSalaryCents / 30L +
-                        if (day % 30 <= employee.monthlyGrossSalaryCents % 30 && day % 30 != 0) 1L else 0L
+                        if (dayOfMonth <= employee.monthlyGrossSalaryCents % 30) 1L else 0L
                     accruals += Accrual("salary_${employee.id}", employee.locationId,
                         "Daily gross salary · ${employee.name}", "5200", "2300", wage)
                 }
