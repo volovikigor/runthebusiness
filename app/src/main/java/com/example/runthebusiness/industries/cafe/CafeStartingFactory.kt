@@ -48,6 +48,7 @@ internal object CafeStartingFactory {
             seatsPerTable = config.seatsPerTable,
             openingHour = 8,
             closingHour = 17,
+            isOpen = true,
             monthlyRentCents = 150_000L
         )
 
