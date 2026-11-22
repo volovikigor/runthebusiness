@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
+import com.example.runthebusiness.data.local.CafeCashManagementRepository
+import com.example.runthebusiness.data.local.CashPosition
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.FinancialLine
@@ -26,10 +28,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current.applicationContext
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
+    val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val detailsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
     var statements by remember { mutableStateOf<FinancialStatements?>(null) }
+    var cashPosition by remember { mutableStateOf<CashPosition?>(null) }
+    var settlementMessage by remember { mutableStateOf<String?>(null) }
     var daily by remember { mutableStateOf<List<DailyProfitLoss>>(emptyList()) }
     var showDaily by remember { mutableStateOf(false) }
     var section by remember { mutableStateOf("P&L") }
@@ -67,6 +72,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
             error = null
             try {
                 statements = financeRepo.load()
+                cashPosition = cashRepo.position()
                 daily = financeRepo.dailyProfitLoss()
                 entries = journalRepo.journal().asReversed()
             } catch (e: Exception) {
@@ -174,6 +180,63 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                 accountFilter = it; section = "Journal"
             })
             StatementTotal("Cash + bank", report.cashMovements.sumOf { it.amountCents })
+            HorizontalDivider()
+            Text("Payables & liquidity", style = MaterialTheme.typography.titleMedium)
+            cashPosition?.let { position ->
+                Text("Cash: ${money(position.cashCents)} · Bank: ${money(position.bankCents)}")
+                Text("Accrued rent payable: ${money(position.rentPayableCents)}")
+                Text("Accrued gross salaries payable: ${money(position.salariesPayableCents)}")
+                Text("Available after these payables: ${money(position.liquidityGapCents)}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (position.liquidityGapCents < 0L) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface)
+                Text("Paying a liability reduces Bank and the payable; it does not create a second P&L expense.",
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(
+                    enabled = !busy && position.cashCents >= 10_000L,
+                    onClick = {
+                        scope.launch {
+                            busy = true
+                            error = null
+                            try {
+                                cashRepo.transferCashToBank(10_000L)
+                                settlementMessage = "Deposited €100.00 cash into bank"
+                                statements = financeRepo.load()
+                                cashPosition = cashRepo.position()
+                                entries = journalRepo.journal().asReversed()
+                            } catch (e: Exception) {
+                                error = e.message ?: e.javaClass.simpleName
+                            } finally { busy = false }
+                        }
+                    }
+                ) { Text("Deposit €100 cash into bank") }
+                listOf(
+                    Triple("2000", "Pay accrued rent", position.rentPayableCents),
+                    Triple("2300", "Pay accrued gross salaries", position.salariesPayableCents)
+                ).forEach { (code, label, due) ->
+                    Button(
+                        enabled = !busy && due > 0L && position.bankCents >= due,
+                        onClick = {
+                            scope.launch {
+                                busy = true
+                                error = null
+                                try {
+                                    val paid = cashRepo.pay(code)
+                                    settlementMessage = "Paid ${money(paid)} by bank"
+                                    statements = financeRepo.load()
+                                    cashPosition = cashRepo.position()
+                                    daily = financeRepo.dailyProfitLoss()
+                                    entries = journalRepo.journal().asReversed()
+                                } catch (e: Exception) {
+                                    error = e.message ?: e.javaClass.simpleName
+                                } finally { busy = false }
+                            }
+                        }
+                    ) { Text("$label · ${money(due)}") }
+                }
+            }
+            if (settlementMessage != null) Text(settlementMessage!!,
+                color = MaterialTheme.colorScheme.primary)
             Text("This is a cash/bank balance view, NOT a full cash-flow statement. Operating, investing and financing cash flows will be classified in a later milestone.",
                 style = MaterialTheme.typography.bodySmall)
         }
