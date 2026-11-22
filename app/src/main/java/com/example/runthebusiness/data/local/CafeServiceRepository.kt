@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 class CafeServiceRepository(context: Context) {
     private val db = GameDatabase.getInstance(context)
     private val sale = CafeSaleRepository(context)
+    private val consequences = CafePaymentConsequencesRepository(context)
 
     suspend fun processPending(sessionId: String = "debug_session_001"): Int =
         withContext(Dispatchers.IO) {
@@ -26,6 +27,7 @@ class CafeServiceRepository(context: Context) {
             val cafe = db.operationsDao().getLocations(business.id).singleOrNull()
                 ?: return@withContext 0
             val arrivalDao = db.cafeArrivalDao()
+            val impact = consequences.load(sessionId)
             var served = 0
             for (arrival in arrivalDao.pending(location.id)) {
                 db.withTransaction {
@@ -40,7 +42,15 @@ class CafeServiceRepository(context: Context) {
                         now.totalMinutes, cafe.tableCount * cafe.seatsPerTable,
                         cafe.averageVisitMinutes, visits
                     )
-                    if (seats < arrival.guests) {
+                    // Overdue rent blocks trading until settled; overdue payroll loses
+                    // roughly one in three groups through predictable service disruption.
+                    val disrupted = impact.staffDisruption &&
+                        Math.floorMod(arrival.id.hashCode(), 3) == 0
+                    if (impact.rentShutdown) {
+                        check(arrivalDao.markProcessed(arrival.id, "RENT_SHUTDOWN") == 1)
+                    } else if (disrupted) {
+                        check(arrivalDao.markProcessed(arrival.id, "STAFF_DISRUPTION") == 1)
+                    } else if (seats < arrival.guests) {
                         check(arrivalDao.markProcessed(arrival.id, "NO_SEATS") == 1)
                     } else {
                         val products = db.cafeMenuDao().getProducts(location.id)
