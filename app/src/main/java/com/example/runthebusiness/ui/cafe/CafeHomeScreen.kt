@@ -106,6 +106,18 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                         color = Color(0xFFE6D3B9), style = MaterialTheme.typography.bodySmall)
                 }
             }
+            Text("Café status: ${if (cafe.isOpen) "OPEN" else "CLOSED"} • Hours %02d:00–%02d:00".format(
+                Locale.ROOT, cafe.openingHour, cafe.closingHour
+            ), style = MaterialTheme.typography.titleMedium,
+                color = if (cafe.isOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+            if (!cafe.isOpen) {
+                Text("The café is closed. No visitors will arrive until you open it.",
+                    color = MaterialTheme.colorScheme.error)
+            }
+            OutlinedButton(
+                onClick = { run { game.setCafeOpen(!cafe.isOpen) } },
+                enabled = !loading
+            ) { Text(if (cafe.isOpen) "Close café" else "Open café") }
             Text("Game clock", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { run { game.advanceGameTime(15L); service.processPending() } }, enabled = !loading) {
