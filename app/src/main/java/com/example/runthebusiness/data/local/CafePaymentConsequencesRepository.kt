@@ -26,17 +26,14 @@ class CafePaymentConsequencesRepository(context: Context) {
             val day = session.currentDay
             val journal = db.journalViewDao().getJournal(sessionId)
             fun daysLate(period: Int, account: String): Int {
-                val due = (day / period) * period
-                if (due == 0) return 0
-                // Settlement at or after a due date resolves that due cycle.
-                val settled = journal.any { record ->
+                val latestSettlementDay = journal.filter { record ->
                     record.entry.id.startsWith("settlement_") &&
-                        record.entry.gameDay >= due &&
                         record.lines.any { line ->
                             line.accountCode == account && line.debitCents > 0L
                         }
-                }
-                return if (settled) 0 else day - due
+                }.maxOfOrNull { it.entry.gameDay } ?: 0
+                val firstUnpaidDue = (latestSettlementDay / period + 1) * period
+                return if (day >= firstUnpaidDue) day - firstUnpaidDue else 0
             }
             PaymentConsequences(
                 payrollDaysLate = daysLate(7, "2300"),
