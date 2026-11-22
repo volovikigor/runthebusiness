@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun CafeFinanceScreen(modifier: Modifier = Modifier) {
+fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = "P&L") {
     val context = LocalContext.current.applicationContext
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
@@ -37,7 +37,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     var settlementMessage by remember { mutableStateOf<String?>(null) }
     var daily by remember { mutableStateOf<List<DailyProfitLoss>>(emptyList()) }
     var showDaily by remember { mutableStateOf(false) }
-    var section by remember { mutableStateOf("P&L") }
+    var section by remember { mutableStateOf(requestedSection) }
+    LaunchedEffect(requestedSection) { section = requestedSection }
     var previousSection by remember { mutableStateOf("P&L") }
     var accountFilter by remember { mutableStateOf<String?>(null) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
