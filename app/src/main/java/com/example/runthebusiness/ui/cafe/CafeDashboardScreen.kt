@@ -50,7 +50,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Maison Café · Menu", style = MaterialTheme.typography.headlineSmall)
+        Text("Maison Café · Operations", style = MaterialTheme.typography.headlineSmall)
         if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         val state = snapshot
@@ -76,7 +76,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                 Locale.ROOT, state.time.hour, state.time.minute
             ))
             HorizontalDivider()
-            Text("Menu", style = MaterialTheme.typography.titleMedium)
+            Text("Menu pricing", style = MaterialTheme.typography.titleMedium)
+            Text("Higher prices may reduce purchases. Adjust by €0.10; sales use the latest saved price.", style = MaterialTheme.typography.bodySmall)
             if (menuItems.isNotEmpty()) {
                 OutlinedButton(onClick = {
                     scope.launch {
@@ -109,15 +110,43 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
             } else {
                 menuItems.forEach { product ->
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(product.name, style = MaterialTheme.typography.titleMedium)
                                 Text("€%.2f · %d min".format(
                                     Locale.ROOT, product.priceCents / 100.0, product.preparationMinutes
                                 ))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                menuRepository.updatePrice(product.id, (product.priceCents - 10L).coerceAtLeast(50L))
+                                                menuItems = menuRepository.loadMenu()
+                                            } catch (e: Exception) { error = e.message ?: e.javaClass.simpleName }
+                                            finally { busy = false }
+                                        }
+                                    },
+                                    enabled = !busy && product.priceCents > 50L
+                                ) { Text("− €0.10") }
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                menuRepository.updatePrice(product.id, (product.priceCents + 10L).coerceAtMost(5000L))
+                                                menuItems = menuRepository.loadMenu()
+                                            } catch (e: Exception) { error = e.message ?: e.javaClass.simpleName }
+                                            finally { busy = false }
+                                        }
+                                    },
+                                    enabled = !busy && product.priceCents < 5000L
+                                ) { Text("+ €0.10") }
                             }
                         }
                     }

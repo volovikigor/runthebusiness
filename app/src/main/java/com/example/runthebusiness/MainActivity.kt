@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
                                 icon = { Text("▤") },
-                                label = { Text("Menu") }
+                                label = { Text("Operations") }
                             )
                             NavigationBarItem(
                                 selected = selectedTab == 2,

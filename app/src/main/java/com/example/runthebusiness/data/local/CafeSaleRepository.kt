@@ -110,11 +110,16 @@ class CafeSaleRepository(context: Context) {
 
                 val entries = result.journalEntries
                 entries.forEach { entry ->
+                    val readableDescription = when {
+                        entry.id.startsWith("sale_") -> "Sold 1 × ${product.name}"
+                        entry.id.startsWith("cogs_") -> "Inventory consumed · 1 × ${product.name}"
+                        else -> entry.description
+                    }
                     val event = BusinessEventEntity(
                         id = entry.sourceEventId, sessionId = sessionId, businessId = business.id,
                         eventType = "CUSTOMER_SALE", sourceObjectType = "CUSTOMER_ORDER",
                         sourceObjectId = id, gameDay = currentTime.day, gameHour = currentTime.hour,
-                        gameMinute = currentTime.minute, description = entry.description
+                        gameMinute = currentTime.minute, description = readableDescription
                     )
                     val header = JournalEntryEntity(
                         id = entry.id, sessionId = sessionId, businessId = business.id,
