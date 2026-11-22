@@ -25,6 +25,7 @@ import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
+import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -44,6 +45,7 @@ fun CafeHomeScreen(
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val game = remember(context) { GameRepository(context) }
+    val dailyClose = remember(context) { CafeDailyCloseRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
     val arrivals = remember(context) { CafeArrivalRepository(context) }
     val simulation = remember(context) { GameSimulationEngine(context) }
@@ -56,6 +58,7 @@ fun CafeHomeScreen(
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var lastClosedDay by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
@@ -63,6 +66,7 @@ fun CafeHomeScreen(
         recent = sales.loadDemoSales().take(6)
         visitors = arrivals.recent()
         diagnostics = diagnosticsRepo.inspect()
+        lastClosedDay = dailyClose.lastClosedDay()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -151,6 +155,28 @@ fun CafeHomeScreen(
                     Text("+1 hour")
                 }
                 OutlinedButton(onClick = { run { } }, enabled = !loading) { Text("Refresh") }
+            }
+            HorizontalDivider()
+            Text("Daily close", style = MaterialTheme.typography.titleMedium)
+            Text("Last financially closed day: ${if (lastClosedDay == 0) "none" else "Day $lastClosedDay"}",
+                style = MaterialTheme.typography.bodyMedium)
+            if (cafe.time.hour >= cafe.closingHour) {
+                Text("Trading hours ended. Finish the day to post rent, salaries and depreciation.",
+                    style = MaterialTheme.typography.bodySmall)
+                Button(
+                    enabled = !loading && speed == 0,
+                    onClick = {
+                        run {
+                            val remaining = (24 - cafe.time.hour) * 60L - cafe.time.minute
+                            simulation.advance(remaining)
+                        }
+                    }
+                ) { Text("Finish day & post expenses") }
+                if (speed != 0) Text("Pause the clock to finish the day manually.",
+                    style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text("Day ${cafe.time.day} in progress. Closing becomes available after ${cafe.closingHour}:00.",
+                    style = MaterialTheme.typography.bodySmall)
             }
             Text("Business at a glance", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
