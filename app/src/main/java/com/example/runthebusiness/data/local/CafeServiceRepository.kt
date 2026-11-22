@@ -28,16 +28,20 @@ class CafeServiceRepository(context: Context) {
                 ?: return@withContext 0
             val arrivalDao = db.cafeArrivalDao()
             val impact = consequences.load(sessionId)
+            val pending = arrivalDao.pending(location.id)
+            if (pending.isEmpty()) return@withContext 0
             var served = 0
             // Build the seating timeline once per batch rather than querying the
             // entire growing arrival history for every group (quadratic work).
-            val visits = arrivalDao.history(location.id)
-                .filter { it.status == "SERVED" }
+            val earliestDay = pending.first().gameDay
+            val lookbackDays = (cafe.averageVisitMinutes / 1440) + 2
+            val visits = arrivalDao.recentServed(location.id,
+                (earliestDay - lookbackDays).coerceAtLeast(1))
                 .map { CafeSeatingRules.Visit(
                     GameTime(it.gameDay, it.gameHour, it.gameMinute).totalMinutes,
                     it.guests, true
                 ) }.toMutableList()
-            for (arrival in arrivalDao.pending(location.id)) {
+            for (arrival in pending) {
                 db.withTransaction {
                     val now = GameTime(arrival.gameDay, arrival.gameHour, arrival.gameMinute)
                     val seats = CafeSeatingRules.availableSeats(
