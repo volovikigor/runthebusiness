@@ -115,7 +115,7 @@ fun CafeHomeScreen(
                     Text("☕     ◯  ◯  ◯", color = Honey, style = MaterialTheme.typography.headlineLarge)
                     Text("${cafe.tables} tables  •  ${cafe.seats} seats",
                         color = Cream, style = MaterialTheme.typography.bodyMedium)
-                    Text("Interior scene and live guests are coming in the next gameplay milestone.",
+                    Text("Your café is ready for the next business day.",
                         color = Color(0xFFE6D3B9), style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -179,14 +179,10 @@ fun CafeHomeScreen(
             }
             Text("Served groups: ${todayVisitors.count { it.status == "SERVED" }} • Turned away: ${todayVisitors.count { it.status == "NO_SEATS" || it.status == "NO_STOCK" }}",
                 style = MaterialTheme.typography.bodySmall)
-            Text("Each served group currently buys one menu item; seats are occupied for the average visit duration.",
-                style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
-            Text("Simulation diagnostics", style = MaterialTheme.typography.titleMedium)
+            Text("Café setup", style = MaterialTheme.typography.titleMedium)
             val report = diagnostics
             if (report != null) {
-                Text("All-time arrivals: ${report.totalArrivals} • Served: ${report.served} • No seats: ${report.noSeats} • No stock: ${report.noStock} • Pending: ${report.pending}")
-                Text("Menu: ${report.menuCount} products • Ready to sell: ${report.readyProducts}")
                 if (!report.realIngredientsInstalled) {
                     Text("Real ingredients are not installed. Sales may still use legacy placeholder recipes.",
                         color = MaterialTheme.colorScheme.error)
@@ -201,14 +197,6 @@ fun CafeHomeScreen(
                     OutlinedButton(onClick = { run { menuSetup.seedMenu() } }, enabled = !loading) {
                         Text("Create starter menu")
                     }
-                }
-                report.productIssues.take(5).forEach { issue ->
-                    Text("• $issue", style = MaterialTheme.typography.bodySmall)
-                }
-                if (report.totalArrivals == 0) {
-                    Text("No arrivals recorded. Check café opening hours and advance the clock within them.")
-                } else if (report.served == 0 && report.pending == 0) {
-                    Text("All recorded arrivals were turned away. Check reasons above.")
                 }
             }
             HorizontalDivider()
