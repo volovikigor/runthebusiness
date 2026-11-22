@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
                                 icon = { Text("€") },
                                 label = { Text("Finance") }
                             )
-}
+                        }
                     }
                 ) { padding ->
                     when (selectedTab) {
@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                         )
                         1 -> CafeDashboardScreen(modifier = Modifier.padding(padding))
                         2 -> CafeFinanceScreen(modifier = Modifier.padding(padding))
-                        else -> CafeHomeScreen(modifier = Modifier.padding(padding))
+                        else -> CafeFinanceScreen(modifier = Modifier.padding(padding))
                     }
                 }
             }
