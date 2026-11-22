@@ -136,7 +136,7 @@ class CafeSaleRepository(context: Context) {
                     )
                     val header = JournalEntryEntity(
                         id = entry.id, sessionId = sessionId, businessId = business.id,
-                        sourceEventId = event.id, description = entry.description,
+                        sourceEventId = event.id, description = readableDescription,
                         gameDay = currentTime.day, gameHour = currentTime.hour,
                         gameMinute = currentTime.minute
                     )
