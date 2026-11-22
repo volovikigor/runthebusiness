@@ -24,11 +24,11 @@ import com.example.runthebusiness.data.local.entity.*
         CafeLocationEntity::class, EmployeeEntity::class, EquipmentEntity::class,
         InventoryItemEntity::class, InventoryBatchEntity::class,
         BusinessLocationEntity::class,
-        CustomerOrderEntity::class,
+        CustomerOrderEntity::class, CustomerOrderLineEntity::class, StockMovementEntity::class,
         CafeProductEntity::class, CafeRecipeItemEntity::class,
         CafeArrivalEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
@@ -288,13 +288,39 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `customer_order_lines` (
+                    `id` TEXT NOT NULL, `orderId` TEXT NOT NULL,
+                    `productId` TEXT NOT NULL, `productName` TEXT NOT NULL,
+                    `quantity` INTEGER NOT NULL, `unitPriceCents` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`),
+                    FOREIGN KEY(`orderId`) REFERENCES `customer_orders`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_customer_order_lines_orderId` ON `customer_order_lines` (`orderId`)")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS `stock_movements` (
+                    `id` TEXT NOT NULL, `inventoryItemId` TEXT NOT NULL,
+                    `inventoryItemName` TEXT NOT NULL, `batchId` TEXT NOT NULL,
+                    `sourceType` TEXT NOT NULL, `sourceId` TEXT NOT NULL,
+                    `quantityDelta` REAL NOT NULL, `unitCostCents` INTEGER NOT NULL,
+                    `gameDay` INTEGER NOT NULL, `gameHour` INTEGER NOT NULL,
+                    `gameMinute` INTEGER NOT NULL, PRIMARY KEY(`id`)
+                )""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_inventoryItemId` ON `stock_movements` (`inventoryItemId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_batchId` ON `stock_movements` (`batchId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_sourceId` ON `stock_movements` (`sourceId`)")
+                // Historical orders have no product identity and historical stock deltas
+                // cannot be reconstructed reliably. Preserve them without invented lines.
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { INSTANCE = it }
             }
     }
 }
