@@ -20,6 +20,9 @@ interface CafeMenuDao {
     @Query("UPDATE cafe_products SET fulfillment = :fulfillment, finishedStockItemId = :stockItemId WHERE id = :productId")
     suspend fun setFulfillment(productId: String, fulfillment: String, stockItemId: String?): Int
 
+    @Query("UPDATE cafe_products SET sellingPriceCents = :priceCents WHERE id = :productId AND locationId = :locationId")
+    suspend fun updatePrice(productId: String, locationId: String, priceCents: Long): Int
+
     @Query("SELECT COUNT(*) FROM cafe_products WHERE locationId = :locationId")
     suspend fun countProducts(locationId: String): Int
 }
