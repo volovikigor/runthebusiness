@@ -52,6 +52,19 @@ class CafeMenuRepository(context: Context) {
         }
     }
 
+    suspend fun updatePrice(productId: String, priceCents: Long, sessionId: String = "debug_session_001") =
+        withContext(Dispatchers.IO) {
+            require(priceCents in 50L..5000L) { "Price must be between €0.50 and €50.00" }
+            db.withTransaction {
+                val business = setup.getBusinesses(sessionId).singleOrNull()
+                    ?: error("Start café first")
+                val location = locations.getLocations(business.id).single()
+                check(menu.updatePrice(productId, location.id, priceCents) == 1) {
+                    "Menu product not found"
+                }
+            }
+        }
+
     suspend fun loadMenu(sessionId: String = "debug_session_001"): List<CafeMenuItem> =
         withContext(Dispatchers.IO) {
             val business = setup.getBusinesses(sessionId).singleOrNull()
