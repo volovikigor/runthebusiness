@@ -144,10 +144,10 @@ fun CafeHomeScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { run { game.advanceGameTime(15L); service.processPending() } }, enabled = !loading) {
+                Button(onClick = { run { simulation.advance(15L) } }, enabled = !loading) {
                     Text("+15 min")
                 }
-                Button(onClick = { run { game.advanceGameTime(60L); service.processPending() } }, enabled = !loading) {
+                Button(onClick = { run { simulation.advance(60L) } }, enabled = !loading) {
                     Text("+1 hour")
                 }
                 OutlinedButton(onClick = { run { } }, enabled = !loading) { Text("Refresh") }
