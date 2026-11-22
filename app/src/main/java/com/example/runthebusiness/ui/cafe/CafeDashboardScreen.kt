@@ -17,12 +17,14 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current.applicationContext
     val menu = remember(context) { CafeMenuRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
+    val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val scope = rememberCoroutineScope()
     var products by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
     var section by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
@@ -33,6 +35,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
         started = dashboard.snapshot() != null
         products = menu.loadMenu()
         stock = purchasing.stock()
+        movements = movementsRepo.movements()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -160,7 +163,21 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                         }
                     )
                 }
-                Text("Manual write-offs and batch-level inventory movements are next.",
+                HorizontalDivider()
+                Text("Recent stock movements", style = MaterialTheme.typography.titleMedium)
+                if (movements.isEmpty()) Text("No movements recorded yet. Earlier transactions predate stock history.")
+                movements.take(30).forEach { movement ->
+                    ListItem(
+                        headlineContent = { Text(movement.inventoryItemName) },
+                        supportingContent = {
+                            Text("Day ${movement.gameDay} · ${if (movement.quantityDelta > 0) "Purchase" else "Sale consumption"}")
+                        },
+                        trailingContent = {
+                            Text("%+.3f".format(Locale.ROOT, movement.quantityDelta))
+                        }
+                    )
+                }
+                Text("Manual write-offs are not yet available.",
                     style = MaterialTheme.typography.bodySmall)
             }
         }
