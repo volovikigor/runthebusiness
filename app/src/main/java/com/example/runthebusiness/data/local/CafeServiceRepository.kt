@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.industries.cafe.simulation.CafeSeatingRules
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -46,6 +47,7 @@ class CafeServiceRepository(context: Context) {
                             .filter { it.isAvailable }
                             .sortedBy { it.id }
                         var sold = false
+                        var offered = false
                         // Stable rotation prevents every group from choosing the same product.
                         val offset = ((now.totalMinutes + arrival.guests).rem(
                             products.size.coerceAtLeast(1).toLong())).toInt()
@@ -61,13 +63,15 @@ class CafeServiceRepository(context: Context) {
                                     .sumOf { it.quantityRemaining } + 1e-8 >= amount
                             }
                             if (stocked && product.fulfillment != "BATCH_PRODUCED") {
+                                offered = true
+                                if (!CafePriceDemandRules.accepts(arrival.id, product.id, product.sellingPriceCents)) continue
                                 sale.sellMenuItem(product.id, sessionId, now)
                                 sold = true
                                 break
                             }
                         }
                         check(arrivalDao.markProcessed(arrival.id,
-                            if (sold) "SERVED" else "NO_STOCK") == 1)
+                            if (sold) "SERVED" else if (offered) "NO_PURCHASE" else "NO_STOCK") == 1)
                         if (sold) served++
                     }
                 }
