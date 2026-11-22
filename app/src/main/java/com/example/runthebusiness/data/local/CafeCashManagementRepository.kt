@@ -44,6 +44,48 @@ class CafeCashManagementRepository(context: Context) {
             )
         }
 
+    suspend fun transferCashToBank(amountCents: Long, sessionId: String = "debug_session_001") =
+        withContext(Dispatchers.IO) {
+            require(amountCents > 0L)
+            db.withTransaction {
+                val session = checkNotNull(db.accountingDao().getSession(sessionId))
+                val business = db.gameSetupDao().getBusinesses(sessionId).single()
+                require((balances(sessionId)["1000"] ?: 0L) >= amountCents) {
+                    "Insufficient cash for bank deposit"
+                }
+                val id = UUID.randomUUID().toString()
+                val entryId = "bank_deposit_$id"
+                val eventId = "event_$entryId"
+                db.accountingDao().saveAccountingOperation(
+                    BusinessEventEntity(
+                        id = eventId, sessionId = sessionId, businessId = business.id,
+                        eventType = "BANK_DEPOSIT", sourceObjectType = "BANK_TRANSFER",
+                        sourceObjectId = id, gameDay = session.currentDay,
+                        gameHour = session.currentHour, gameMinute = session.currentMinute,
+                        description = "Deposit cash into bank"
+                    ),
+                    JournalEntryEntity(
+                        id = entryId, sessionId = sessionId, businessId = business.id,
+                        sourceEventId = eventId, description = "Deposit cash into bank",
+                        gameDay = session.currentDay, gameHour = session.currentHour,
+                        gameMinute = session.currentMinute
+                    ),
+                    listOf(
+                        JournalLineEntity(
+                            id = "${entryId}_1", entryId = entryId, lineNumber = 1,
+                            accountCode = "1100", locationId = null,
+                            debitCents = amountCents, creditCents = 0L
+                        ),
+                        JournalLineEntity(
+                            id = "${entryId}_2", entryId = entryId, lineNumber = 2,
+                            accountCode = "1000", locationId = null,
+                            debitCents = 0L, creditCents = amountCents
+                        )
+                    )
+                )
+            }
+        }
+
     suspend fun pay(accountCode: String, sessionId: String = "debug_session_001"): Long =
         withContext(Dispatchers.IO) {
             require(accountCode == "2000" || accountCode == "2300") {
