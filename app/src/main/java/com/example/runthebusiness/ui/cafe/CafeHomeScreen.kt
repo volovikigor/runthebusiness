@@ -259,8 +259,15 @@ fun CafeHomeScreen(
                     ), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Text("Served groups: ${todayVisitors.count { it.status == "SERVED" }} • Turned away: ${todayVisitors.count { it.status == "NO_SEATS" || it.status == "NO_STOCK" }}",
+            Text("Served groups: ${todayVisitors.count { it.status == "SERVED" }} • Turned away: ${todayVisitors.count { it.status == "NO_SEATS" || it.status == "NO_STOCK" || it.status == "STAFF_DISRUPTION" || it.status == "RENT_SHUTDOWN" }}",
                 style = MaterialTheme.typography.bodySmall)
+            val staffLost = todayVisitors.count { it.status == "STAFF_DISRUPTION" }
+            val rentLost = todayVisitors.count { it.status == "RENT_SHUTDOWN" }
+            if (staffLost + rentLost > 0) {
+                Text("Lost groups today: $staffLost from unpaid payroll · $rentLost from rent suspension",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall)
+            }
             HorizontalDivider()
             Text("Café setup", style = MaterialTheme.typography.titleMedium)
             val report = diagnostics
