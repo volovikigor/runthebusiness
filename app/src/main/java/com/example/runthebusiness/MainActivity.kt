@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = tabHistory.isNotEmpty()) {
                     selectedTab = tabHistory.removeAt(tabHistory.lastIndex)
                 }
+                var operationsSection by remember { mutableIntStateOf(0) }
                 var gameSpeed by remember { mutableIntStateOf(0) }
                 var clockRevision by remember { mutableIntStateOf(0) }
                 var clockError by remember { mutableStateOf<String?>(null) }
@@ -98,9 +99,11 @@ class MainActivity : ComponentActivity() {
                             speed = gameSpeed,
                             onSpeedChange = { gameSpeed = it },
                             clockRevision = clockRevision,
-                            clockError = clockError
+                            clockError = clockError,
+                            onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
+                            onOpenFinance = { navigateTab(2) }
                         )
-                        1 -> CafeDashboardScreen(modifier = Modifier.padding(padding))
+                        1 -> CafeDashboardScreen(modifier = Modifier.padding(padding), requestedSection = operationsSection)
                         2 -> CafeFinanceScreen(modifier = Modifier.padding(padding))
                         else -> CafeFinanceScreen(modifier = Modifier.padding(padding))
                     }
