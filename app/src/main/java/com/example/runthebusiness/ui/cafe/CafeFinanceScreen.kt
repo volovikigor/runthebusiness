@@ -122,6 +122,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                     label = { Text("By day") })
             }
             if (showDaily) {
+                Text("Rent, gross salaries and depreciation are accrued when a day ends. The current day is provisional. Accruals do not reduce cash until paid.",
+                    style = MaterialTheme.typography.bodySmall)
                 if (daily.isEmpty()) Text("No journal activity yet")
                 daily.forEach { day ->
                     Card(Modifier.fillMaxWidth()) {
