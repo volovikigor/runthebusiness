@@ -129,8 +129,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                     Column(Modifier.fillMaxWidth().padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(readableJournalTitle(entry.description), style = MaterialTheme.typography.titleSmall)
-                        Text("Day ${entry.day} · ${money(entry.lines.sumOf { it.debitCents })} · ${entry.lines.size} lines",
-                            style = MaterialTheme.typography.bodySmall)
+                        Text("Day ${entry.day} · ${entry.lines.size} accounting lines",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (expandedId == entry.id) {
                             HorizontalDivider()
                             Row(Modifier.fillMaxWidth()) {
@@ -138,6 +139,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                                 Text("Debit", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
                                 Text("Credit", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
                             }
+                            Text(entry.description, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             entry.lines.forEach { line ->
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(line.account, Modifier.weight(1.6f), style = MaterialTheme.typography.bodySmall)
@@ -148,10 +151,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                                 }
                             }
                             HorizontalDivider()
-                            Row(Modifier.fillMaxWidth()) {
-                                Text("Total", Modifier.weight(1.6f), style = MaterialTheme.typography.labelMedium)
-                                Text(money(entry.lines.sumOf { it.debitCents }), Modifier.weight(1f))
-                                Text(money(entry.lines.sumOf { it.creditCents }), Modifier.weight(1f))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Total", Modifier.weight(1.6f),
+                                    style = MaterialTheme.typography.labelSmall)
+                                Text(money(entry.lines.sumOf { it.debitCents }), Modifier.weight(1f),
+                                    style = MaterialTheme.typography.labelSmall)
+                                Text(money(entry.lines.sumOf { it.creditCents }), Modifier.weight(1f),
+                                    style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -190,7 +196,7 @@ private fun StatementTotal(label: String, cents: Long) {
 private fun money(cents: Long) = "€%.2f".format(Locale.ROOT, cents / 100.0)
 
 private fun readableJournalTitle(description: String): String = when {
-    description.startsWith("Cost of sale ") -> "Inventory consumed · customer sale"
-    description.startsWith("Sale ") -> "Customer sale"
+    description.startsWith("Cost of sale ") -> "Inventory consumed · product unknown (older sale)"
+    description.startsWith("Sale ") -> "Customer sale · product unknown (older sale)"
     else -> description.replace(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}"), "transaction")
 }
