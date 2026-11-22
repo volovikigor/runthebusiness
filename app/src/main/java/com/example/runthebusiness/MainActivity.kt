@@ -36,6 +36,9 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current.applicationContext
                 val game = remember(context) { GameRepository(context) }
                 val service = remember(context) { CafeServiceRepository(context) }
+                LaunchedEffect(appForeground) {
+                    if (!appForeground) gameSpeed = 0
+                }
                 LaunchedEffect(gameSpeed, appForeground) {
                     if (!appForeground || gameSpeed == 0) return@LaunchedEffect
                     // Advance 15 game minutes per tick. x1 = 15s; x5 = 3s; x20 = 0.75s.
