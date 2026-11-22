@@ -23,6 +23,7 @@ import com.example.runthebusiness.data.local.CafeDiagnosticsRepository
 import com.example.runthebusiness.data.local.CafeDiagnostics
 import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeInventorySetupRepository
+import com.example.runthebusiness.data.local.CafePurchasingRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
@@ -50,11 +51,13 @@ fun CafeHomeScreen(
     val diagnosticsRepo = remember(context) { CafeDiagnosticsRepository(context) }
     val menuSetup = remember(context) { CafeMenuRepository(context) }
     val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
+    val purchasing = remember(context) { CafePurchasingRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
+    var stockLevels by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -63,6 +66,7 @@ fun CafeHomeScreen(
         recent = sales.loadDemoSales().take(6)
         visitors = arrivals.recent()
         diagnostics = diagnosticsRepo.inspect()
+        stockLevels = purchasing.stock()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -205,6 +209,31 @@ fun CafeHomeScreen(
                     Text("No arrivals recorded. Check café opening hours and advance the clock within them.")
                 } else if (report.served == 0 && report.pending == 0) {
                     Text("All recorded arrivals were turned away. Check reasons above.")
+                }
+            }
+            HorizontalDivider()
+            Text("Supplier deliveries", style = MaterialTheme.typography.titleMedium)
+            Text("Buy a fixed pack immediately. Purchases use cash and increase inventory; they are not yet COGS.",
+                style = MaterialTheme.typography.bodySmall)
+            CafePurchasingRepository.supplies.forEach { supply ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(supply.label, style = MaterialTheme.typography.titleSmall)
+                        Text("In stock: %.0f %s".format(Locale.ROOT,
+                            stockLevels[supply.itemId] ?: 0.0, supply.unit))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("%.0f %s • %s".format(Locale.ROOT, supply.quantity,
+                                supply.unit, euro(supply.costCents)))
+                            Button(
+                                onClick = { run { purchasing.purchase(supply.itemId) } },
+                                enabled = !loading && (diagnostics?.realIngredientsInstalled == true)
+                            ) { Text("Buy") }
+                        }
+                    }
                 }
             }
             Text("Recent sales", style = MaterialTheme.typography.titleMedium)
