@@ -19,10 +19,23 @@ class DebugDatabaseRepository(private val context: Context) {
     suspend fun journal(sessionId: String = "debug_session_001"): List<DebugJournal> =
         withContext(Dispatchers.IO) {
             val accounts = database.gameSetupDao().getAccounts(sessionId).associateBy { it.code }
+            val productsByOrder = database.cafeSalesDao().getAllOrderLines()
+                .groupBy { it.orderId }
             database.journalViewDao().getJournal(sessionId).map { group ->
+                val orderId = when {
+                    group.entry.id.startsWith("sale_") -> group.entry.id.removePrefix("sale_")
+                    group.entry.id.startsWith("cogs_") -> group.entry.id.removePrefix("cogs_")
+                    else -> null
+                }
+                val products = orderId?.let { productsByOrder[it] }.orEmpty()
+                val title = if (products.isNotEmpty()) {
+                    val items = products.joinToString(", ") { "${it.quantity} × ${it.productName}" }
+                    if (group.entry.id.startsWith("cogs_")) "Inventory consumed · $items"
+                    else "Customer sale · $items"
+                } else group.entry.description
                 DebugJournal(
                     id = group.entry.id,
-                    description = group.entry.description,
+                    description = title,
                     day = group.entry.gameDay,
                     lines = group.lines.sortedBy { it.lineNumber }.map { line ->
                         DebugJournalLine(
