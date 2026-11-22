@@ -17,11 +17,18 @@ data class ManagementAlert(
 class CafeManagementAlertsRepository(context: Context) {
     private val stock = CafePurchasingRepository(context.applicationContext)
     private val cash = CafeCashManagementRepository(context.applicationContext)
+    private val game = GameRepository(context.applicationContext)
 
     suspend fun load(sessionId: String = "debug_session_001"): List<ManagementAlert> =
         withContext(Dispatchers.IO) {
             val available = stock.stock(sessionId)
             val position = cash.position(sessionId)
+            val day = game.loadGameTime(sessionId)?.day ?: return@withContext emptyList()
+            // Game cadence: rent on days 14, 28, ...; payroll on days 7, 14, 21, ...
+            // Accruals remain visible in Finance every day; alerts are only for due/late bills.
+            fun lastDueDay(period: Int): Int = (day / period) * period
+            fun isDue(period: Int): Boolean = day >= period && lastDueDay(period) > 0
+            fun isLate(period: Int): Boolean = isDue(period) && day > lastDueDay(period) + 2
             val alerts = mutableListOf<ManagementAlert>()
             CafePurchasingRepository.supplies.forEach { supply ->
                 val remaining = available[supply.itemId] ?: 0.0
@@ -37,7 +44,9 @@ class CafeManagementAlertsRepository(context: Context) {
                     )
                 }
             }
-            if (position.totalDueCents > 0L && position.liquidityGapCents < 0L) {
+            val rentDue = position.rentPayableCents > 0L && isDue(14)
+            val payrollDue = position.salariesPayableCents > 0L && isDue(7)
+            if ((rentDue || payrollDue) && position.liquidityGapCents < 0L) {
                 alerts += ManagementAlert(
                     id = "liquidity", priority = 0,
                     title = "Insufficient liquidity",
@@ -45,17 +54,21 @@ class CafeManagementAlertsRepository(context: Context) {
                     destination = "finance"
                 )
             }
-            if (position.rentPayableCents > 0L) {
+            if (rentDue) {
                 alerts += ManagementAlert(
-                    id = "rent", priority = 2, title = "Rent payable",
-                    detail = "Accrued rent remains unpaid",
+                    id = "rent", priority = if (isLate(14)) 0 else 2,
+                    title = if (isLate(14)) "Overdue rent" else "Rent payment due",
+                    detail = if (isLate(14)) "Rent is more than 2 game days late · settle in Finance > Cash"
+                        else "Rent payment scheduled every 14 game days · Finance > Cash",
                     destination = "finance"
                 )
             }
-            if (position.salariesPayableCents > 0L) {
+            if (payrollDue) {
                 alerts += ManagementAlert(
-                    id = "payroll", priority = 2, title = "Salaries payable",
-                    detail = "Accrued gross salaries remain unpaid",
+                    id = "payroll", priority = if (isLate(7)) 0 else 2,
+                    title = if (isLate(7)) "Overdue payroll" else "Payroll payment due",
+                    detail = if (isLate(7)) "Payroll is more than 2 game days late · settle in Finance > Cash"
+                        else "Payroll payment scheduled every 7 game days · Finance > Cash",
                     destination = "finance"
                 )
             }
