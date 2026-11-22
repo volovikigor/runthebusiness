@@ -99,10 +99,23 @@ class CafeSaleRepository(context: Context) {
                 )
                 val result = useCase.execute(state, order)
                 val previousById = storedBatches.associateBy { it.id }
+                val movementRows = mutableListOf<StockMovementEntity>()
                 result.inventoryBatches.filter { updated ->
                     updated.quantityRemaining != previousById.getValue(updated.id).quantityRemaining
                 }.forEach { updated ->
                     val previous = previousById.getValue(updated.id)
+                    val ingredient = items.firstOrNull { it.id == updated.inventoryItemId }
+                    movementRows += StockMovementEntity(
+                        id = "sale_movement_${id}_${updated.id}",
+                        inventoryItemId = updated.inventoryItemId,
+                        inventoryItemName = ingredient?.name ?: updated.inventoryItemId,
+                        batchId = updated.id,
+                        sourceType = "CUSTOMER_ORDER", sourceId = id,
+                        quantityDelta = updated.quantityRemaining - previous.quantityRemaining,
+                        unitCostCents = updated.unitCostCents,
+                        gameDay = currentTime.day, gameHour = currentTime.hour,
+                        gameMinute = currentTime.minute
+                    )
                     check(sales.updateBatchRemaining(
                         updated.id, updated.quantityRemaining, previous.quantityRemaining
                     ) == 1) { "Stock changed during sale: ${updated.id}" }
@@ -149,6 +162,12 @@ class CafeSaleRepository(context: Context) {
                     paymentMethod = order.paymentMethod.name, status = OrderStatus.COMPLETED.name
                 )
                 sales.insertOrder(row)
+                sales.insertOrderLine(CustomerOrderLineEntity(
+                    id = "order_line_$id", orderId = id,
+                    productId = product.id, productName = product.name,
+                    quantity = 1, unitPriceCents = product.sellingPriceCents
+                ))
+                if (movementRows.isNotEmpty()) sales.insertStockMovements(movementRows)
                 row
             }
         }
