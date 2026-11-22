@@ -18,6 +18,7 @@ class CafeManagementAlertsRepository(context: Context) {
     private val stock = CafePurchasingRepository(context.applicationContext)
     private val cash = CafeCashManagementRepository(context.applicationContext)
     private val game = GameRepository(context.applicationContext)
+    private val db = GameDatabase.getInstance(context.applicationContext)
 
     suspend fun load(sessionId: String = "debug_session_001"): List<ManagementAlert> =
         withContext(Dispatchers.IO) {
@@ -27,8 +28,15 @@ class CafeManagementAlertsRepository(context: Context) {
             // Game cadence: rent on days 14, 28, ...; payroll on days 7, 14, 21, ...
             // Accruals remain visible in Finance every day; alerts are only for due/late bills.
             fun lastDueDay(period: Int): Int = (day / period) * period
-            fun isDue(period: Int): Boolean = day >= period && lastDueDay(period) > 0
-            fun isLate(period: Int): Boolean = isDue(period) && day > lastDueDay(period) + 2
+            val settlements = db.accountingDao().getJournalEntries(sessionId)
+                .filter { it.id.startsWith("settlement_") }
+            suspend fun settledSince(account: String, cutoff: Int): Boolean = settlements.any { entry ->
+                entry.gameDay >= cutoff && db.accountingDao().getJournalLines(entry.id)
+                    .any { it.accountCode == account && it.debitCents > 0L }
+            }
+            suspend fun isDue(period: Int, account: String): Boolean =
+                day >= period && !settledSince(account, lastDueDay(period))
+            fun isLate(period: Int): Boolean = day > lastDueDay(period) + 2
             val alerts = mutableListOf<ManagementAlert>()
             CafePurchasingRepository.supplies.forEach { supply ->
                 val remaining = available[supply.itemId] ?: 0.0
@@ -44,8 +52,8 @@ class CafeManagementAlertsRepository(context: Context) {
                     )
                 }
             }
-            val rentDue = position.rentPayableCents > 0L && isDue(14)
-            val payrollDue = position.salariesPayableCents > 0L && isDue(7)
+            val rentDue = position.rentPayableCents > 0L && isDue(14, "2000")
+            val payrollDue = position.salariesPayableCents > 0L && isDue(7, "2300")
             if ((rentDue || payrollDue) && position.liquidityGapCents < 0L) {
                 alerts += ManagementAlert(
                     id = "liquidity", priority = 0,
