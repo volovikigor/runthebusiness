@@ -7,6 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import com.example.runthebusiness.data.local.GameRepository
+import com.example.runthebusiness.data.local.CafeServiceRepository
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
 import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
@@ -15,12 +19,45 @@ import com.example.runthebusiness.ui.debug.DatabaseInspectorScreen
 import com.example.runthebusiness.ui.theme.RunthebusinessTheme
 
 class MainActivity : ComponentActivity() {
+    private var appForeground by mutableStateOf(false)
+
+    override fun onStart() { super.onStart(); appForeground = true }
+    override fun onStop() { appForeground = false; super.onStop() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             RunthebusinessTheme {
                 var selectedTab by remember { mutableIntStateOf(0) }
+                var gameSpeed by remember { mutableIntStateOf(0) }
+                var clockRevision by remember { mutableIntStateOf(0) }
+                var clockError by remember { mutableStateOf<String?>(null) }
+                val context = LocalContext.current.applicationContext
+                val game = remember(context) { GameRepository(context) }
+                val service = remember(context) { CafeServiceRepository(context) }
+                LaunchedEffect(appForeground) {
+                    if (!appForeground) gameSpeed = 0
+                }
+                LaunchedEffect(gameSpeed, appForeground) {
+                    if (!appForeground || gameSpeed == 0) return@LaunchedEffect
+                    // Advance 15 game minutes per tick. x1 = 15s; x5 = 3s; x20 = 0.75s.
+                    while (true) {
+                        delay(15_000L / gameSpeed)
+                        try {
+                            if (game.loadGameTime() != null) {
+                                game.advanceGameTime(15L)
+                                service.processPending()
+                                clockRevision++
+                                clockError = null
+                            }
+                        } catch (e: Exception) {
+                            clockError = e.message ?: e.javaClass.simpleName
+                            gameSpeed = 0
+                            break
+                        }
+                    }
+                }
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
@@ -53,7 +90,13 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { padding ->
                     when (selectedTab) {
-                        0 -> CafeHomeScreen(modifier = Modifier.padding(padding))
+                        0 -> CafeHomeScreen(
+                            modifier = Modifier.padding(padding),
+                            speed = gameSpeed,
+                            onSpeedChange = { gameSpeed = it },
+                            clockRevision = clockRevision,
+                            clockError = clockError
+                        )
                         1 -> CafeDashboardScreen(modifier = Modifier.padding(padding))
                         2 -> CafeFinanceScreen(modifier = Modifier.padding(padding))
                         else -> DatabaseInspectorScreen(modifier = Modifier.padding(padding))
