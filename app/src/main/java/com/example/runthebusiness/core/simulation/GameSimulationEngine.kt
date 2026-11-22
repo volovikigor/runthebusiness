@@ -34,8 +34,9 @@ class GameSimulationEngine(context: Context) {
             // Recover any previously generated but unprocessed arrivals first.
             cafe.processPending(sessionId)
             val before = clock.loadGameTime(sessionId)
-            if (before != null && before.day > 1 && before.hour == 0) {
-                close.closeDay(before.day - 1, sessionId)
+            if (before != null && before.day > 1) {
+                // Recover all unposted prior days (e.g. interrupted close or old saves).
+                for (day in 1 until before.day) close.closeDay(day, sessionId)
             }
             val next = clock.advanceGameTime(minutes, sessionId)
             val served = cafe.processPending(sessionId)
