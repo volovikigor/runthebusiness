@@ -9,7 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.example.runthebusiness.data.local.GameRepository
-import com.example.runthebusiness.data.local.CafeServiceRepository
+import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
                 var clockError by remember { mutableStateOf<String?>(null) }
                 val context = LocalContext.current.applicationContext
                 val game = remember(context) { GameRepository(context) }
-                val service = remember(context) { CafeServiceRepository(context) }
+                val simulation = remember(context) { GameSimulationEngine(context) }
                 LaunchedEffect(appForeground) {
                     if (!appForeground) gameSpeed = 0
                 }
@@ -46,8 +46,7 @@ class MainActivity : ComponentActivity() {
                         delay(15_000L / gameSpeed)
                         try {
                             if (game.loadGameTime() != null) {
-                                game.advanceGameTime(15L)
-                                service.processPending()
+                                simulation.advance(15L)
                                 clockRevision++
                                 clockError = null
                             }
