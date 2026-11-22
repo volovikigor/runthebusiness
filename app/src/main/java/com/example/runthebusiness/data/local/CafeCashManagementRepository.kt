@@ -73,12 +73,12 @@ class CafeCashManagementRepository(context: Context) {
                     listOf(
                         JournalLineEntity(
                             id = "${entryId}_1", entryId = entryId, lineNumber = 1,
-                            accountCode = "1100", locationId = null,
+                            accountCode = "1100", locationId = "",
                             debitCents = amountCents, creditCents = 0L
                         ),
                         JournalLineEntity(
                             id = "${entryId}_2", entryId = entryId, lineNumber = 2,
-                            accountCode = "1000", locationId = null,
+                            accountCode = "1000", locationId = "",
                             debitCents = 0L, creditCents = amountCents
                         )
                     )
@@ -124,12 +124,12 @@ class CafeCashManagementRepository(context: Context) {
                     listOf(
                         JournalLineEntity(
                             id = "${entryId}_1", entryId = entryId, lineNumber = 1,
-                            accountCode = accountCode, locationId = null,
+                            accountCode = accountCode, locationId = "",
                             debitCents = due, creditCents = 0L
                         ),
                         JournalLineEntity(
                             id = "${entryId}_2", entryId = entryId, lineNumber = 2,
-                            accountCode = "1100", locationId = null,
+                            accountCode = "1100", locationId = "",
                             debitCents = 0L, creditCents = due
                         )
                     )
