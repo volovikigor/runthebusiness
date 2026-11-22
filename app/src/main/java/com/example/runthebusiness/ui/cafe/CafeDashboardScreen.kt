@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.GameRepository
+import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeMenuItem
 import com.example.runthebusiness.data.local.CafeSaleRepository
@@ -23,6 +24,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dashboard = remember(context) { CafeDashboardRepository(context.applicationContext) }
     val game = remember(context) { GameRepository(context.applicationContext) }
+    val simulation = remember(context) { GameSimulationEngine(context.applicationContext) }
     val menuRepository = remember(context) { CafeMenuRepository(context.applicationContext) }
     val salesRepository = remember(context) { CafeSaleRepository(context.applicationContext) }
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context.applicationContext) }
@@ -83,7 +85,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                         busy = true
                         error = null
                         try {
-                            game.advanceGameTime(60L)
+                            simulation.advance(60L)
                             snapshot = dashboard.snapshot()
                         } catch (e: Exception) {
                             error = e.message ?: e.javaClass.simpleName

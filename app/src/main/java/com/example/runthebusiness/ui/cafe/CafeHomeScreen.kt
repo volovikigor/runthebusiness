@@ -18,7 +18,7 @@ import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
-import com.example.runthebusiness.data.local.CafeServiceRepository
+import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeDiagnosticsRepository
 import com.example.runthebusiness.data.local.CafeDiagnostics
 import com.example.runthebusiness.data.local.CafeMenuRepository
@@ -46,7 +46,7 @@ fun CafeHomeScreen(
     val game = remember(context) { GameRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
     val arrivals = remember(context) { CafeArrivalRepository(context) }
-    val service = remember(context) { CafeServiceRepository(context) }
+    val simulation = remember(context) { GameSimulationEngine(context) }
     val diagnosticsRepo = remember(context) { CafeDiagnosticsRepository(context) }
     val menuSetup = remember(context) { CafeMenuRepository(context) }
     val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
@@ -76,7 +76,7 @@ fun CafeHomeScreen(
             } finally { loading = false }
         }
     }
-    LaunchedEffect(Unit) { run { service.processPending() } }
+    LaunchedEffect(Unit) { run { simulation.resumePending() } }
     LaunchedEffect(clockRevision) {
         if (clockRevision > 0) reload()
     }
