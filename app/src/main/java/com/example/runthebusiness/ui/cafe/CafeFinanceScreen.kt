@@ -192,6 +192,24 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                         else MaterialTheme.colorScheme.onSurface)
                 Text("Paying a liability reduces Bank and the payable; it does not create a second P&L expense.",
                     style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(
+                    enabled = !busy && position.cashCents >= 10_000L,
+                    onClick = {
+                        scope.launch {
+                            busy = true
+                            error = null
+                            try {
+                                cashRepo.transferCashToBank(10_000L)
+                                settlementMessage = "Deposited €100.00 cash into bank"
+                                statements = financeRepo.load()
+                                cashPosition = cashRepo.position()
+                                entries = journalRepo.journal().asReversed()
+                            } catch (e: Exception) {
+                                error = e.message ?: e.javaClass.simpleName
+                            } finally { busy = false }
+                        }
+                    }
+                ) { Text("Deposit €100 cash into bank") }
                 listOf(
                     Triple("2000", "Pay accrued rent", position.rentPayableCents),
                     Triple("2300", "Pay accrued gross salaries", position.salariesPayableCents)
