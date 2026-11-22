@@ -13,6 +13,9 @@ import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.FinancialLine
 import com.example.runthebusiness.data.local.FinancialStatements
+import com.example.runthebusiness.data.local.CafeTransactionDetailRepository
+import com.example.runthebusiness.data.local.SaleDetail
+import com.example.runthebusiness.data.local.entity.StockMovementEntity
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -21,6 +24,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current.applicationContext
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
+    val detailsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
     var statements by remember { mutableStateOf<FinancialStatements?>(null) }
@@ -28,6 +32,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     var accountFilter by remember { mutableStateOf<String?>(null) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
     var expandedId by remember { mutableStateOf<String?>(null) }
+    var expandedSale by remember { mutableStateOf<SaleDetail?>(null) }
+    var expandedPurchase by remember { mutableStateOf<List<StockMovementEntity>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -44,6 +50,17 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
         }
     }
     LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(expandedId) {
+        expandedSale = null
+        expandedPurchase = emptyList()
+        val id = expandedId ?: return@LaunchedEffect
+        when {
+            id.startsWith("sale_") -> expandedSale = detailsRepo.sale(id.removePrefix("sale_"))
+            id.startsWith("cogs_") -> expandedSale = detailsRepo.sale(id.removePrefix("cogs_"))
+            id.startsWith("purchase_") ->
+                expandedPurchase = detailsRepo.purchase("purchase_batch_" + id.removePrefix("purchase_"))
+        }
+    }
     val days = entries.map { it.day }.distinct().sortedDescending()
     val filtered = entries.filter { entry ->
         (selectedDay == null || entry.day == selectedDay) &&
@@ -139,8 +156,32 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                                 Text("Debit", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
                                 Text("Credit", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
                             }
-                            Text(entry.description, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (!entry.description.startsWith("Sale ") && !entry.description.startsWith("Cost of sale ")) {
+                                Text(entry.description, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            val legacy = entry.description.startsWith("Sale ") ||
+                                entry.description.startsWith("Cost of sale ")
+                            if (legacy) {
+                                if (expandedSale?.products?.isEmpty() == true) {
+                                    Text("Historical sale: product detail was not recorded.",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            expandedSale?.products?.forEach { item ->
+                                Text("${item.quantity} × ${item.productName} · ${money(item.unitPriceCents)} each",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            expandedSale?.stock?.forEach { movement ->
+                                Text("${movement.inventoryItemName}: %.3f consumed from FIFO batch".format(
+                                    Locale.ROOT, -movement.quantityDelta),
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            expandedPurchase.forEach { movement ->
+                                Text("${movement.inventoryItemName}: %.0f received".format(
+                                    Locale.ROOT, movement.quantityDelta),
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
                             entry.lines.forEach { line ->
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(line.account, Modifier.weight(1.6f), style = MaterialTheme.typography.bodySmall)
