@@ -74,7 +74,7 @@ fun CafeHomeScreen(
         visitors = arrivals.recent()
         diagnostics = diagnosticsRepo.inspect()
         lastClosedDay = dailyClose.lastClosedDay()
-        alerts = alertsRepo.load()
+        alerts = if (state != null) alertsRepo.load() else emptyList()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
