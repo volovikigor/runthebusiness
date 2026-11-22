@@ -40,7 +40,8 @@ class GameSimulationEngine(context: Context) {
             val before = clock.loadGameTime(sessionId)
             if (before != null && before.day > 1) {
                 // Recover all unposted prior days (e.g. interrupted close or old saves).
-                for (day in 1 until before.day) close.closeDay(day, sessionId)
+                val lastClosed = close.lastClosedDay(sessionId)
+                for (day in (lastClosed + 1) until before.day) close.closeDay(day, sessionId)
             }
             val next = clock.advanceGameTime(minutes, sessionId)
             val served = cafe.processPending(sessionId)
@@ -50,35 +51,65 @@ class GameSimulationEngine(context: Context) {
             StepResult(next, served)
         }
 
+    enum class JumpMode { NEXT_EVENT, NEXT_DECISION, NEXT_DAY, NEXT_WEEK }
+
     /**
-     * Fast-forward through the same simulation steps as the live clock.
-     * Stops at the next newly generated customer arrival or midnight.
-     * A 24-hour cap prevents unbounded loops when the café is closed.
+     * Every jump uses the same 15-minute simulation path as the live clock.
+     * No date teleportation: orders, inventory, journals and closes are processed.
+     * Decision jumps skip routine arrivals; calendar jumps stop on new critical alerts.
      */
-    suspend fun advanceToNextEvent(sessionId: String = "debug_session_001"): NextEventResult {
+    suspend fun jump(mode: JumpMode, sessionId: String = "debug_session_001"): NextEventResult {
         val initial = checkNotNull(clock.loadGameTime(sessionId))
-        val knownIds = arrivals.recent(sessionId).map { it.id }.toSet()
         val knownAlerts = alerts.load(sessionId).map { it.id }.toSet()
+        var previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
         var latest = initial
         var groups = 0
-        repeat(96) {
+        val steps = when (mode) {
+            JumpMode.NEXT_EVENT -> 96
+            JumpMode.NEXT_DECISION -> 96 * 14
+            JumpMode.NEXT_DAY -> 96
+            JumpMode.NEXT_WEEK -> 96 * 7
+        }
+        val startMinutes = (initial.day - 1L) * 1440L + initial.hour * 60L + initial.minute
+        val targetMinutes = when (mode) {
+            JumpMode.NEXT_DAY -> initial.day.toLong() * 1440L
+            JumpMode.NEXT_WEEK -> startMinutes + 7L * 1440L
+            else -> Long.MAX_VALUE
+        }
+        repeat(steps) {
             val step = advance(15L, sessionId)
             latest = step.time
             groups += step.groupsServed
             val newDecision = alerts.load(sessionId).firstOrNull { it.id !in knownAlerts }
             if (newDecision != null) {
-                return NextEventResult(latest, "Management alert · ${newDecision.title}", groups)
+                val isCritical = newDecision.priority == 0
+                if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT ||
+                    (mode == JumpMode.NEXT_WEEK && isCritical)) {
+                    return NextEventResult(latest, "Management alert · ${newDecision.title}", groups)
+                }
             }
-            val newArrival = arrivals.recent(sessionId).firstOrNull { it.id !in knownIds }
-            if (newArrival != null) {
-                return NextEventResult(latest, "Customer arrival · ${newArrival.guests} guests", groups)
+            if (mode == JumpMode.NEXT_EVENT) {
+                val newArrival = arrivals.recent(sessionId).firstOrNull { it.id !in previousArrivalIds }
+                if (newArrival != null) {
+                    return NextEventResult(latest, "Customer arrival · ${newArrival.guests} guests", groups)
+                }
+                previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
+                if (latest.day > initial.day) {
+                    return NextEventResult(latest, "Day ${initial.day} closed", groups)
+                }
             }
-            if (latest.day > initial.day) {
-                return NextEventResult(latest, "Day ${initial.day} closed · recurring expenses posted", groups)
+            val absoluteMinutes = (latest.day - 1L) * 1440L + latest.hour * 60L + latest.minute
+            if (absoluteMinutes >= targetMinutes) {
+                return NextEventResult(latest, "Calendar advance completed · ${groups} groups served", groups)
             }
         }
-        return NextEventResult(latest, "24 hours advanced · no customer events", groups)
+        return NextEventResult(latest,
+            if (mode == JumpMode.NEXT_DECISION) "No new management decisions within 14 days"
+            else "Time advance limit reached", groups)
     }
+
+    suspend fun advanceToNextEvent(sessionId: String = "debug_session_001"): NextEventResult =
+        jump(JumpMode.NEXT_EVENT, sessionId)
 
     data class NextEventResult(
         val time: GameTime,

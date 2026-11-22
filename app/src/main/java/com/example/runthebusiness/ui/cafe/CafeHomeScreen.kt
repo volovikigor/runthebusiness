@@ -188,26 +188,33 @@ fun CafeHomeScreen(
             }
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Event control", style = MaterialTheme.typography.titleMedium)
-                    Text("Skip to the next customer arrival or midnight. Intermediate sales, stock movements and daily accruals are processed normally.",
+                    Text("Time navigation", style = MaterialTheme.typography.titleMedium)
+                    Text("All jumps simulate intermediate orders, stock usage, journal entries and daily closes.",
                         style = MaterialTheme.typography.bodySmall)
-                    Button(
-                        enabled = !loading && speed == 0,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            run {
-                                val result = simulation.advanceToNextEvent()
-                                lastEventMessage = result.description
+                    listOf(
+                        GameSimulationEngine.JumpMode.NEXT_EVENT to "Next routine event",
+                        GameSimulationEngine.JumpMode.NEXT_DECISION to "Next management decision",
+                        GameSimulationEngine.JumpMode.NEXT_DAY to "Finish current day",
+                        GameSimulationEngine.JumpMode.NEXT_WEEK to "+7 game days"
+                    ).forEach { (mode, label) ->
+                        OutlinedButton(
+                            enabled = !loading && speed == 0,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                run {
+                                    val result = simulation.jump(mode)
+                                    lastEventMessage = result.description
+                                }
                             }
-                        }
-                    ) { Text("⏭  Next event") }
-                    if (speed != 0) Text("Pause the clock before jumping.",
+                        ) { Text(label) }
+                    }
+                    if (speed != 0) Text("Pause the clock to jump.",
                         style = MaterialTheme.typography.bodySmall)
                     if (lastEventMessage != null) {
-                        Text("Last event: $lastEventMessage",
+                        Text("Jump result: $lastEventMessage",
                             style = MaterialTheme.typography.bodyMedium)
                     }
-                    Text("Dashboard = events & decisions · Operations = pricing, purchasing & stock · Finance = statements & payments",
+                    Text("Weekly jump stops early on a newly arising critical alert. Routine events and ordinary reminders are processed along the way.",
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
