@@ -19,6 +19,10 @@ import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
 import com.example.runthebusiness.data.local.CafeServiceRepository
+import com.example.runthebusiness.data.local.CafeDiagnosticsRepository
+import com.example.runthebusiness.data.local.CafeDiagnostics
+import com.example.runthebusiness.data.local.CafeMenuRepository
+import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
@@ -37,10 +41,14 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
     val sales = remember(context) { CafeSaleRepository(context) }
     val arrivals = remember(context) { CafeArrivalRepository(context) }
     val service = remember(context) { CafeServiceRepository(context) }
+    val diagnosticsRepo = remember(context) { CafeDiagnosticsRepository(context) }
+    val menuSetup = remember(context) { CafeMenuRepository(context) }
+    val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
+    var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -48,6 +56,7 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
         state = dashboard.snapshot()
         recent = sales.loadDemoSales().take(6)
         visitors = arrivals.recent()
+        diagnostics = diagnosticsRepo.inspect()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -132,6 +141,36 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall)
             Text("Each served group currently buys one menu item; seats are occupied for the average visit duration.",
                 style = MaterialTheme.typography.bodySmall)
+            HorizontalDivider()
+            Text("Simulation diagnostics", style = MaterialTheme.typography.titleMedium)
+            val report = diagnostics
+            if (report != null) {
+                Text("All-time arrivals: ${report.totalArrivals} • Served: ${report.served} • No seats: ${report.noSeats} • No stock: ${report.noStock} • Pending: ${report.pending}")
+                Text("Menu: ${report.menuCount} products • Ready to sell: ${report.readyProducts}")
+                if (!report.realIngredientsInstalled) {
+                    Text("Real ingredients are not installed. Sales may still use legacy placeholder recipes.",
+                        color = MaterialTheme.colorScheme.error)
+                    if (report.menuCount > 0) {
+                        OutlinedButton(onClick = { run { stockSetup.initializeRealStock() } }, enabled = !loading) {
+                            Text("Install real ingredients")
+                        }
+                    }
+                }
+                if (report.menuCount == 0) {
+                    Text("No menu: visitors cannot order.", color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = { run { menuSetup.seedMenu() } }, enabled = !loading) {
+                        Text("Create starter menu")
+                    }
+                }
+                report.productIssues.take(5).forEach { issue ->
+                    Text("• $issue", style = MaterialTheme.typography.bodySmall)
+                }
+                if (report.totalArrivals == 0) {
+                    Text("No arrivals recorded. Check café opening hours and advance the clock within them.")
+                } else if (report.served == 0 && report.pending == 0) {
+                    Text("All recorded arrivals were turned away. Check reasons above.")
+                }
+            }
             Text("Recent sales", style = MaterialTheme.typography.titleMedium)
             if (recent.isEmpty()) {
                 Text("No recorded sales yet. Use the Menu tab to sell your first item.")
