@@ -17,6 +17,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current.applicationContext
     val menu = remember(context) { CafeMenuRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
+    val writeOff = remember(context) { CafeWriteOffRepository(context) }
     val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
     val game = remember(context) { GameRepository(context) }
@@ -163,6 +164,20 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                         }
                     )
                 }
+                Text("Manual spoilage: write off one unit from the oldest eligible FIFO batch.",
+                    style = MaterialTheme.typography.bodySmall)
+                CafePurchasingRepository.supplies.forEach { supply ->
+                    OutlinedButton(
+                        enabled = !busy && (stock[supply.itemId] ?: 0.0) >= 1.0,
+                        onClick = {
+                            run {
+                                val expense = writeOff.writeOffOne(supply.itemId)
+                                message = "Written off 1 ${supply.unit} of ${supply.label} · €%.2f".format(
+                                    Locale.ROOT, expense / 100.0)
+                            }
+                        }
+                    ) { Text("Write off 1 ${supply.unit} · ${supply.label}") }
+                }
                 HorizontalDivider()
                 Text("Recent stock movements", style = MaterialTheme.typography.titleMedium)
                 if (movements.isEmpty()) Text("No movements recorded yet. Earlier transactions predate stock history.")
@@ -177,8 +192,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
                         }
                     )
                 }
-                Text("Manual write-offs are not yet available.",
-                    style = MaterialTheme.typography.bodySmall)
+
             }
         }
         OutlinedButton(onClick = { run { } }, enabled = !busy) { Text("Refresh") }

@@ -15,9 +15,41 @@ data class FinancialStatements(
     val netIncomeCents: Long
 )
 
+data class DailyProfitLoss(val day: Int, val revenueCents: Long, val expenseCents: Long) {
+    val profitCents: Long get() = revenueCents - expenseCents
+}
+
 /** Ledger-derived, cumulative statements for the current game session. */
 class CafeFinancialStatementsRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
+
+    suspend fun dailyProfitLoss(sessionId: String = "debug_session_001"): List<DailyProfitLoss> =
+        withContext(Dispatchers.IO) {
+            val types = db.gameSetupDao().getAccounts(sessionId).associate { it.code to it.type }
+            db.journalViewDao().getJournal(sessionId)
+                .groupBy { it.entry.gameDay }
+                .map { (day, entries) ->
+                    var revenue = 0L
+                    var expense = 0L
+                    entries.forEach { entry ->
+                        entry.lines.forEach { line ->
+                            when (types[line.accountCode]?.uppercase()) {
+                                "REVENUE" -> revenue += line.creditCents - line.debitCents
+                                "EXPENSE" -> expense += line.debitCents - line.creditCents
+                            }
+                        }
+                    }
+                    DailyProfitLoss(day, revenue, expense)
+                }.sortedByDescending { it.day }
+        }
+
+    suspend fun cashAvailable(sessionId: String = "debug_session_001"): Long =
+        withContext(Dispatchers.IO) {
+            db.journalViewDao().getJournal(sessionId).sumOf { entry ->
+                entry.lines.filter { it.accountCode == "1000" || it.accountCode == "1100" }
+                    .sumOf { it.debitCents - it.creditCents }
+            }
+        }
 
     suspend fun load(sessionId: String = "debug_session_001"): FinancialStatements =
         withContext(Dispatchers.IO) {

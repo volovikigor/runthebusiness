@@ -48,6 +48,18 @@ class CafePurchasingRepository(context: Context) {
                 require(db.operationsDao().getInventoryItems(business.id).any { it.id == itemId }) {
                     "Install real ingredients before purchasing supplies"
                 }
+                val available = db.journalViewDao().getJournal(sessionId)
+                    .flatMap { it.lines }
+                    .filter { it.accountCode == "1000" || it.accountCode == "1100" }
+                    .groupBy { it.accountCode }
+                    .mapValues { (_, lines) -> lines.sumOf { it.debitCents - it.creditCents } }
+                val cash = available["1000"] ?: 0L
+                val bank = available["1100"] ?: 0L
+                require(cash >= supply.costCents || bank >= supply.costCents) {
+                    "Insufficient funds: supplier pack costs €%.2f".format(
+                        java.util.Locale.ROOT, supply.costCents / 100.0)
+                }
+                val paymentAccount = if (cash >= supply.costCents) "1000" else "1100"
                 val id = UUID.randomUUID().toString()
                 db.operationsDao().insertInventoryBatches(listOf(
                     InventoryBatchEntity(
@@ -99,7 +111,7 @@ class CafePurchasingRepository(context: Context) {
                         ),
                         JournalLineEntity(
                             id = "${entryId}_2", entryId = entryId, lineNumber = 2,
-                            accountCode = "1000", locationId = location.id,
+                            accountCode = paymentAccount, locationId = location.id,
                             debitCents = 0L, creditCents = supply.costCents
                         )
                     )
