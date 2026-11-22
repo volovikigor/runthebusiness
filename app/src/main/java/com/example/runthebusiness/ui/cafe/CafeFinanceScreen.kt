@@ -1,5 +1,6 @@
 package com.example.runthebusiness.ui.cafe
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +30,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     var entries by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
     var statements by remember { mutableStateOf<FinancialStatements?>(null) }
     var section by remember { mutableStateOf("P&L") }
+    var previousSection by remember { mutableStateOf("P&L") }
     var accountFilter by remember { mutableStateOf<String?>(null) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
     var expandedId by remember { mutableStateOf<String?>(null) }
@@ -36,6 +38,25 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     var expandedPurchase by remember { mutableStateOf<List<StockMovementEntity>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    BackHandler(enabled = expandedId != null || section != "P&L") {
+        when {
+            expandedId != null -> expandedId = null
+            section == "Journal" -> {
+                section = previousSection
+                accountFilter = null
+                selectedDay = null
+            }
+            else -> section = "P&L"
+        }
+    }
+
+    fun openJournal(code: String?) {
+        previousSection = section
+        accountFilter = code
+        section = "Journal"
+        expandedId = null
+    }
 
     fun refresh() {
         scope.launch {
@@ -77,7 +98,10 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index, 4),
                     selected = section == tab,
-                    onClick = { section = tab; accountFilter = null },
+                    onClick = {
+                        if (tab == "Journal" && section != "Journal") previousSection = section
+                        section = tab; accountFilter = null; expandedId = null
+                    },
                     label = { Text(tab) }
                 )
             }
@@ -88,7 +112,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
         if (report != null && section == "P&L") {
             Text("Profit & Loss · cumulative", style = MaterialTheme.typography.titleMedium)
             StatementSection("Revenue", report.revenue, onAccount = {
-                accountFilter = it; section = "Journal"
+                openJournal(it)
             })
             StatementSection("Expenses", report.expenses, onAccount = {
                 accountFilter = it; section = "Journal"
@@ -106,7 +130,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                 accountFilter = it; section = "Journal"
             })
             StatementSection("Equity and current result", report.equity, onAccount = {
-                accountFilter = if (it == "CURRENT_RESULT") null else it; section = "Journal"
+                openJournal(if (it == "CURRENT_RESULT") null else it)
             })
             val assets = report.assets.sumOf { it.amountCents }
             val liabilitiesAndEquity = report.liabilities.sumOf { it.amountCents } +
@@ -237,7 +261,7 @@ private fun StatementTotal(label: String, cents: Long) {
 private fun money(cents: Long) = "€%.2f".format(Locale.ROOT, cents / 100.0)
 
 private fun readableJournalTitle(description: String): String = when {
-    description.startsWith("Cost of sale ") -> "Inventory consumed · product unknown (older sale)"
-    description.startsWith("Sale ") -> "Customer sale · product unknown (older sale)"
+    description.startsWith("Cost of sale ") -> "Inventory consumed · product not recorded"
+    description.startsWith("Sale ") -> "Customer sale · product not recorded"
     else -> description.replace(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}"), "transaction")
 }
