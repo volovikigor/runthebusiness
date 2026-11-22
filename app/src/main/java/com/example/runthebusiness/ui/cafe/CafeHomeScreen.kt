@@ -34,7 +34,13 @@ private val Honey = Color(0xFFDDAF72)
 private val Cream = Color(0xFFFFF2D9)
 
 @Composable
-fun CafeHomeScreen(modifier: Modifier = Modifier) {
+fun CafeHomeScreen(
+    modifier: Modifier = Modifier,
+    speed: Int = 0,
+    onSpeedChange: (Int) -> Unit = {},
+    clockRevision: Int = 0,
+    clockError: String? = null
+) {
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val game = remember(context) { GameRepository(context) }
@@ -71,6 +77,9 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
         }
     }
     LaunchedEffect(Unit) { run { service.processPending() } }
+    LaunchedEffect(clockRevision) {
+        if (clockRevision > 0) reload()
+    }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -119,6 +128,21 @@ fun CafeHomeScreen(modifier: Modifier = Modifier) {
                 enabled = !loading
             ) { Text(if (cafe.isOpen) "Close café" else "Open café") }
             Text("Game clock", style = MaterialTheme.typography.titleMedium)
+            if (clockError != null) {
+                Text("Automatic clock paused: $clockError",
+                    color = MaterialTheme.colorScheme.error)
+            }
+            Text("Automatic time • 1 real second = 1 / 5 / 20 game minutes",
+                style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "Pause", 1 to "×1", 5 to "×5", 20 to "×20").forEach { (value, label) ->
+                    FilterChip(
+                        selected = speed == value,
+                        onClick = { onSpeedChange(value) },
+                        label = { Text(label) }
+                    )
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { run { game.advanceGameTime(15L); service.processPending() } }, enabled = !loading) {
                     Text("+15 min")
