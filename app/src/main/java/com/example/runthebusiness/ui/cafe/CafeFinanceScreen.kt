@@ -14,6 +14,7 @@ import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.FinancialLine
 import com.example.runthebusiness.data.local.FinancialStatements
+import com.example.runthebusiness.data.local.DailyProfitLoss
 import com.example.runthebusiness.data.local.CafeTransactionDetailRepository
 import com.example.runthebusiness.data.local.SaleDetail
 import com.example.runthebusiness.data.local.entity.StockMovementEntity
@@ -29,6 +30,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
     var statements by remember { mutableStateOf<FinancialStatements?>(null) }
+    var daily by remember { mutableStateOf<List<DailyProfitLoss>>(emptyList()) }
+    var showDaily by remember { mutableStateOf(false) }
     var section by remember { mutableStateOf("P&L") }
     var previousSection by remember { mutableStateOf("P&L") }
     var accountFilter by remember { mutableStateOf<String?>(null) }
@@ -64,6 +67,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
             error = null
             try {
                 statements = financeRepo.load()
+                daily = financeRepo.dailyProfitLoss()
                 entries = journalRepo.journal().asReversed()
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
@@ -110,7 +114,28 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         val report = statements
         if (report != null && section == "P&L") {
-            Text("Profit & Loss · cumulative", style = MaterialTheme.typography.titleMedium)
+            Text("Profit & Loss", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !showDaily, onClick = { showDaily = false },
+                    label = { Text("Cumulative") })
+                FilterChip(selected = showDaily, onClick = { showDaily = true },
+                    label = { Text("By day") })
+            }
+            if (showDaily) {
+                if (daily.isEmpty()) Text("No journal activity yet")
+                daily.forEach { day ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Day ${day.day}", style = MaterialTheme.typography.titleSmall)
+                            Text("Revenue: ${money(day.revenueCents)}")
+                            Text("Expenses: ${money(day.expenseCents)}")
+                            Text("Net profit: ${money(day.profitCents)}",
+                                style = MaterialTheme.typography.titleSmall)
+                        }
+                    }
+                }
+            } else {
             StatementSection("Revenue", report.revenue, onAccount = {
                 openJournal(it)
             })
@@ -118,8 +143,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                 accountFilter = it; section = "Journal"
             })
             StatementTotal("Net profit / loss", report.netIncomeCents)
-            Text("Figures are cumulative for the whole game; day-specific P&L is not yet implemented.",
-                style = MaterialTheme.typography.bodySmall)
+            }
         }
         if (report != null && section == "BS") {
             Text("Balance Sheet · current balances", style = MaterialTheme.typography.titleMedium)
