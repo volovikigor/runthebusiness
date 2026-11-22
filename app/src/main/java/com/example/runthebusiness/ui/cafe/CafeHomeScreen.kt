@@ -26,6 +26,8 @@ import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
+import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
+import com.example.runthebusiness.data.local.ManagementAlert
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -40,10 +42,13 @@ fun CafeHomeScreen(
     speed: Int = 0,
     onSpeedChange: (Int) -> Unit = {},
     clockRevision: Int = 0,
-    clockError: String? = null
+    clockError: String? = null,
+    onOpenOperations: (Int) -> Unit = {},
+    onOpenFinance: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
+    val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val dailyClose = remember(context) { CafeDailyCloseRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
@@ -60,6 +65,7 @@ fun CafeHomeScreen(
     var loading by remember { mutableStateOf(false) }
     var lastClosedDay by remember { mutableIntStateOf(0) }
     var lastEventMessage by remember { mutableStateOf<String?>(null) }
+    var alerts by remember { mutableStateOf<List<ManagementAlert>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
@@ -68,6 +74,7 @@ fun CafeHomeScreen(
         visitors = arrivals.recent()
         diagnostics = diagnosticsRepo.inspect()
         lastClosedDay = dailyClose.lastClosedDay()
+        alerts = if (state != null) alertsRepo.load() else emptyList()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -202,6 +209,26 @@ fun CafeHomeScreen(
                     }
                     Text("Dashboard = events & decisions · Operations = pricing, purchasing & stock · Finance = statements & payments",
                         style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Text("Management decisions", style = MaterialTheme.typography.titleMedium)
+            if (alerts.isEmpty()) {
+                Text("No immediate management alerts.",
+                    style = MaterialTheme.typography.bodySmall)
+            } else {
+                alerts.forEach { alert ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(alert.title, style = MaterialTheme.typography.titleSmall,
+                                color = if (alert.priority == 0) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurface)
+                            Text(alert.detail, style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = {
+                                if (alert.destination == "operations") onOpenOperations(alert.section)
+                                else onOpenFinance()
+                            }) { Text(if (alert.destination == "operations") "Open purchasing" else "Open finance") }
+                        }
+                    }
                 }
             }
             Text("Business at a glance", style = MaterialTheme.typography.titleMedium)

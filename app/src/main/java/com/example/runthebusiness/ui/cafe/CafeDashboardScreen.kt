@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun CafeDashboardScreen(modifier: Modifier = Modifier) {
+fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0) {
     val context = LocalContext.current.applicationContext
     val menu = remember(context) { CafeMenuRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
@@ -27,7 +27,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier) {
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
-    var section by remember { mutableStateOf(0) }
+    var section by remember { mutableIntStateOf(requestedSection) }
+    LaunchedEffect(requestedSection) { section = requestedSection }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
