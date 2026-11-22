@@ -65,6 +65,15 @@ class CafePurchasingRepository(context: Context) {
                         expiresMinute = null
                     )
                 ))
+                db.cafeSalesDao().insertStockMovements(listOf(StockMovementEntity(
+                    id = "purchase_movement_$id",
+                    inventoryItemId = itemId, inventoryItemName = supply.label,
+                    batchId = "purchase_batch_$id",
+                    sourceType = "INVENTORY_PURCHASE", sourceId = "purchase_batch_$id",
+                    quantityDelta = supply.quantity, unitCostCents = supply.unitCostCents,
+                    gameDay = session.currentDay, gameHour = session.currentHour,
+                    gameMinute = session.currentMinute
+                )))
                 val eventId = "purchase_event_$id"
                 val entryId = "purchase_$id"
                 val description = "Cash purchase: ${supply.label}, ${supply.quantity} ${supply.unit}"
