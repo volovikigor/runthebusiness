@@ -70,9 +70,10 @@ class GameSimulationEngine(context: Context) {
             JumpMode.NEXT_DAY -> 96
             JumpMode.NEXT_WEEK -> 96 * 7
         }
+        val startMinutes = (initial.day - 1L) * 1440L + initial.hour * 60L + initial.minute
         val targetMinutes = when (mode) {
-            JumpMode.NEXT_DAY -> (initial.day.toLong() * 1440L)
-            JumpMode.NEXT_WEEK -> ((initial.day + 6L) * 1440L)
+            JumpMode.NEXT_DAY -> initial.day.toLong() * 1440L
+            JumpMode.NEXT_WEEK -> startMinutes + 7L * 1440L
             else -> Long.MAX_VALUE
         }
         repeat(steps) {
