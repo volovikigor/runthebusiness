@@ -27,9 +27,9 @@ class CafeServiceRepository(context: Context) {
             val cafe = db.operationsDao().getLocations(business.id).singleOrNull()
                 ?: return@withContext 0
             val arrivalDao = db.cafeArrivalDao()
-            val impact = consequences.load(sessionId)
             val pending = arrivalDao.pending(location.id)
             if (pending.isEmpty()) return@withContext 0
+            val impact = consequences.load(sessionId)
             var served = 0
             // Build the seating timeline once per batch rather than querying the
             // entire growing arrival history for every group (quadratic work).
