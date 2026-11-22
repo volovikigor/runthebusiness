@@ -14,6 +14,9 @@ interface CafeSalesDao {
     @Insert suspend fun insertOrderLine(line: CustomerOrderLineEntity)
     @Insert suspend fun insertStockMovements(rows: List<StockMovementEntity>)
 
+    @Query("SELECT * FROM customer_order_lines")
+    suspend fun getAllOrderLines(): List<CustomerOrderLineEntity>
+
     @Query("SELECT * FROM customer_order_lines WHERE orderId = :orderId ORDER BY id")
     suspend fun getOrderLines(orderId: String): List<CustomerOrderLineEntity>
 
