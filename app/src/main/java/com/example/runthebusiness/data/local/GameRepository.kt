@@ -179,6 +179,20 @@ class GameRepository(context: Context) {
             }
         }
 
+    /** Explicitly open/close an existing saved café without recreating the game. */
+    suspend fun setCafeOpen(open: Boolean, sessionId: String = "debug_session_001") =
+        withContext(Dispatchers.IO) {
+            db.withTransaction {
+                val business = setup.getBusinesses(sessionId).single()
+                val location = locations.getLocations(business.id).single()
+                val updated = locations.updateSharedFields(
+                    location.id, location.name, location.openingHour, location.closingHour,
+                    location.monthlyRentCents, open
+                )
+                check(updated == 1)
+            }
+        }
+
     /** Shared location writer; café-specific fields are stored separately. */
     suspend fun updateSharedLocation(location: BusinessLocation) = withContext(Dispatchers.IO) {
         require(location.name.isNotBlank())
