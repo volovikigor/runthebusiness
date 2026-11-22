@@ -192,11 +192,11 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier) {
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                             }
-                            expandedSale?.products?.forEach { item ->
+                            if (entry.id.startsWith("sale_")) expandedSale?.products?.forEach { item ->
                                 Text("${item.quantity} × ${item.productName} · ${money(item.unitPriceCents)} each",
                                     style = MaterialTheme.typography.bodySmall)
                             }
-                            expandedSale?.stock?.forEach { movement ->
+                            if (entry.id.startsWith("cogs_")) expandedSale?.stock?.forEach { movement ->
                                 Text("${movement.inventoryItemName}: %.3f consumed from FIFO batch".format(
                                     Locale.ROOT, -movement.quantityDelta),
                                     style = MaterialTheme.typography.bodySmall)
