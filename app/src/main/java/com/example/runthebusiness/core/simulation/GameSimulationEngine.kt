@@ -17,7 +17,12 @@ import kotlinx.coroutines.sync.withLock
 class GameSimulationEngine(context: Context) {
     private val clock = GameRepository(context.applicationContext)
     private val cafe = CafeServiceRepository(context.applicationContext)
-    private val mutex = Mutex()
+    // Shared across UI screens so manual jumps and automatic ticks cannot interleave.
+    private val mutex get() = simulationMutex
+
+    companion object {
+        private val simulationMutex = Mutex()
+    }
 
     data class StepResult(val time: GameTime, val groupsServed: Int)
 
