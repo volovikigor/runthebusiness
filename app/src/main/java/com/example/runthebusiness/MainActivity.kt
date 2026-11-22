@@ -1,6 +1,7 @@
 package com.example.runthebusiness
 
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,6 +30,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             RunthebusinessTheme {
                 var selectedTab by remember { mutableIntStateOf(0) }
+                val tabHistory = remember { mutableStateListOf<Int>() }
+                fun navigateTab(tab: Int) {
+                    if (selectedTab != tab) {
+                        tabHistory.add(selectedTab)
+                        selectedTab = tab
+                    }
+                }
+                BackHandler(enabled = tabHistory.isNotEmpty()) {
+                    selectedTab = tabHistory.removeAt(tabHistory.lastIndex)
+                }
                 var gameSpeed by remember { mutableIntStateOf(0) }
                 var clockRevision by remember { mutableIntStateOf(0) }
                 var clockError by remember { mutableStateOf<String?>(null) }
@@ -62,19 +73,19 @@ class MainActivity : ComponentActivity() {
                         NavigationBar {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
+                                onClick = { navigateTab(0) },
                                 icon = { Text("☕") },
                                 label = { Text("Café") }
                             )
                             NavigationBarItem(
                                 selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
+                                onClick = { navigateTab(1) },
                                 icon = { Text("▤") },
                                 label = { Text("Operations") }
                             )
                             NavigationBarItem(
                                 selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
+                                onClick = { navigateTab(2) },
                                 icon = { Text("€") },
                                 label = { Text("Finance") }
                             )
