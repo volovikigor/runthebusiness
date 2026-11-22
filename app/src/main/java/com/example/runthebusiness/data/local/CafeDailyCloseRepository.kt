@@ -15,6 +15,14 @@ import kotlinx.coroutines.withContext
 class CafeDailyCloseRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
 
+    suspend fun lastClosedDay(sessionId: String = "debug_session_001"): Int =
+        withContext(Dispatchers.IO) {
+            db.accountingDao().getJournalEntries(sessionId)
+                .filter { it.id.startsWith("daily_close_") }
+                .mapNotNull { it.id.removePrefix("daily_close_").substringBefore("_").toIntOrNull() }
+                .maxOrNull() ?: 0
+        }
+
     suspend fun closeDay(day: Int, sessionId: String = "debug_session_001") =
         withContext(Dispatchers.IO) {
             require(day >= 1)
