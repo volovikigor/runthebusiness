@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
                     selectedTab = tabHistory.removeAt(tabHistory.lastIndex)
                 }
                 var operationsSection by remember { mutableIntStateOf(0) }
+                var financeTarget by remember { mutableStateOf("P&L") }
                 var gameSpeed by remember { mutableIntStateOf(0) }
                 var clockRevision by remember { mutableIntStateOf(0) }
                 var clockError by remember { mutableStateOf<String?>(null) }
@@ -101,10 +102,10 @@ class MainActivity : ComponentActivity() {
                             clockRevision = clockRevision,
                             clockError = clockError,
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
-                            onOpenFinance = { navigateTab(2) }
+                            onOpenFinance = { financeTarget = "Cash"; navigateTab(2) }
                         )
                         1 -> CafeDashboardScreen(modifier = Modifier.padding(padding), requestedSection = operationsSection)
-                        2 -> CafeFinanceScreen(modifier = Modifier.padding(padding))
+                        2 -> CafeFinanceScreen(modifier = Modifier.padding(padding), requestedSection = financeTarget)
                         else -> CafeFinanceScreen(modifier = Modifier.padding(padding))
                     }
                 }
