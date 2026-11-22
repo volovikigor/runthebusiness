@@ -59,6 +59,7 @@ fun CafeHomeScreen(
     var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
     var loading by remember { mutableStateOf(false) }
     var lastClosedDay by remember { mutableIntStateOf(0) }
+    var lastEventMessage by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
@@ -177,6 +178,31 @@ fun CafeHomeScreen(
             } else {
                 Text("Day ${cafe.time.day} in progress. Closing becomes available after ${cafe.closingHour}:00.",
                     style = MaterialTheme.typography.bodySmall)
+            }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Event control", style = MaterialTheme.typography.titleMedium)
+                    Text("Skip to the next customer arrival or midnight. Intermediate sales, stock movements and daily accruals are processed normally.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Button(
+                        enabled = !loading && speed == 0,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            run {
+                                val result = simulation.advanceToNextEvent()
+                                lastEventMessage = result.description
+                            }
+                        }
+                    ) { Text("⏭  Next event") }
+                    if (speed != 0) Text("Pause the clock before jumping.",
+                        style = MaterialTheme.typography.bodySmall)
+                    if (lastEventMessage != null) {
+                        Text("Last event: $lastEventMessage",
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text("Dashboard = events & decisions · Operations = pricing, purchasing & stock · Finance = statements & payments",
+                        style = MaterialTheme.typography.bodySmall)
+                }
             }
             Text("Business at a glance", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
