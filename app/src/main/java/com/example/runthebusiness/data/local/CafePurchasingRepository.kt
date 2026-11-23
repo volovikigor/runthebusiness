@@ -48,13 +48,8 @@ class CafePurchasingRepository(context: Context) {
                 require(db.operationsDao().getInventoryItems(business.id).any { it.id == itemId }) {
                     "Install real ingredients before purchasing supplies"
                 }
-                val available = db.journalViewDao().getJournal(sessionId)
-                    .flatMap { it.lines }
-                    .filter { it.accountCode == "1000" || it.accountCode == "1100" }
-                    .groupBy { it.accountCode }
-                    .mapValues { (_, lines) -> lines.sumOf { it.debitCents - it.creditCents } }
-                val cash = available["1000"] ?: 0L
-                val bank = available["1100"] ?: 0L
+                val cash = db.accountingDao().accountBalance(sessionId, "1000")
+                val bank = db.accountingDao().accountBalance(sessionId, "1100")
                 require(cash >= supply.costCents || bank >= supply.costCents) {
                     "Insufficient funds: supplier pack costs €%.2f".format(
                         java.util.Locale.ROOT, supply.costCents / 100.0)
