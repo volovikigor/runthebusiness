@@ -14,6 +14,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.runthebusiness.data.local.CafeCashManagementRepository
+import com.example.runthebusiness.data.local.CafePaymentConsequencesRepository
+import com.example.runthebusiness.data.local.CashPosition
+import com.example.runthebusiness.data.local.PaymentConsequences
 import com.example.runthebusiness.data.local.CafeCustomerFlowRepository
 import com.example.runthebusiness.data.local.CafeCustomerFlow
 import com.example.runthebusiness.data.local.CafeDashboardRepository
@@ -57,6 +61,8 @@ fun CafeHomeScreen(
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val flowRepo = remember(context) { CafeCustomerFlowRepository(context) }
+    val cashRepo = remember(context) { CafeCashManagementRepository(context) }
+    val consequencesRepo = remember(context) { CafePaymentConsequencesRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
     val breakEvenRepo = remember(context) { CafeBreakEvenRepository(context) }
@@ -73,6 +79,8 @@ fun CafeHomeScreen(
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
+    var cashPosition by remember { mutableStateOf<CashPosition?>(null) }
+    var paymentStatus by remember { mutableStateOf<PaymentConsequences?>(null) }
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -90,6 +98,8 @@ fun CafeHomeScreen(
 
     suspend fun reload() {
         state = dashboard.snapshot()
+        cashPosition = if (state != null) cashRepo.position() else null
+        paymentStatus = if (state != null) consequencesRepo.load() else null
         recent = sales.loadDemoSales().take(6)
         visitors = arrivals.recent()
         diagnostics = diagnosticsRepo.inspect()
@@ -188,6 +198,62 @@ fun CafeHomeScreen(
                 onClick = { run { game.setCafeOpen(!cafe.isOpen) } },
                 enabled = !loading
             ) { Text(if (cafe.isOpen) "Close café" else "Open café") }
+            cashPosition?.let { position ->
+                val payment = paymentStatus
+                val overdue = payment?.rentDaysLate ?: 0
+                val payrollLate = payment?.payrollDaysLate ?: 0
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Bills & continuity", style = MaterialTheme.typography.titleMedium)
+                        Text("Bank: €%.2f · Cash: €%.2f".format(Locale.ROOT,
+                            position.bankCents / 100.0, position.cashCents / 100.0))
+                        Text("Rent payable: €%.2f · %d days late".format(Locale.ROOT,
+                            position.rentPayableCents / 100.0, overdue))
+                        Text("Payroll payable: €%.2f · %d days late".format(Locale.ROOT,
+                            position.salariesPayableCents / 100.0, payrollLate))
+                        if (payment?.rentShutdown == true) {
+                            Text("Trading blocked by overdue rent. Pay rent to reopen.",
+                                color = MaterialTheme.colorScheme.error)
+                        } else if (overdue >= 5) {
+                            Text("Rent shutdown starts after 7 days overdue.",
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                        if (payment?.staffDisruption == true) {
+                            Text("Late payroll is disrupting service.",
+                                color = MaterialTheme.colorScheme.error)
+                        } else if (payrollLate >= 1) {
+                            Text("Payroll disruption starts after 2 days overdue.",
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                        if (position.bankCents < position.totalDueCents &&
+                            position.cashCents > 0L) {
+                            Text("Bank funds are insufficient for all bills. Deposit cash before paying.",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (position.cashCents > 0L) {
+                            OutlinedButton(enabled = !loading, onClick = { run {
+                                val transfer = minOf(position.cashCents,
+                                    (position.totalDueCents - position.bankCents).coerceAtLeast(0L))
+                                if (transfer > 0L) cashRepo.transferCashToBank(transfer)
+                            } }) { Text("Deposit cash needed for bills") }
+                        }
+                        if (position.rentPayableCents > 0L) {
+                            Button(enabled = !loading && position.bankCents >= position.rentPayableCents,
+                                onClick = { run { cashRepo.pay("2000") } }) {
+                                Text("Pay rent · €%.2f".format(Locale.ROOT, position.rentPayableCents / 100.0))
+                            }
+                        }
+                        if (position.salariesPayableCents > 0L) {
+                            Button(enabled = !loading && position.bankCents >= position.salariesPayableCents,
+                                onClick = { run { cashRepo.pay("2300") } }) {
+                                Text("Pay payroll · €%.2f".format(Locale.ROOT, position.salariesPayableCents / 100.0))
+                            }
+                        }
+                        Text("Bills are accrued in P&L already; settlement only reduces bank and payables.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             Text("Game clock", style = MaterialTheme.typography.titleMedium)
             if (clockError != null) {
                 Text("Automatic clock paused: $clockError",
