@@ -28,10 +28,9 @@ do {
             Remove-Item $target -ErrorAction SilentlyContinue
             throw "Could not pull report. Install the debug build and run +7 days at least once."
         }
-        Write-Host "Saved: $target"
         $hash = (Get-FileHash -Algorithm SHA256 -Path $target).Hash
         if ($hash -eq $lastHash) { Remove-Item $target; Write-Host "No new run" }
-        else { $lastHash = $hash }
+        else { $lastHash = $hash; Write-Host "Saved: $target" }
     } catch {
         if (-not $Watch) { throw }
         Write-Warning $_
