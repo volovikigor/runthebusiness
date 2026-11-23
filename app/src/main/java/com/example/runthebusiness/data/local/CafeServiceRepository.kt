@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.industries.cafe.simulation.CafeSeatingRules
 import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules
+import com.example.runthebusiness.industries.cafe.simulation.CafeStaffCapacityRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -30,6 +31,10 @@ class CafeServiceRepository(context: Context) {
             val pending = arrivalDao.pending(location.id)
             if (pending.isEmpty()) return@withContext 0
             val impact = consequences.load(sessionId)
+            val workers = db.operationsDao().getEmployees(business.id)
+                .filter { it.isActive && it.locationId == location.id }
+            val slotCapacity = CafeStaffCapacityRules.slotCapacity(workers.map { it.productivity })
+            val usedBySlot = mutableMapOf<Long, Double>()
             var served = 0
             // Build the seating timeline once per batch rather than querying the
             // entire growing arrival history for every group (quadratic work).
@@ -127,12 +132,22 @@ class CafeServiceRepository(context: Context) {
                                 for (extra in rotated) if (tryAdd(extra)) break
                             }
                         }
-                        if (basket.isNotEmpty()) {
+                        val slot = now.totalMinutes / 15L
+                        val requiredWork = basket.sumOf { productId ->
+                            val product = products.first { it.id == productId }
+                            CafeStaffCapacityRules.workloadMinutes(product.preparationMinutes)
+                        }
+                        val usedWork = usedBySlot[slot] ?: 0.0
+                        val staffCanServe = CafeStaffCapacityRules.canServe(
+                            usedWork, requiredWork, slotCapacity)
+                        if (basket.isNotEmpty() && staffCanServe) {
                             sale.sellBasket(basket, sessionId, now)
+                            usedBySlot[slot] = usedWork + requiredWork
                             sold = true
                         }
                         check(arrivalDao.markProcessed(arrival.id,
-                            if (sold) "SERVED" else if (offered) "NO_PURCHASE" else "NO_STOCK") == 1)
+                            if (sold) "SERVED" else if (basket.isNotEmpty() && !staffCanServe)
+                                "STAFF_CAPACITY" else if (offered) "NO_PURCHASE" else "NO_STOCK") == 1)
                         if (sold) {
                             served++
                             visits.add(CafeSeatingRules.Visit(now.totalMinutes, arrival.guests, true))
