@@ -30,7 +30,7 @@ class CafeSaleRepository(context: Context) {
     suspend fun sellMenuItem(productId: String?, sessionId: String = "debug_session_001", saleTime: GameTime? = null): CustomerOrderEntity =
         sellBasket(listOf(productId), sessionId, saleTime)
 
-    suspend fun sellBasket(productIds: List<String?>, sessionId: String = "debug_session_001", saleTime: GameTime? = null): CustomerOrderEntity =
+    suspend fun sellBasket(productIds: List<String?>, sessionId: String = "debug_session_001", saleTime: GameTime? = null, paymentMethod: PaymentMethod = PaymentMethod.CASH): CustomerOrderEntity =
         withContext(Dispatchers.IO) {
             require(productIds.isNotEmpty()) { "Basket cannot be empty" }
             db.withTransaction {
@@ -98,7 +98,7 @@ class CafeSaleRepository(context: Context) {
                 val id = UUID.randomUUID().toString()
                 val quantities = productIds.groupingBy { it ?: "demo_product" }.eachCount()
                 val order = CustomerOrder(
-                    id = id, locationId = location.id, paymentMethod = PaymentMethod.CASH,
+                    id = id, locationId = location.id, paymentMethod = paymentMethod,
                     items = products.map { CustomerOrderLine(it.id, quantities.getValue(it.id), it.sellingPriceCents) },
                     createdAt = currentTime
                 )
