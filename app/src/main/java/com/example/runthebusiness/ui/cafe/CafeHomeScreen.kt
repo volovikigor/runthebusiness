@@ -84,6 +84,8 @@ fun CafeHomeScreen(
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var weeklyProgress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var weeklyGroups by remember { mutableIntStateOf(0) }
     var lastClosedDay by remember { mutableIntStateOf(0) }
     var lastEventMessage by remember { mutableStateOf<String?>(null) }
     var alerts by remember { mutableStateOf<List<ManagementAlert>>(emptyList()) }
@@ -118,7 +120,7 @@ fun CafeHomeScreen(
                 reload()
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
-            } finally { loading = false }
+            } finally { loading = false; weeklyProgress = null }
         }
     }
     LaunchedEffect(Unit) { run { simulation.resumePending() } }
@@ -317,7 +319,14 @@ fun CafeHomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {
                                 run {
-                                    val result = simulation.jump(mode)
+                                    if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) {
+                                        weeklyProgress = 0 to cafe.time.day
+                                        weeklyGroups = 0
+                                    }
+                                    val result = simulation.jump(mode, onProgress = { day, completed, groups ->
+                                        weeklyProgress = completed to day
+                                        weeklyGroups = groups
+                                    })
                                     lastEventMessage = result.description
                                     if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) {
                                         auditExport.saveDesktopReport()
@@ -326,6 +335,16 @@ fun CafeHomeScreen(
                                 }
                             }
                         ) { Text(label) }
+                    }
+                    weeklyProgress?.let { (completed, day) ->
+                        Text("Simulating day $day · $completed / 7 days completed",
+                            style = MaterialTheme.typography.titleMedium)
+                        LinearProgressIndicator(
+                            progress = { (completed / 7f).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text("$weeklyGroups customer groups served so far",
+                            style = MaterialTheme.typography.bodySmall)
                     }
                     if (speed != 0) Text("Pause the clock to jump.",
                         style = MaterialTheme.typography.bodySmall)
