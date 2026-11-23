@@ -87,8 +87,8 @@ class CafeSaleRepository(context: Context) {
                             batch.quantityReceived, batch.quantityRemaining, batch.unitCostCents,
                             GameTime(batch.receivedDay, batch.receivedHour, batch.receivedMinute),
                             if (batch.expiresDay == null) null else GameTime(
-                                batch.expiresDay, requireNotNull(batch.expiresHour),
-                                requireNotNull(batch.expiresMinute)))
+                                batch.expiresDay, batch.expiresHour ?: 0,
+                                batch.expiresMinute ?: 0))
                     },
                     products = products,
                     ledgerAccounts = setup.getAccounts(sessionId).map {
