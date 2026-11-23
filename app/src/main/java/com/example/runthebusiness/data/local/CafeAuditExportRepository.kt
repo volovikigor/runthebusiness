@@ -127,7 +127,9 @@ class CafeAuditExportRepository(context: Context) {
             "completed_days" to flow.days, "arriving_groups" to flow.groups,
             "arriving_guests" to flow.guests, "served_groups" to flow.servedGroups,
             "served_guests" to flow.servedGuests, "orders" to flow.orders,
-            "order_lines" to flow.orderLines, "net_sales_cents" to flow.netSalesCents
+            "order_lines" to flow.orderLines, "net_sales_cents" to flow.netSalesCents,
+            "card_orders" to flow.cardOrders, "card_gross_cents" to flow.cardGrossCents,
+            "cash_gross_cents" to flow.cashGrossCents
         ) + flow.byStatus.map { (key, value) -> "status_$key" to value })
         if (economics != null) section("break_even_summary_14d", listOf(
             "completed_days" to economics.observedDays, "orders" to economics.orders,

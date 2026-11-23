@@ -10,7 +10,10 @@ data class CafeCustomerFlow(
     val byStatus: Map<String, Int>,
     val orders: Int,
     val netSalesCents: Long,
-    val orderLines: Int
+    val orderLines: Int,
+    val cardOrders: Int,
+    val cardGrossCents: Long,
+    val cashGrossCents: Long
 )
 
 class CafeCustomerFlowRepository(context: Context) {
@@ -40,7 +43,10 @@ class CafeCustomerFlowRepository(context: Context) {
             byStatus = rows.groupingBy { it.status }.eachCount().toSortedMap(),
             orders = orders.size,
             netSalesCents = orders.sumOf { it.netCents },
-            orderLines = orderLines
+            orderLines = orderLines,
+            cardOrders = orders.count { it.paymentMethod == "BANK_CARD" },
+            cardGrossCents = orders.filter { it.paymentMethod == "BANK_CARD" }.sumOf { it.grossCents },
+            cashGrossCents = orders.filter { it.paymentMethod == "CASH" }.sumOf { it.grossCents }
         )
     }
 }

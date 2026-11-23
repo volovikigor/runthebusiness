@@ -3,6 +3,7 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.engine.model.GameTime
+import com.example.runthebusiness.engine.model.PaymentMethod
 import com.example.runthebusiness.industries.cafe.simulation.CafeSeatingRules
 import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules
 import com.example.runthebusiness.industries.cafe.simulation.CafeStaffCapacityRules
@@ -141,7 +142,9 @@ class CafeServiceRepository(context: Context) {
                         val staffCanServe = CafeStaffCapacityRules.canServe(
                             usedWork, requiredWork, slotCapacity)
                         if (basket.isNotEmpty() && staffCanServe) {
-                            sale.sellBasket(basket, sessionId, now)
+                            sale.sellBasket(basket, sessionId, now,
+                                if (Math.floorMod(arrival.id.hashCode(), 100) < 65)
+                                    PaymentMethod.BANK_CARD else PaymentMethod.CASH)
                             usedBySlot[slot] = usedWork + requiredWork
                             sold = true
                         }

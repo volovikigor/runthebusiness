@@ -64,7 +64,7 @@ class CompleteCafeSaleUseCase(private val accounting: AccountingEngine = Account
         val vatCents = Math.subtractExact(grossCents, netCents)
         val receivableAccount = when (order.paymentMethod) {
             PaymentMethod.CASH -> "1000"
-            PaymentMethod.BANK_CARD -> "1200"
+            PaymentMethod.BANK_CARD -> "1100"
             else -> error("Unsupported payment method: ${order.paymentMethod}")
         }
         val revenueEntry = JournalEntry(
