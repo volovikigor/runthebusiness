@@ -27,6 +27,9 @@ import com.example.runthebusiness.data.local.CafeArrivalRepository
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeDiagnosticsRepository
 import com.example.runthebusiness.data.local.CafeDiagnostics
+import com.example.runthebusiness.data.local.CafeMenuReadinessRepository
+import com.example.runthebusiness.data.local.MenuReadiness
+import com.example.runthebusiness.data.local.CafePurchasingRepository
 import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
@@ -74,11 +77,15 @@ fun CafeHomeScreen(
     val simulation = remember(context) { GameSimulationEngine(context) }
     val diagnosticsRepo = remember(context) { CafeDiagnosticsRepository(context) }
     val menuSetup = remember(context) { CafeMenuRepository(context) }
+    val menuReadinessRepo = remember(context) { CafeMenuReadinessRepository(context) }
+    val purchasingRepo = remember(context) { CafePurchasingRepository(context) }
     val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
     val expandedMenu = remember(context) { CafeExpandedMenuRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
+    var menuReadiness by remember { mutableStateOf<List<MenuReadiness>>(emptyList()) }
+    var showMenuReadiness by remember { mutableStateOf(false) }
     var cashPosition by remember { mutableStateOf<CashPosition?>(null) }
     var paymentStatus by remember { mutableStateOf<PaymentConsequences?>(null) }
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
@@ -103,6 +110,7 @@ fun CafeHomeScreen(
         cashPosition = if (state != null) cashRepo.position() else null
         paymentStatus = if (state != null) consequencesRepo.load() else null
         recent = sales.loadDemoSales().take(6)
+        menuReadiness = if (state != null) menuReadinessRepo.snapshot() else emptyList()
         visitors = arrivals.recent()
         diagnostics = diagnosticsRepo.inspect()
         lastClosedDay = dailyClose.lastClosedDay()
@@ -200,6 +208,44 @@ fun CafeHomeScreen(
                 onClick = { run { game.setCafeOpen(!cafe.isOpen) } },
                 enabled = !loading
             ) { Text(if (cafe.isOpen) "Close café" else "Open café") }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val ready = menuReadiness.count { it.ready }
+                    Text("Menu readiness · $ready / ${menuReadiness.size} dishes",
+                        style = MaterialTheme.typography.titleMedium)
+                    Text("Availability is based on real recipe ingredients and current stock.",
+                        style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { showMenuReadiness = !showMenuReadiness }) {
+                        Text(if (showMenuReadiness) "Hide dishes" else "Inspect dishes & restock")
+                    }
+                    if (showMenuReadiness) {
+                        menuReadiness.forEach { dish ->
+                            HorizontalDivider()
+                            Text("${dish.name} · ${if (dish.ready) "${dish.servings} servings" else "OUT OF STOCK"}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = if (dish.ready) MaterialTheme.colorScheme.onSurface
+                                    else MaterialTheme.colorScheme.error)
+                            if (dish.unsupported) Text("No supported recipe configured",
+                                style = MaterialTheme.typography.bodySmall)
+                            dish.missing.forEach { missing ->
+                                Text("Missing ${missing.name}: ${missing.available.toInt()} / ${missing.required.toInt()} ${missing.unit}",
+                                    style = MaterialTheme.typography.bodySmall)
+                                if (missing.supplierPackCents != null) {
+                                    OutlinedButton(
+                                        enabled = !loading,
+                                        onClick = { run { purchasingRepo.purchase(missing.itemId) } }
+                                    ) {
+                                        Text("Buy ${missing.name} · ${euro(missing.supplierPackCents)}")
+                                    }
+                                } else {
+                                    Text("No supplier pack available",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             cashPosition?.let { position ->
                 val payment = paymentStatus
                 val overdue = payment?.rentDaysLate ?: 0
