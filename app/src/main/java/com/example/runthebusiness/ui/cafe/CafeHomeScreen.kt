@@ -225,6 +225,8 @@ fun CafeHomeScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = if (dish.ready) MaterialTheme.colorScheme.onSurface
                                     else MaterialTheme.colorScheme.error)
+                            if (dish.unsupported) Text("No supported recipe configured",
+                                style = MaterialTheme.typography.bodySmall)
                             dish.missing.forEach { missing ->
                                 Text("Missing ${missing.name}: ${missing.available.toInt()} / ${missing.required.toInt()} ${missing.unit}",
                                     style = MaterialTheme.typography.bodySmall)
