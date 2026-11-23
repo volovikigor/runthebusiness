@@ -7,7 +7,10 @@ import kotlinx.coroutines.withContext
 data class CafeCustomerFlow(
     val days: Int, val groups: Int, val guests: Int,
     val servedGroups: Int, val servedGuests: Int,
-    val byStatus: Map<String, Int>
+    val byStatus: Map<String, Int>,
+    val orders: Int,
+    val netSalesCents: Long,
+    val orderLines: Int
 )
 
 class CafeCustomerFlowRepository(context: Context) {
@@ -25,11 +28,19 @@ class CafeCustomerFlowRepository(context: Context) {
             it.gameDay in fromDay until session.currentDay
         }
         val served = rows.filter { it.status == "SERVED" }
+        val orders = db.cafeSalesDao().getOrders(location.id).filter {
+            it.gameDay in fromDay until session.currentDay
+        }
+        val orderIds = orders.map { it.id }.toSet()
+        val orderLines = db.cafeSalesDao().getAllOrderLines().count { it.orderId in orderIds }
         CafeCustomerFlow(
             days = (session.currentDay - fromDay).coerceAtLeast(0),
             groups = rows.size, guests = rows.sumOf { it.guests },
             servedGroups = served.size, servedGuests = served.sumOf { it.guests },
-            byStatus = rows.groupingBy { it.status }.eachCount().toSortedMap()
+            byStatus = rows.groupingBy { it.status }.eachCount().toSortedMap(),
+            orders = orders.size,
+            netSalesCents = orders.sumOf { it.netCents },
+            orderLines = orderLines
         )
     }
 }
