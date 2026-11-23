@@ -27,6 +27,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
+    var realIngredients by remember { mutableStateOf(false) }
     var section by remember { mutableIntStateOf(requestedSection) }
     LaunchedEffect(requestedSection) { section = requestedSection }
     var busy by remember { mutableStateOf(false) }
@@ -35,6 +36,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
 
     suspend fun reload() {
         started = dashboard.snapshot() != null
+        realIngredients = inventorySetup.hasRealIngredients()
         products = menu.loadMenu()
         stock = purchasing.stock()
         movements = movementsRepo.movements()
@@ -74,7 +76,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
 
         if (!started) {
             Text("Start the café to manage operations.")
-            Button(onClick = { run { game.initializeOpeningGame() } }, enabled = !busy) {
+            Button(onClick = { run {
+                    game.initializeOpeningGame()
+                    menu.seedMenu()
+                    inventorySetup.initializeRealStock()
+                } }, enabled = !busy) {
                 Text("Start café")
             }
         } else when (section) {
@@ -126,9 +132,14 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 Text("Purchasing", style = MaterialTheme.typography.titleLarge)
                 Text("Supplier packs arrive immediately. Purchases increase inventory and reduce cash.",
                     style = MaterialTheme.typography.bodySmall)
-                if (products.isNotEmpty()) {
+                if (!realIngredients && products.isNotEmpty()) {
+                    Text("Legacy placeholder inventory is still in use. Convert it to beans, milk and croissants before assessing margins.",
+                        color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = { run { inventorySetup.initializeRealStock() } },
                         enabled = !busy) { Text("Set up real ingredients") }
+                } else if (realIngredients) {
+                    Text("Real ingredient recipes and FIFO stock are active.",
+                        style = MaterialTheme.typography.bodySmall)
                 }
                 CafePurchasingRepository.supplies.forEach { supply ->
                     Card(Modifier.fillMaxWidth()) {
