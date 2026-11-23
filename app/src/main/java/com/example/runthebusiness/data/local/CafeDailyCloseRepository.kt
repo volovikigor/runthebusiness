@@ -17,9 +17,8 @@ class CafeDailyCloseRepository(context: Context) {
 
     suspend fun lastClosedDay(sessionId: String = "debug_session_001"): Int =
         withContext(Dispatchers.IO) {
-            db.accountingDao().getJournalEntries(sessionId)
-                .filter { it.id.startsWith("daily_close_") }
-                .mapNotNull { it.id.removePrefix("daily_close_").substringBefore("_").toIntOrNull() }
+            db.accountingDao().entryIdsWithPrefix(sessionId, "daily_close_%")
+                .mapNotNull { it.removePrefix("daily_close_").substringBefore("_").toIntOrNull() }
                 .maxOrNull() ?: 0
         }
 
@@ -33,7 +32,7 @@ class CafeDailyCloseRepository(context: Context) {
                 val locations = db.businessLocationDao().getLocations(business.id)
                 val employees = db.operationsDao().getEmployees(business.id)
                 val equipment = db.operationsDao().getEquipment(business.id)
-                val existing = db.accountingDao().getJournalEntries(sessionId).map { it.id }.toSet()
+                val existing = db.accountingDao().entryIdsWithPrefix(sessionId, "daily_close_${day}_%").toSet()
                 data class Accrual(val kind: String, val locationId: String,
                     val description: String, val debit: String, val credit: String, val amount: Long)
                 val accruals = mutableListOf<Accrual>()

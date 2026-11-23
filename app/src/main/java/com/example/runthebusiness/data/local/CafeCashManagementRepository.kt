@@ -35,12 +35,12 @@ class CafeCashManagementRepository(context: Context) {
 
     suspend fun position(sessionId: String = "debug_session_001"): CashPosition =
         withContext(Dispatchers.IO) {
-            val b = balances(sessionId)
+            val dao = db.accountingDao()
             CashPosition(
-                cashCents = b["1000"] ?: 0L,
-                bankCents = b["1100"] ?: 0L,
-                rentPayableCents = (-(b["2000"] ?: 0L)).coerceAtLeast(0L),
-                salariesPayableCents = (-(b["2300"] ?: 0L)).coerceAtLeast(0L)
+                cashCents = dao.accountBalance(sessionId, "1000"),
+                bankCents = dao.accountBalance(sessionId, "1100"),
+                rentPayableCents = (-dao.accountBalance(sessionId, "2000")).coerceAtLeast(0L),
+                salariesPayableCents = (-dao.accountBalance(sessionId, "2300")).coerceAtLeast(0L)
             )
         }
 

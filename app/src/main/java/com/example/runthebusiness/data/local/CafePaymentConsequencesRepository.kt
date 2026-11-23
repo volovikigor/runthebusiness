@@ -24,15 +24,9 @@ class CafePaymentConsequencesRepository(context: Context) {
             val session = db.accountingDao().getSession(sessionId)
                 ?: return@withContext PaymentConsequences(0, 0)
             val day = session.currentDay
-            val journal = db.journalViewDao().getJournal(sessionId)
-            fun daysLate(period: Int, account: String): Int {
-                val latestSettlementDay = journal.filter { record ->
-                    record.entry.id.startsWith("settlement_") &&
-                        record.lines.any { line ->
-                            line.accountCode == account && line.debitCents > 0L
-                        }
-                }.maxOfOrNull { it.entry.gameDay } ?: 0
-                val firstUnpaidDue = (latestSettlementDay / period + 1) * period
+            suspend fun daysLate(period: Int, account: String): Int {
+                val lastPaid = db.accountingDao().lastSettlementDay(sessionId, account) ?: 0
+                val firstUnpaidDue = (lastPaid / period + 1) * period
                 return if (day >= firstUnpaidDue) day - firstUnpaidDue else 0
             }
             PaymentConsequences(

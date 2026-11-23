@@ -59,11 +59,17 @@ class GameSimulationEngine(context: Context) {
      * Decision jumps skip routine arrivals; calendar jumps stop on new critical alerts.
      */
     suspend fun jump(mode: JumpMode, sessionId: String = "debug_session_001"): NextEventResult {
+        val startedAt = android.os.SystemClock.elapsedRealtime()
         val initial = checkNotNull(clock.loadGameTime(sessionId))
         val knownAlerts = alerts.load(sessionId).map { it.id }.toSet()
         var previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
         var latest = initial
         var groups = 0
+        fun result(time: GameTime, message: String, served: Int): NextEventResult {
+            val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
+            android.util.Log.i("CafeSimulation", "jump=$mode elapsedMs=$elapsed groups=$served day=${time.day}")
+            return NextEventResult(time, message, served)
+        }
         val steps = when (mode) {
             JumpMode.NEXT_EVENT -> 96
             JumpMode.NEXT_DECISION -> 96 * 14
@@ -85,25 +91,25 @@ class GameSimulationEngine(context: Context) {
                 val isCritical = newDecision.priority == 0
                 if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT ||
                     (mode == JumpMode.NEXT_WEEK && isCritical)) {
-                    return NextEventResult(latest, "Management alert · ${newDecision.title}", groups)
+                    return result(latest, "Management alert · ${newDecision.title}", groups)
                 }
             }
             if (mode == JumpMode.NEXT_EVENT) {
                 val newArrival = arrivals.recent(sessionId).firstOrNull { it.id !in previousArrivalIds }
                 if (newArrival != null) {
-                    return NextEventResult(latest, "Customer arrival · ${newArrival.guests} guests", groups)
+                    return result(latest, "Customer arrival · ${newArrival.guests} guests", groups)
                 }
                 previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
                 if (latest.day > initial.day) {
-                    return NextEventResult(latest, "Day ${initial.day} closed", groups)
+                    return result(latest, "Day ${initial.day} closed", groups)
                 }
             }
             val absoluteMinutes = (latest.day - 1L) * 1440L + latest.hour * 60L + latest.minute
             if (absoluteMinutes >= targetMinutes) {
-                return NextEventResult(latest, "Calendar advance completed · ${groups} groups served", groups)
+                return result(latest, "Calendar advance completed · ${groups} groups served", groups)
             }
         }
-        return NextEventResult(latest,
+        return result(latest,
             if (mode == JumpMode.NEXT_DECISION) "No new management decisions within 14 days"
             else "Time advance limit reached", groups)
     }
