@@ -59,6 +59,27 @@ interface AccountingDao {
         entryId: String
     ): List<JournalLineEntity>
 
+    @Query("SELECT MAX(gameDay) FROM journal_entries WHERE sessionId = :sessionId AND id LIKE 'daily_close_%'")
+    suspend fun latestCloseDayCandidate(sessionId: String): Int?
+
+    @Query("SELECT id FROM journal_entries WHERE sessionId = :sessionId AND id LIKE :prefix")
+    suspend fun entryIdsWithPrefix(sessionId: String, prefix: String): List<String>
+
+    @Query("""
+        SELECT MAX(e.gameDay) FROM journal_entries e
+        INNER JOIN journal_lines l ON l.entryId = e.id
+        WHERE e.sessionId = :sessionId AND e.id LIKE 'settlement_%'
+          AND l.accountCode = :accountCode AND l.debitCents > 0
+    """)
+    suspend fun lastSettlementDay(sessionId: String, accountCode: String): Int?
+
+    @Query("""
+        SELECT COALESCE(SUM(l.debitCents - l.creditCents), 0)
+        FROM journal_lines l INNER JOIN journal_entries e ON e.id = l.entryId
+        WHERE e.sessionId = :sessionId AND l.accountCode = :accountCode
+    """)
+    suspend fun accountBalance(sessionId: String, accountCode: String): Long
+
     @Transaction
     suspend fun saveAccountingOperation(
         event: BusinessEventEntity,
