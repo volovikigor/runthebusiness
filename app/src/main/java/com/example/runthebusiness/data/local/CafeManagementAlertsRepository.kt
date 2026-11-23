@@ -39,7 +39,19 @@ class CafeManagementAlertsRepository(context: Context) {
             val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
             val installedIds = if (business == null) emptySet() else
                 db.operationsDao().getInventoryItems(business.id).map { it.id }.toSet()
-            CafePurchasingRepository.supplies.filter { it.itemId in installedIds }.forEach { supply ->
+            val location = business?.let { db.businessLocationDao().getLocations(it.id).singleOrNull() }
+            val products = location?.let { db.cafeMenuDao().getProducts(it.id) }.orEmpty()
+            val requiredStockIds = mutableSetOf<String>()
+            for (product in products.filter { it.isAvailable }) {
+                if (product.fulfillment == "RESALE") {
+                    product.finishedStockItemId?.let { requiredStockIds += it }
+                } else if (product.fulfillment == "PREPARED") {
+                    requiredStockIds += db.cafeMenuDao().getRecipe(product.id).map { it.ingredientId }
+                }
+            }
+            CafePurchasingRepository.supplies.filter {
+                it.itemId in installedIds && it.itemId in requiredStockIds
+            }.forEach { supply ->
                 val remaining = available[supply.itemId] ?: 0.0
                 val threshold = supply.quantity * 0.2
                 if (remaining <= threshold) {
