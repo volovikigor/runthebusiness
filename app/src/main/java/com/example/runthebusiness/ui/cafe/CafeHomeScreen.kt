@@ -23,6 +23,7 @@ import com.example.runthebusiness.data.local.CafeDiagnosticsRepository
 import com.example.runthebusiness.data.local.CafeDiagnostics
 import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeInventorySetupRepository
+import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
@@ -63,6 +64,7 @@ fun CafeHomeScreen(
     val diagnosticsRepo = remember(context) { CafeDiagnosticsRepository(context) }
     val menuSetup = remember(context) { CafeMenuRepository(context) }
     val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
+    val expandedMenu = remember(context) { CafeExpandedMenuRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
@@ -119,6 +121,7 @@ fun CafeHomeScreen(
                 game.initializeOpeningGame()
                 menuSetup.seedMenu()
                 stockSetup.initializeRealStock()
+                expandedMenu.install()
             } }, enabled = !loading) {
                 Text("Start café")
             }
