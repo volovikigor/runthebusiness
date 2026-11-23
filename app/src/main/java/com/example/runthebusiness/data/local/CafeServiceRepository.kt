@@ -77,15 +77,18 @@ class CafeServiceRepository(context: Context) {
                             .mapValues { (_, rows) -> rows.sumOf { it.quantityRemaining } }
                             .toMutableMap()
                         val basket = mutableListOf<String>()
+                        val recipeByProduct = products.associate { product ->
+                            product.id to if (product.fulfillment == "RESALE") {
+                                listOfNotNull(product.finishedStockItemId?.let { it to 1.0 })
+                            } else {
+                                db.cafeMenuDao().getRecipe(product.id).map { it.ingredientId to it.quantity }
+                            }
+                        }
                         val drinks = products.filter { it.type == "DRINK" }
                         val pastries = products.filter { it.type == "PASTRY" }
                         suspend fun tryAdd(product: com.example.runthebusiness.data.local.entity.CafeProductEntity): Boolean {
                             if (product.fulfillment == "BATCH_PRODUCED") return false
-                            val required = if (product.fulfillment == "RESALE") {
-                                listOf(requireNotNull(product.finishedStockItemId) to 1.0)
-                            } else {
-                                db.cafeMenuDao().getRecipe(product.id).map { it.ingredientId to it.quantity }
-                            }
+                            val required = recipeByProduct[product.id].orEmpty()
                             if (required.isEmpty()) return false
                             if (!required.all { (ingredient, amount) ->
                                 (stock[ingredient] ?: 0.0) + 1e-8 >= amount
@@ -107,30 +110,35 @@ class CafeServiceRepository(context: Context) {
                                 for (drink in rotated) if (tryAdd(drink)) break
                             }
                         }
-                        if (pastries.isNotEmpty() &&
-                            CafePriceDemandRules.wantsCategory(arrival.id, now.hour, "PASTRY")) {
-                            val shift = offset % pastries.size
-                            val rotated = pastries.drop(shift) + pastries.take(shift)
-                            for (pastry in rotated) if (tryAdd(pastry)) break
-                        }
-                        // Guests may want lunch food, a dessert, or neither.
-                        // Choose one extra category per group; preference changes by hour.
-                        val foodIntent = CafePriceDemandRules.wantsCategory(
-                            arrival.id, now.hour, "FOOD")
-                        val dessertIntent = CafePriceDemandRules.wantsCategory(
-                            arrival.id, now.hour, "DESSERT")
-                        val category = when {
-                            foodIntent && dessertIntent -> if (now.hour in 11..14) "FOOD" else "DESSERT"
-                            foodIntent -> "FOOD"
-                            dessertIntent -> "DESSERT"
-                            else -> null
-                        }
-                        if (category != null) {
-                            val extras = products.filter { it.type == category }
-                            if (extras.isNotEmpty()) {
-                                val shift = offset % extras.size
-                                val rotated = extras.drop(shift) + extras.take(shift)
-                                for (extra in rotated) if (tryAdd(extra)) break
+                        // Each guest independently chooses a pastry and/or one food/dessert.
+                        // A group may therefore buy multiple extras. Keep demand stable
+                        // across restarts by deriving all decisions from arrival ID + guest.
+                        repeat(arrival.guests) { guest ->
+                            val guestKey = "${arrival.id}_guest_$guest"
+                            if (pastries.isNotEmpty() &&
+                                CafePriceDemandRules.wantsCategory(guestKey, now.hour, "PASTRY")) {
+                                val shift = (offset + guest) % pastries.size
+                                val rotated = pastries.drop(shift) + pastries.take(shift)
+                                for (pastry in rotated) if (tryAdd(pastry)) break
+                            }
+                            val foodIntent = CafePriceDemandRules.wantsCategory(
+                                guestKey, now.hour, "FOOD")
+                            val dessertIntent = CafePriceDemandRules.wantsCategory(
+                                guestKey, now.hour, "DESSERT")
+                            val category = when {
+                                foodIntent && dessertIntent ->
+                                    if (now.hour in 11..14) "FOOD" else "DESSERT"
+                                foodIntent -> "FOOD"
+                                dessertIntent -> "DESSERT"
+                                else -> null
+                            }
+                            if (category != null) {
+                                val extras = products.filter { it.type == category }
+                                if (extras.isNotEmpty()) {
+                                    val shift = (offset + guest) % extras.size
+                                    val rotated = extras.drop(shift) + extras.take(shift)
+                                    for (extra in rotated) if (tryAdd(extra)) break
+                                }
                             }
                         }
                         val slot = now.totalMinutes / 15L
