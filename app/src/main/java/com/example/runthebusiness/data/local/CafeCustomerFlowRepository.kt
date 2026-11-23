@@ -1,0 +1,35 @@
+package com.example.runthebusiness.data.local
+
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+data class CafeCustomerFlow(
+    val days: Int, val groups: Int, val guests: Int,
+    val servedGroups: Int, val servedGuests: Int,
+    val byStatus: Map<String, Int>
+)
+
+class CafeCustomerFlowRepository(context: Context) {
+    private val db = GameDatabase.getInstance(context.applicationContext)
+
+    suspend fun lastCompletedDays(days: Int = 14, sessionId: String = "debug_session_001"):
+        CafeCustomerFlow? = withContext(Dispatchers.IO) {
+        val session = db.accountingDao().getSession(sessionId) ?: return@withContext null
+        val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
+            ?: return@withContext null
+        val location = db.businessLocationDao().getLocations(business.id).singleOrNull()
+            ?: return@withContext null
+        val fromDay = (session.currentDay - days).coerceAtLeast(1)
+        val rows = db.cafeArrivalDao().history(location.id).filter {
+            it.gameDay in fromDay until session.currentDay
+        }
+        val served = rows.filter { it.status == "SERVED" }
+        CafeCustomerFlow(
+            days = (session.currentDay - fromDay).coerceAtLeast(0),
+            groups = rows.size, guests = rows.sumOf { it.guests },
+            servedGroups = served.size, servedGuests = served.sumOf { it.guests },
+            byStatus = rows.groupingBy { it.status }.eachCount().toSortedMap()
+        )
+    }
+}
