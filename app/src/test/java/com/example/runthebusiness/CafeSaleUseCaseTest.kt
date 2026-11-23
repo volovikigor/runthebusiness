@@ -43,6 +43,24 @@ class CafeSaleUseCaseTest {
         assertEquals(160L, cogs.lines.first { it.accountCode == "5000" }.debitCents)
     }
 
+    @Test fun cardPaymentCreditsRevenueAndDebitsBank() {
+        val initial = startingState()
+        val cardOrder = order("card_1").copy(paymentMethod = PaymentMethod.BANK_CARD)
+        val result = CompleteCafeSaleUseCase().execute(initial, cardOrder)
+        val revenue = result.journalEntries.single { it.id == "sale_card_1" }
+        assertEquals(660L, revenue.lines.single { it.accountCode == "1100" }.debitCents)
+        assertEquals(0L, revenue.lines.filter { it.accountCode == "1000" }.sumOf { it.debitCents })
+        assertEquals(600L, revenue.lines.single { it.accountCode == "4000" }.creditCents)
+        assertEquals(60L, revenue.lines.single { it.accountCode == "2200" }.creditCents)
+    }
+
+    @Test fun cashPaymentDebitsTillNotBank() {
+        val result = CompleteCafeSaleUseCase().execute(startingState(), order("cash_1"))
+        val revenue = result.journalEntries.single { it.id == "sale_cash_1" }
+        assertEquals(660L, revenue.lines.single { it.accountCode == "1000" }.debitCents)
+        assertTrue(revenue.lines.none { it.accountCode == "1100" })
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun rejectsOversellingWithoutChangingInput() {
         CompleteCafeSaleUseCase().execute(startingState(), order(quantity = 11))
