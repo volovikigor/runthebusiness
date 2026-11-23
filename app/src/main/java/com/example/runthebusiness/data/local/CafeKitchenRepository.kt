@@ -47,6 +47,14 @@ class CafeKitchenRepository(context: Context) {
 
     data class Result(val converted: Int, val waitingForStock: List<String>)
 
+    suspend fun installed(sessionId: String = "debug_session_001"): Boolean =
+        withContext(Dispatchers.IO) {
+            val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
+                ?: return@withContext false
+            db.operationsDao().getInventoryItems(business.id)
+                .any { it.id == "kitchen_bread" }
+        }
+
     suspend fun activate(sessionId: String = "debug_session_001"): Result =
         withContext(Dispatchers.IO) {
             db.withTransaction {
