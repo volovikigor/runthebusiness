@@ -27,14 +27,14 @@ class CafeManagementAlertsRepository(context: Context) {
             val position = cash.position(sessionId)
             val day = game.loadGameTime(sessionId)?.day ?: return@withContext emptyList()
             val impact = consequences.load(sessionId)
-            // Game cadence: rent on days 14, 28, ...; payroll on days 7, 14, 21, ...
+            // Game cadence: rent and payroll on days 14, 28, 42, ...
             // Accruals remain visible in Finance every day; alerts are only for due/late bills.
             fun lastDueDay(period: Int): Int = (day / period) * period
             suspend fun isDue(period: Int, account: String): Boolean =
                 day >= period && (db.accountingDao().lastSettlementDay(sessionId, account) ?: 0) <
                     lastDueDay(period)
-            fun isLate(period: Int): Boolean = if (period == 7) impact.payrollDaysLate > 2
-                else impact.rentDaysLate > 2
+            fun payrollLate(): Boolean = impact.payrollDaysLate > 2
+            fun rentLate(): Boolean = impact.rentDaysLate > 2
             val alerts = mutableListOf<ManagementAlert>()
             CafePurchasingRepository.supplies.forEach { supply ->
                 val remaining = available[supply.itemId] ?: 0.0
@@ -51,7 +51,7 @@ class CafeManagementAlertsRepository(context: Context) {
                 }
             }
             val rentDue = position.rentPayableCents > 0L && isDue(14, "2000")
-            val payrollDue = position.salariesPayableCents > 0L && isDue(7, "2300")
+            val payrollDue = position.salariesPayableCents > 0L && isDue(14, "2300")
             if ((rentDue || payrollDue) && position.liquidityGapCents < 0L) {
                 alerts += ManagementAlert(
                     id = "liquidity", priority = 0,
@@ -62,7 +62,7 @@ class CafeManagementAlertsRepository(context: Context) {
             }
             if (rentDue) {
                 alerts += ManagementAlert(
-                    id = "rent", priority = if (isLate(14)) 0 else 2,
+                    id = "rent", priority = if (rentLate()) 0 else 2,
                     title = if (isLate(14)) "Overdue rent" else "Rent payment due",
                     detail = if (isLate(14)) "Rent is more than 2 game days late · settle in Finance > Cash"
                         else "Rent payment scheduled every 14 game days · Finance > Cash",
@@ -71,10 +71,10 @@ class CafeManagementAlertsRepository(context: Context) {
             }
             if (payrollDue) {
                 alerts += ManagementAlert(
-                    id = "payroll", priority = if (isLate(7)) 0 else 2,
+                    id = "payroll", priority = if (payrollLate()) 0 else 2,
                     title = if (isLate(7)) "Overdue payroll" else "Payroll payment due",
                     detail = if (isLate(7)) "Payroll is more than 2 game days late · settle in Finance > Cash"
-                        else "Payroll payment scheduled every 7 game days · Finance > Cash",
+                        else "Payroll payment scheduled every 14 game days · Finance > Cash",
                     destination = "finance"
                 )
             }
