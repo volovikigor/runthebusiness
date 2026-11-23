@@ -185,7 +185,10 @@ fun CafeHomeScreen(
                 tables = cafe.tables,
                 seats = cafe.seats,
                 activeGuests = visitors.filter {
-                    it.gameDay == cafe.time.day && it.status == "SERVED"
+                    it.status == "SERVED" &&
+                    ((cafe.time.day - it.gameDay) * 1440L +
+                        (cafe.time.hour - it.gameHour) * 60L +
+                        cafe.time.minute - it.gameMinute) in 0L..59L
                 }.sumOf { it.guests }.coerceAtMost(cafe.seats),
                 readyDishes = menuReadiness.count { it.ready },
                 totalDishes = menuReadiness.size,
