@@ -1,6 +1,8 @@
 package com.example.runthebusiness.ui.cafe
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
+import com.example.runthebusiness.data.local.CafeAuditExportRepository
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
 import com.example.runthebusiness.data.local.CashPosition
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
@@ -27,6 +30,7 @@ import java.util.Locale
 fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = "P&L") {
     val context = LocalContext.current.applicationContext
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
+    val auditRepo = remember(context) { CafeAuditExportRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val detailsRepo = remember(context) { CafeTransactionDetailRepository(context) }
@@ -47,6 +51,23 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     var expandedPurchase by remember { mutableStateOf<List<StockMovementEntity>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var exportData by remember { mutableStateOf<String?>(null) }
+    val saveAudit = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        val data = exportData
+        if (uri != null && data != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(data.toByteArray(Charsets.UTF_8))
+                } ?: error("Cannot open selected file")
+                settlementMessage = "Audit CSV saved. Share the file for review."
+            } catch (e: Exception) {
+                error = "Export failed: ${e.message}"
+            }
+        }
+        exportData = null
+    }
 
     BackHandler(enabled = expandedId != null || section != "P&L") {
         when {
@@ -104,6 +125,17 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Finance", style = MaterialTheme.typography.headlineMedium)
+        OutlinedButton(enabled = !busy, onClick = {
+            scope.launch {
+                busy = true
+                try {
+                    exportData = auditRepo.exportCsv()
+                    saveAudit.launch("cafe_audit.csv")
+                } catch (e: Exception) {
+                    error = "Export failed: ${e.message}"
+                } finally { busy = false }
+            }
+        }) { Text("Export full audit CSV (journal + inventory + visitors)") }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf("P&L", "BS", "Cash", "Journal").forEachIndexed { index, tab ->
                 SegmentedButton(

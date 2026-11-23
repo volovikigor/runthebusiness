@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.runthebusiness.data.local.CafeCustomerFlowRepository
+import com.example.runthebusiness.data.local.CafeCustomerFlow
 import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.CafeSaleRepository
@@ -53,6 +55,7 @@ fun CafeHomeScreen(
 ) {
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
+    val flowRepo = remember(context) { CafeCustomerFlowRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
     val breakEvenRepo = remember(context) { CafeBreakEvenRepository(context) }
@@ -78,6 +81,8 @@ fun CafeHomeScreen(
     var showPerformance by remember { mutableStateOf(false) }
     var breakEven by remember { mutableStateOf<CafeBreakEven?>(null) }
     var showBreakEven by remember { mutableStateOf(false) }
+    var customerFlow by remember { mutableStateOf<CafeCustomerFlow?>(null) }
+    var showCustomerFlow by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmNewGame by remember { mutableStateOf(false) }
 
@@ -90,6 +95,7 @@ fun CafeHomeScreen(
         alerts = if (state != null) alertsRepo.load() else emptyList()
         dailyPerformance = if (state != null) performanceRepo.recent() else emptyList()
         breakEven = if (state != null) breakEvenRepo.snapshot() else null
+        customerFlow = if (state != null) flowRepo.lastCompletedDays() else null
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -287,6 +293,29 @@ fun CafeHomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SummaryTile("Orders", "${cafe.salesCount}", Modifier.weight(1f))
                 SummaryTile("Output IVA", euro(cafe.outputVatCents), Modifier.weight(1f))
+            }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Customer flow · last 14 days", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = { showCustomerFlow = !showCustomerFlow }) {
+                    Text(if (showCustomerFlow) "Hide" else "View")
+                }
+            }
+            if (showCustomerFlow) {
+                customerFlow?.let { funnel ->
+                    Text("Completed days: ${funnel.days}")
+                    Text("Arriving groups: ${funnel.groups} · guests: ${funnel.guests}")
+                    Text("Served groups: ${funnel.servedGroups} · guests: ${funnel.servedGuests}")
+                    val conversion = if (funnel.groups > 0)
+                        100.0 * funnel.servedGroups / funnel.groups else 0.0
+                    Text("Group conversion: %.1f%%".format(Locale.ROOT, conversion))
+                    funnel.byStatus.forEach { (status, count) ->
+                        Text("$status: $count groups")
+                    }
+                    Text("Counts are arrival groups, not individual orders. Reasons include stock, price, seating and staff capacity.",
+                        style = MaterialTheme.typography.bodySmall)
+                } ?: Text("No completed-day arrival data yet")
             }
             HorizontalDivider()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
