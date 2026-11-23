@@ -67,11 +67,12 @@ class GameSimulationEngine(context: Context) {
         var groups = 0
         var advanceMs = 0L
         var alertsMs = 0L
+        var alertChecks = 0
         var arrivalMs = 0L
         var stepsRun = 0
         fun result(time: GameTime, message: String, served: Int): NextEventResult {
             val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
-            android.util.Log.i("CafeSimulation", "jump=$mode elapsedMs=$elapsed advanceMs=$advanceMs alertsMs=$alertsMs arrivalMs=$arrivalMs steps=$stepsRun groups=$served day=${time.day}")
+            android.util.Log.i("CafeSimulation", "jump=$mode elapsedMs=$elapsed advanceMs=$advanceMs alertsMs=$alertsMs alertChecks=$alertChecks arrivalMs=$arrivalMs steps=$stepsRun groups=$served day=${time.day}")
             return NextEventResult(time, message, served)
         }
         val steps = when (mode) {
@@ -93,14 +94,22 @@ class GameSimulationEngine(context: Context) {
             stepsRun++
             latest = step.time
             groups += step.groupsServed
-            val alertStarted = android.os.SystemClock.elapsedRealtime()
-            val newDecision = alerts.load(sessionId).firstOrNull { it.id !in knownAlerts }
-            alertsMs += android.os.SystemClock.elapsedRealtime() - alertStarted
-            if (newDecision != null) {
-                val isCritical = newDecision.priority == 0
-                if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT ||
-                    (mode == JumpMode.NEXT_WEEK && isCritical)) {
-                    return result(latest, "Management alert · ${newDecision.title}", groups)
+            // Management state changes on arrivals/sales, day boundaries and settlements.
+            // During a calendar/decision jump, check on hourly boundaries; keep
+            // NEXT_EVENT precise at every 15-minute interval.
+            // Hourly checks can report a new stock alert up to 45 minutes late.
+            val shouldCheckAlerts = mode == JumpMode.NEXT_EVENT || latest.minute == 0
+            if (shouldCheckAlerts) {
+                val alertStarted = android.os.SystemClock.elapsedRealtime()
+                val newDecision = alerts.load(sessionId).firstOrNull { it.id !in knownAlerts }
+                alertsMs += android.os.SystemClock.elapsedRealtime() - alertStarted
+                alertChecks++
+                if (newDecision != null) {
+                    val isCritical = newDecision.priority == 0
+                    if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT ||
+                        (mode == JumpMode.NEXT_WEEK && isCritical)) {
+                        return result(latest, "Management alert · ${newDecision.title}", groups)
+                    }
                 }
             }
             if (mode == JumpMode.NEXT_EVENT) {
