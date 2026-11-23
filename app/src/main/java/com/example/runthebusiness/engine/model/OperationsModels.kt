@@ -2,7 +2,7 @@
 package com.example.runthebusiness.engine.model
 
 enum class ProductType {
-    DRINK, FOOD, PASTRY
+    DRINK, FOOD, PASTRY, DESSERT
 }
 
 enum class StockUnit {
