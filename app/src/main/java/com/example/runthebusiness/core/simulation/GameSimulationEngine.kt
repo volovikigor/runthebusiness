@@ -65,9 +65,13 @@ class GameSimulationEngine(context: Context) {
         var previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
         var latest = initial
         var groups = 0
+        var advanceMs = 0L
+        var alertsMs = 0L
+        var arrivalMs = 0L
+        var stepsRun = 0
         fun result(time: GameTime, message: String, served: Int): NextEventResult {
             val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
-            android.util.Log.i("CafeSimulation", "jump=$mode elapsedMs=$elapsed groups=$served day=${time.day}")
+            android.util.Log.i("CafeSimulation", "jump=$mode elapsedMs=$elapsed advanceMs=$advanceMs alertsMs=$alertsMs arrivalMs=$arrivalMs steps=$stepsRun groups=$served day=${time.day}")
             return NextEventResult(time, message, served)
         }
         val steps = when (mode) {
@@ -83,10 +87,15 @@ class GameSimulationEngine(context: Context) {
             else -> Long.MAX_VALUE
         }
         repeat(steps) {
+            val advanceStarted = android.os.SystemClock.elapsedRealtime()
             val step = advance(15L, sessionId)
+            advanceMs += android.os.SystemClock.elapsedRealtime() - advanceStarted
+            stepsRun++
             latest = step.time
             groups += step.groupsServed
+            val alertStarted = android.os.SystemClock.elapsedRealtime()
             val newDecision = alerts.load(sessionId).firstOrNull { it.id !in knownAlerts }
+            alertsMs += android.os.SystemClock.elapsedRealtime() - alertStarted
             if (newDecision != null) {
                 val isCritical = newDecision.priority == 0
                 if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT ||
@@ -95,7 +104,9 @@ class GameSimulationEngine(context: Context) {
                 }
             }
             if (mode == JumpMode.NEXT_EVENT) {
+                val arrivalStarted = android.os.SystemClock.elapsedRealtime()
                 val newArrival = arrivals.recent(sessionId).firstOrNull { it.id !in previousArrivalIds }
+                arrivalMs += android.os.SystemClock.elapsedRealtime() - arrivalStarted
                 if (newArrival != null) {
                     return result(latest, "Customer arrival · ${newArrival.guests} guests", groups)
                 }
