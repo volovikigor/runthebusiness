@@ -19,6 +19,14 @@ class CafeInventorySetupRepository(context: Context) {
     private val menu = db.cafeMenuDao()
     private val sales = db.cafeSalesDao()
 
+    suspend fun hasRealIngredients(sessionId: String = "debug_session_001"): Boolean =
+        withContext(Dispatchers.IO) {
+            val business = setup.getBusinesses(sessionId).singleOrNull()
+                ?: return@withContext false
+            val ids = operations.getInventoryItems(business.id).map { it.id }.toSet()
+            ids.containsAll(setOf("stock_beans_001", "stock_milk_001", "stock_croissants_001"))
+        }
+
     suspend fun initializeRealStock(sessionId: String = "debug_session_001") =
         withContext(Dispatchers.IO) {
             db.withTransaction {

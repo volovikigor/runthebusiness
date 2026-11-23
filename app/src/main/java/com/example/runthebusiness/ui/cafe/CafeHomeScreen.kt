@@ -115,7 +115,11 @@ fun CafeHomeScreen(
         if (cafe == null) {
             Text("Welcome to Maison Café", style = MaterialTheme.typography.headlineMedium)
             Text("Start your business to create the first café and its opening balance sheet.")
-            Button(onClick = { run { game.initializeOpeningGame() } }, enabled = !loading) {
+            Button(onClick = { run {
+                game.initializeOpeningGame()
+                menuSetup.seedMenu()
+                stockSetup.initializeRealStock()
+            } }, enabled = !loading) {
                 Text("Start café")
             }
         } else {
