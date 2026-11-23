@@ -77,6 +77,7 @@ class CafeMenuRepository(context: Context) {
                     id = product.id, name = product.name, type = product.type,
                     priceCents = product.sellingPriceCents,
                     preparationMinutes = product.preparationMinutes,
+                    enabled = product.isAvailable,
                     ingredients = menu.getRecipe(product.id).map {
                         it.ingredientId to it.quantity
                     }
