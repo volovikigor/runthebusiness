@@ -240,7 +240,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                             Text("Day ${movement.gameDay} · ${if (movement.quantityDelta > 0) "Purchase" else "Sale consumption"}")
                         },
                         trailingContent = {
-                            Text("%+.3f".format(Locale.ROOT, movement.quantityDelta))
+                            Text(if (movement.quantityDelta % 1.0 == 0.0)
+                                "%+.0f".format(Locale.ROOT, movement.quantityDelta)
+                            else "%+.2f".format(Locale.ROOT, movement.quantityDelta)
+                                .trimEnd('0').trimEnd('.'))
                         }
                     )
                 }
