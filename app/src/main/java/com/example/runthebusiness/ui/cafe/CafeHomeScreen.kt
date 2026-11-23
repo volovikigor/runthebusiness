@@ -176,26 +176,25 @@ fun CafeHomeScreen(
                 Text("Start café")
             }
         } else {
-            Box(
-                modifier = Modifier.fillMaxWidth().background(
-                    Brush.verticalGradient(listOf(EspressoBrown, Color(0xFF815338))),
-                    RoundedCornerShape(20.dp)
-                ).padding(22.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("MAISON CAFÉ", color = Honey, style = MaterialTheme.typography.labelLarge)
-                    Text(cafe.cafeName, color = Cream, style = MaterialTheme.typography.headlineMedium)
-                    Text("Day ${cafe.time.day}  •  %02d:%02d".format(
-                        Locale.ROOT, cafe.time.hour, cafe.time.minute
-                    ), color = Cream)
-                    Spacer(Modifier.height(8.dp))
-                    Text("☕     ◯  ◯  ◯", color = Honey, style = MaterialTheme.typography.headlineLarge)
-                    Text("${cafe.tables} tables  •  ${cafe.seats} seats",
-                        color = Cream, style = MaterialTheme.typography.bodyMedium)
-                    Text("Your café is ready for the next business day.",
-                        color = Color(0xFFE6D3B9), style = MaterialTheme.typography.bodySmall)
-                }
-            }
+            CafeScene(
+                name = cafe.cafeName,
+                day = cafe.time.day,
+                hour = cafe.time.hour,
+                minute = cafe.time.minute,
+                isOpen = cafe.isOpen,
+                tables = cafe.tables,
+                seats = cafe.seats,
+                activeGuests = visitors.filter {
+                    it.gameDay == cafe.time.day && it.status == "SERVED"
+                }.sumOf { it.guests }.coerceAtMost(cafe.seats),
+                readyDishes = menuReadiness.count { it.ready },
+                totalDishes = menuReadiness.size,
+                bankCents = cashPosition?.bankCents ?: 0L,
+                cashCents = cashPosition?.cashCents ?: 0L,
+                hasUrgentBills = paymentStatus?.rentShutdown == true ||
+                    paymentStatus?.staffDisruption == true,
+                modifier = Modifier.fillMaxWidth()
+            )
             Text("Café status: ${if (cafe.isOpen) "OPEN" else "CLOSED"} • Hours %02d:00–%02d:00".format(
                 Locale.ROOT, cafe.openingHour, cafe.closingHour
             ), style = MaterialTheme.typography.titleMedium,
