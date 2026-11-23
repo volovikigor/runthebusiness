@@ -63,8 +63,8 @@ class CafeManagementAlertsRepository(context: Context) {
             if (rentDue) {
                 alerts += ManagementAlert(
                     id = "rent", priority = if (rentLate()) 0 else 2,
-                    title = if (isLate(14)) "Overdue rent" else "Rent payment due",
-                    detail = if (isLate(14)) "Rent is more than 2 game days late · settle in Finance > Cash"
+                    title = if (rentLate()) "Overdue rent" else "Rent payment due",
+                    detail = if (rentLate()) "Rent is more than 2 game days late · settle in Finance > Cash"
                         else "Rent payment scheduled every 14 game days · Finance > Cash",
                     destination = "finance"
                 )
@@ -72,8 +72,8 @@ class CafeManagementAlertsRepository(context: Context) {
             if (payrollDue) {
                 alerts += ManagementAlert(
                     id = "payroll", priority = if (payrollLate()) 0 else 2,
-                    title = if (isLate(7)) "Overdue payroll" else "Payroll payment due",
-                    detail = if (isLate(7)) "Payroll is more than 2 game days late · settle in Finance > Cash"
+                    title = if (payrollLate()) "Overdue payroll" else "Payroll payment due",
+                    detail = if (payrollLate()) "Payroll is more than 2 game days late · settle in Finance > Cash"
                         else "Payroll payment scheduled every 14 game days · Finance > Cash",
                     destination = "finance"
                 )
