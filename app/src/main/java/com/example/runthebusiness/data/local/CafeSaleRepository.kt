@@ -126,7 +126,7 @@ class CafeSaleRepository(context: Context) {
                     ) == 1) { "Stock changed during sale: ${updated.id}" }
                 }
 
-                val basketDescription = products.joinToString(", ") { "\${quantities.getValue(it.id)} × \${it.name}" }
+                val basketDescription = products.joinToString(", ") { "${quantities.getValue(it.id)} × ${it.name}" }
                 val entries = result.journalEntries
                 entries.forEach { entry ->
                     val readableDescription = when {
@@ -170,7 +170,7 @@ class CafeSaleRepository(context: Context) {
                 sales.insertOrder(row)
                 products.forEach { product ->
                     sales.insertOrderLine(CustomerOrderLineEntity(
-                        id = "order_line_\${id}_\${product.id}", orderId = id,
+                        id = "order_line_${id}_${product.id}", orderId = id,
                         productId = product.id, productName = product.name,
                         quantity = quantities.getValue(product.id), unitPriceCents = product.sellingPriceCents
                     ))
