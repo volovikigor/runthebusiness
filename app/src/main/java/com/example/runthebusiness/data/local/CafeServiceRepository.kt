@@ -101,20 +101,31 @@ class CafeServiceRepository(context: Context) {
                                 for (drink in rotated) if (tryAdd(drink)) break
                             }
                         }
-                        if (pastries.isNotEmpty() && (arrival.guests > 1 ||
-                                Math.floorMod(arrival.id.hashCode(), 2) == 0)) {
+                        if (pastries.isNotEmpty() &&
+                            CafePriceDemandRules.wantsCategory(arrival.id, now.hour, "PASTRY")) {
                             val shift = offset % pastries.size
                             val rotated = pastries.drop(shift) + pastries.take(shift)
                             for (pastry in rotated) if (tryAdd(pastry)) break
                         }
-                        // Lunch groups may add a meal; afternoon groups prefer dessert.
-                        // These are separate optional choices, not guaranteed purchases.
-                        val category = if (now.hour in 11..15) "FOOD" else "DESSERT"
-                        val extras = products.filter { it.type == category }
-                        if (extras.isNotEmpty()) {
-                            val shift = offset % extras.size
-                            val rotated = extras.drop(shift) + extras.take(shift)
-                            for (extra in rotated) if (tryAdd(extra)) break
+                        // Guests may want lunch food, a dessert, or neither.
+                        // Choose one extra category per group; preference changes by hour.
+                        val foodIntent = CafePriceDemandRules.wantsCategory(
+                            arrival.id, now.hour, "FOOD")
+                        val dessertIntent = CafePriceDemandRules.wantsCategory(
+                            arrival.id, now.hour, "DESSERT")
+                        val category = when {
+                            foodIntent && dessertIntent -> if (now.hour in 11..14) "FOOD" else "DESSERT"
+                            foodIntent -> "FOOD"
+                            dessertIntent -> "DESSERT"
+                            else -> null
+                        }
+                        if (category != null) {
+                            val extras = products.filter { it.type == category }
+                            if (extras.isNotEmpty()) {
+                                val shift = offset % extras.size
+                                val rotated = extras.drop(shift) + extras.take(shift)
+                                for (extra in rotated) if (tryAdd(extra)) break
+                            }
                         }
                         if (basket.isNotEmpty()) {
                             sale.sellBasket(basket, sessionId, now)
