@@ -29,6 +29,7 @@ import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
+import com.example.runthebusiness.data.local.CafeAuditExportRepository
 import com.example.runthebusiness.data.local.CafeBreakEvenRepository
 import com.example.runthebusiness.data.local.CafeBreakEven
 import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
@@ -59,6 +60,7 @@ fun CafeHomeScreen(
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
     val breakEvenRepo = remember(context) { CafeBreakEvenRepository(context) }
+    val auditExport = remember(context) { CafeAuditExportRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val dailyClose = remember(context) { CafeDailyCloseRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
@@ -251,6 +253,10 @@ fun CafeHomeScreen(
                                 run {
                                     val result = simulation.jump(mode)
                                     lastEventMessage = result.description
+                                    if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) {
+                                        auditExport.saveDesktopReport()
+                                        lastEventMessage += " · Diagnostic CSV ready for ADB transfer"
+                                    }
                                 }
                             }
                         ) { Text(label) }
