@@ -408,6 +408,8 @@ fun CafeHomeScreen(
                     Text("Net revenue/served guest: ${euro(if (funnel.servedGuests > 0) funnel.netSalesCents / funnel.servedGuests else 0L)}")
                     Text("Items/order: %.2f".format(Locale.ROOT,
                         if (funnel.orders > 0) funnel.orderLines.toDouble() / funnel.orders else 0.0))
+                    Text("Card: ${funnel.cardOrders} orders · ${euro(funnel.cardGrossCents)} gross")
+                    Text("Cash: ${funnel.orders - funnel.cardOrders} orders · ${euro(funnel.cashGrossCents)} gross")
                     val conversion = if (funnel.groups > 0)
                         100.0 * funnel.servedGroups / funnel.groups else 0.0
                     Text("Group conversion: %.1f%%".format(Locale.ROOT, conversion))
