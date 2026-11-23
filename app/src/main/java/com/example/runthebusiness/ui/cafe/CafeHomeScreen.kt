@@ -339,7 +339,7 @@ fun CafeHomeScreen(
                     Text("Waste/day: ${euro(economics.wasteDailyCents)}")
                     val wasteRatio = if (economics.netSalesCents > 0)
                         economics.wasteCents.toDouble() * 100.0 / economics.netSalesCents else 0.0
-                    Text("Waste as % of net sales: %.1f%%".format(Locale.ROOT, wasteRatio))
+                    Text("Waste as %% of net sales: %.1f%%".format(Locale.ROOT, wasteRatio))
                     Text("Contribution/order: €%.2f".format(Locale.ROOT, economics.avgContributionCents / 100.0))
                     Text("Daily rent: ${euro(economics.rentDailyCents)}")
                     Text("Daily payroll: ${euro(economics.payrollDailyCents)}")
