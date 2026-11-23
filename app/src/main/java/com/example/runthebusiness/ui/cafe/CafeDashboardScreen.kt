@@ -16,6 +16,7 @@ import java.util.Locale
 fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0) {
     val context = LocalContext.current.applicationContext
     val menu = remember(context) { CafeMenuRepository(context) }
+    val expanded = remember(context) { CafeExpandedMenuRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
     val writeOff = remember(context) { CafeWriteOffRepository(context) }
     val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
@@ -80,6 +81,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     game.initializeOpeningGame()
                     menu.seedMenu()
                     inventorySetup.initializeRealStock()
+                    expanded.install()
                 } }, enabled = !busy) {
                 Text("Start café")
             }
@@ -94,11 +96,27 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         Text("Create starter menu")
                     }
                 }
+                if (products.none { it.id == "caesar_salad_001" }) {
+                    Button(onClick = { run {
+                        expanded.install()
+                        message = "11 new menu items added. Enable and stock the ones you want to sell."
+                    } }, enabled = !busy) { Text("Expand menu: cakes, sandwiches & salads") }
+                }
+                Text("Enable products to offer them to visitors. New items need supplier stock before sales.",
+                    style = MaterialTheme.typography.bodySmall)
                 products.forEach { product ->
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(product.name, style = MaterialTheme.typography.titleMedium)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(product.name, style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f))
+                                Switch(checked = product.enabled, enabled = !busy,
+                                    onCheckedChange = { checked -> run {
+                                        expanded.setEnabled(product.id, checked)
+                                    } })
+                            }
+                            Text(product.type, style = MaterialTheme.typography.labelSmall)
                             Text("Current price", style = MaterialTheme.typography.labelSmall)
                             Text("€%.2f".format(Locale.ROOT, product.priceCents / 100.0),
                                 style = MaterialTheme.typography.headlineSmall)
@@ -141,7 +159,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     Text("Real ingredient recipes and FIFO stock are active.",
                         style = MaterialTheme.typography.bodySmall)
                 }
-                CafePurchasingRepository.supplies.forEach { supply ->
+                CafePurchasingRepository.supplies.filter { supply ->
+                    supply.itemId in stock.keys ||
+                        products.any { it.id in CafeExpandedMenuRepository.offerings.map { o -> o.id } &&
+                            supply.itemId == "stock_" + it.id }
+                }.forEach { supply ->
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {

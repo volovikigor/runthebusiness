@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 class CafePurchasingRepository(context: Context) {
     private val db = GameDatabase.getInstance(context)
 
-    data class Supply(val itemId: String, val label: String, val quantity: Double, val unitCostCents: Long, val unit: String) {
+    data class Supply(val itemId: String, val label: String, val quantity: Double, val unitCostCents: Long, val unit: String, val shelfLifeDays: Int = 0) {
         val costCents: Long get() = (quantity * unitCostCents).toLong()
     }
 
@@ -24,7 +24,9 @@ class CafePurchasingRepository(context: Context) {
             Supply("stock_beans_001", "Coffee beans", 1000.0, 4L, "g"),
             Supply("stock_milk_001", "Milk", 10000.0, 1L, "ml"),
             Supply("stock_croissants_001", "Croissants", 100.0, 160L, "pcs")
-        )
+        ) + CafeExpandedMenuRepository.offerings.map {
+            Supply(it.stockId, it.name, it.packSize, it.costCents, "pcs", it.shelfLifeDays)
+        }
     }
 
     suspend fun stock(sessionId: String = "debug_session_001"): Map<String, Double> =
@@ -67,7 +69,8 @@ class CafePurchasingRepository(context: Context) {
                         receivedDay = session.currentDay,
                         receivedHour = session.currentHour,
                         receivedMinute = session.currentMinute,
-                        expiresDay = null,
+                        expiresDay = if (supply.shelfLifeDays > 0)
+                            session.currentDay + supply.shelfLifeDays else null,
                         expiresHour = null,
                         expiresMinute = null
                     )

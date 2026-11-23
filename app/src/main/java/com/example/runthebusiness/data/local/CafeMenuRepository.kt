@@ -14,6 +14,7 @@ data class CafeMenuItem(
     val type: String,
     val priceCents: Long,
     val preparationMinutes: Int,
+    val enabled: Boolean,
     val ingredients: List<Pair<String, Double>>
 )
 
