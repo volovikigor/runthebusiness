@@ -36,7 +36,10 @@ class CafeManagementAlertsRepository(context: Context) {
             fun payrollLate(): Boolean = impact.payrollDaysLate > 2
             fun rentLate(): Boolean = impact.rentDaysLate > 2
             val alerts = mutableListOf<ManagementAlert>()
-            CafePurchasingRepository.supplies.forEach { supply ->
+            val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
+            val installedIds = if (business == null) emptySet() else
+                db.operationsDao().getInventoryItems(business.id).map { it.id }.toSet()
+            CafePurchasingRepository.supplies.filter { it.itemId in installedIds }.forEach { supply ->
                 val remaining = available[supply.itemId] ?: 0.0
                 val threshold = supply.quantity * 0.2
                 if (remaining <= threshold) {
