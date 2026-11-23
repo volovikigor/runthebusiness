@@ -10,7 +10,8 @@ data class MenuReadiness(
     val name: String,
     val category: String,
     val servings: Int,
-    val missing: List<MissingSupply>
+    val missing: List<MissingSupply>,
+    val unsupported: Boolean = false
 ) {
     val ready: Boolean get() = servings > 0
 }
@@ -64,7 +65,8 @@ class CafeMenuReadinessRepository(context: Context) {
                         if (qty <= 0.0) 0 else floor(((stock[id] ?: 0.0) + 1e-8) / qty)
                             .coerceAtMost(Int.MAX_VALUE.toDouble()).toInt()
                     }
-                MenuReadiness(product.id, product.name, product.type, servings, missing)
+                MenuReadiness(product.id, product.name, product.type, servings, missing,
+                    unsupported = recipe.isEmpty() || product.fulfillment == "BATCH_PRODUCED")
             }.sortedWith(compareBy<MenuReadiness> { it.ready }.thenBy { it.category }.thenBy { it.name })
         }
 }
