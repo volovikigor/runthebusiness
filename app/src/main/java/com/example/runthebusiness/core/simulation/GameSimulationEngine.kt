@@ -6,6 +6,13 @@ import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
 import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
 import com.example.runthebusiness.data.local.GameRepository
+import com.example.runthebusiness.data.local.GameDatabase
+import com.example.runthebusiness.data.local.CafeMenuRepository
+import com.example.runthebusiness.data.local.CafeInventorySetupRepository
+import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
+import com.example.runthebusiness.data.local.CafeKitchenRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.runthebusiness.engine.model.GameTime
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,6 +25,7 @@ import kotlinx.coroutines.sync.withLock
  * one global transaction: pending arrivals are durable and retried on resume.
  */
 class GameSimulationEngine(context: Context) {
+    private val appContext = context.applicationContext
     private val clock = GameRepository(context.applicationContext)
     private val cafe = CafeServiceRepository(context.applicationContext)
     private val close = CafeDailyCloseRepository(context.applicationContext)
@@ -142,6 +150,21 @@ class GameSimulationEngine(context: Context) {
         val description: String,
         val groupsServed: Int
     )
+
+    /**
+     * Explicit destructive new-game action. Serialized with clock ticks and jumps.
+     * The current MVP supports a single local save only.
+     */
+    suspend fun startFreshGame() = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            GameDatabase.getInstance(appContext).clearAllTables()
+            GameRepository(appContext).initializeOpeningGame()
+            CafeMenuRepository(appContext).seedMenu()
+            CafeInventorySetupRepository(appContext).initializeRealStock()
+            CafeExpandedMenuRepository(appContext).install()
+            CafeKitchenRepository(appContext).activate()
+        }
+    }
 
     suspend fun resumePending(sessionId: String = "debug_session_001"): Int =
         mutex.withLock { cafe.processPending(sessionId) }

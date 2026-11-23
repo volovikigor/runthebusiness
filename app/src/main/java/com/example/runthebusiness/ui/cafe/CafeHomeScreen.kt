@@ -79,6 +79,7 @@ fun CafeHomeScreen(
     var breakEven by remember { mutableStateOf<CafeBreakEven?>(null) }
     var showBreakEven by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var confirmNewGame by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         state = dashboard.snapshot()
@@ -105,6 +106,27 @@ fun CafeHomeScreen(
     LaunchedEffect(Unit) { run { simulation.resumePending() } }
     LaunchedEffect(clockRevision) {
         if (clockRevision > 0) reload()
+    }
+
+    if (confirmNewGame) {
+        AlertDialog(
+            onDismissRequest = { confirmNewGame = false },
+            title = { Text("Start a new game?") },
+            text = { Text("This permanently deletes your current café, purchases, stock, sales, journals and game progress. A new café will start at Day 1 with kitchen recipes installed. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmNewGame = false
+                    onSpeedChange(0)
+                    run {
+                        simulation.startFreshGame()
+                        lastEventMessage = "New game started. Buy kitchen ingredients and enable dishes to test recipes."
+                    }
+                }) { Text("Delete save & start new") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmNewGame = false }) { Text("Cancel") }
+            }
+        )
     }
 
     Column(
@@ -214,7 +236,7 @@ fun CafeHomeScreen(
                         GameSimulationEngine.JumpMode.NEXT_EVENT to "Next routine event",
                         GameSimulationEngine.JumpMode.NEXT_DECISION to "Next management decision",
                         GameSimulationEngine.JumpMode.NEXT_DAY to "Finish current day",
-                        GameSimulationEngine.JumpMode.NEXT_WEEK to "+7 game days"
+                        GameSimulationEngine.JumpMode.NEXT_WEEK to "Advance up to 7 days"
                     ).forEach { (mode, label) ->
                         OutlinedButton(
                             enabled = !loading && speed == 0,
@@ -361,7 +383,13 @@ fun CafeHomeScreen(
                     style = MaterialTheme.typography.bodySmall)
             }
             HorizontalDivider()
-            Text("Café setup", style = MaterialTheme.typography.titleMedium)
+            HorizontalDivider()
+            Text("Game save", style = MaterialTheme.typography.titleMedium)
+            Text("Start over to test a clean café. Your current progress will be permanently deleted.",
+                style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { confirmNewGame = true },
+                enabled = !loading && speed == 0) { Text("New game / Reset progress") }
+                        Text("Café setup", style = MaterialTheme.typography.titleMedium)
             val report = diagnostics
             if (report != null) {
                 if (!report.realIngredientsInstalled) {
