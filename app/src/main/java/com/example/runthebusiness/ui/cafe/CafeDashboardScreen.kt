@@ -110,9 +110,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 if (products.any { it.id == "ham_cheese_001" }) {
                     OutlinedButton(onClick = { run {
                         val result = kitchen.activate()
-                        message = "Kitchen recipes activated: \${result.converted}. " +
+                        message = "Kitchen recipes activated: ${result.converted}. " +
                             if (result.waitingForStock.isEmpty()) "All eligible meals use ingredients."
-                            else "Sell remaining ready-made stock first: \${result.waitingForStock.joinToString()}"
+                            else "Sell remaining ready-made stock first: ${result.waitingForStock.joinToString()}"
                     } }, enabled = !busy) { Text("Activate kitchen recipes for sandwiches & salads") }
                 }
                 products.forEach { product ->
