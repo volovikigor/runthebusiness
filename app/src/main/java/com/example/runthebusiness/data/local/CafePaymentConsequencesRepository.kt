@@ -30,7 +30,7 @@ class CafePaymentConsequencesRepository(context: Context) {
                 return if (day >= firstUnpaidDue) day - firstUnpaidDue else 0
             }
             PaymentConsequences(
-                payrollDaysLate = daysLate(7, "2300"),
+                payrollDaysLate = daysLate(14, "2300"),
                 rentDaysLate = daysLate(14, "2000")
             )
         }
