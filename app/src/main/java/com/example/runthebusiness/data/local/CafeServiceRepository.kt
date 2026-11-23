@@ -107,6 +107,15 @@ class CafeServiceRepository(context: Context) {
                             val rotated = pastries.drop(shift) + pastries.take(shift)
                             for (pastry in rotated) if (tryAdd(pastry)) break
                         }
+                        // Lunch groups may add a meal; afternoon groups prefer dessert.
+                        // These are separate optional choices, not guaranteed purchases.
+                        val category = if (now.hour in 11..15) "FOOD" else "DESSERT"
+                        val extras = products.filter { it.type == category }
+                        if (extras.isNotEmpty()) {
+                            val shift = offset % extras.size
+                            val rotated = extras.drop(shift) + extras.take(shift)
+                            for (extra in rotated) if (tryAdd(extra)) break
+                        }
                         if (basket.isNotEmpty()) {
                             sale.sellBasket(basket, sessionId, now)
                             sold = true
