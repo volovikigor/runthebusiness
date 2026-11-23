@@ -26,6 +26,8 @@ import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
+import com.example.runthebusiness.data.local.CafeBreakEvenRepository
+import com.example.runthebusiness.data.local.CafeBreakEven
 import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
 import com.example.runthebusiness.data.local.CafeDayPerformance
 import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
@@ -52,6 +54,7 @@ fun CafeHomeScreen(
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
+    val breakEvenRepo = remember(context) { CafeBreakEvenRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val dailyClose = remember(context) { CafeDailyCloseRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
@@ -71,6 +74,8 @@ fun CafeHomeScreen(
     var alerts by remember { mutableStateOf<List<ManagementAlert>>(emptyList()) }
     var dailyPerformance by remember { mutableStateOf<List<CafeDayPerformance>>(emptyList()) }
     var showPerformance by remember { mutableStateOf(false) }
+    var breakEven by remember { mutableStateOf<CafeBreakEven?>(null) }
+    var showBreakEven by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
@@ -81,6 +86,7 @@ fun CafeHomeScreen(
         lastClosedDay = dailyClose.lastClosedDay()
         alerts = if (state != null) alertsRepo.load() else emptyList()
         dailyPerformance = if (state != null) performanceRepo.recent() else emptyList()
+        breakEven = if (state != null) breakEvenRepo.snapshot() else null
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -252,6 +258,42 @@ fun CafeHomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SummaryTile("Orders", "${cafe.salesCount}", Modifier.weight(1f))
                 SummaryTile("Output IVA", euro(cafe.outputVatCents), Modifier.weight(1f))
+            }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Break-even diagnostics", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = { showBreakEven = !showBreakEven }) {
+                    Text(if (showBreakEven) "Hide" else "View")
+                }
+            }
+            if (showBreakEven) {
+                val economics = breakEven
+                if (economics == null || economics.observedDays == 0 || economics.orders == 0) {
+                    Text("Insufficient completed-day sales to estimate contribution per order.",
+                        style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Text("Last ${economics.observedDays} completed days · ${economics.orders} orders")
+                    Text("Actual orders/day: %.1f".format(Locale.ROOT, economics.actualOrdersPerDay))
+                    Text("Net sales (excl. IVA): ${euro(economics.netSalesCents)}")
+                    Text("COGS: ${euro(economics.cogsCents)}")
+                    Text("Contribution/order: €%.2f".format(Locale.ROOT, economics.avgContributionCents / 100.0))
+                    Text("Daily rent: ${euro(economics.rentDailyCents)}")
+                    Text("Daily payroll: ${euro(economics.payrollDailyCents)}")
+                    Text("Daily depreciation: ${euro(economics.depreciationDailyCents)}")
+                    Text("Total fixed cost/day: ${euro(economics.fixedDailyCents)}")
+                    if (economics.ordersNeededPerDay == null) {
+                        Text("No break-even: observed contribution per order is non-positive.",
+                            color = MaterialTheme.colorScheme.error)
+                    } else {
+                        Text("Break-even orders/day: ${economics.ordersNeededPerDay}")
+                        economics.targetNetSalesDailyCents?.let {
+                            Text("Indicative net revenue/day: ${euro(it)}")
+                        }
+                    }
+                    Text("Diagnostic, not a forecast. Based on observed order mix and current rent, payroll and depreciation; excludes utilities, financing, taxes and unmodelled costs.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
             }
             HorizontalDivider()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
