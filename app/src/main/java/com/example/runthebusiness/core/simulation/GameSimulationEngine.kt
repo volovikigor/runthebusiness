@@ -68,7 +68,7 @@ class GameSimulationEngine(context: Context) {
         fun result(time: GameTime, message: String, served: Int): NextEventResult {
             val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
             android.util.Log.i("CafeSimulation", "jump=$mode elapsedMs=$elapsed groups=$served day=${time.day}")
-            return result(time, message, served)
+            return NextEventResult(time, message, served)
         }
         val steps = when (mode) {
             JumpMode.NEXT_EVENT -> 96
