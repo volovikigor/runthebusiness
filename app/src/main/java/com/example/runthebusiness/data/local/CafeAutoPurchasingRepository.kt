@@ -72,12 +72,13 @@ class CafeAutoPurchasingRepository(context: Context) {
             }
             val available = purchasing.stock(sessionId)
             val lookbackDays = minOf(14, (day - 1).coerceAtLeast(1))
-            val history = db.cafeSalesDao().movementsSince((day - lookbackDays).coerceAtLeast(1))
+            val allMovements = db.cafeSalesDao().movementsSince(1)
+            val history = allMovements.filter { it.gameDay >= (day - lookbackDays).coerceAtLeast(1) }
             val soldByItem = history.filter { it.sourceType == "CUSTOMER_ORDER" &&
                 it.quantityDelta < 0.0 }.groupBy { it.inventoryItemId }
                 .mapValues { (_, rows) -> rows.sumOf { -it.quantityDelta } / lookbackDays }
             // Distinguish initial stocking from repeatedly expiring unsold packs.
-            val previouslyPurchased = db.cafeSalesDao().movementsSince(1)
+            val previouslyPurchased = allMovements
                 .filter { it.sourceType == "INVENTORY_PURCHASE" }
                 .map { it.inventoryItemId }.toSet()
             var spent = 0L
