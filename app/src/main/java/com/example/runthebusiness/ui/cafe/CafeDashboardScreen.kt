@@ -19,6 +19,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val expanded = remember(context) { CafeExpandedMenuRepository(context) }
     val kitchen = remember(context) { CafeKitchenRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
+    val autoPurchasing = remember(context) { CafeAutoPurchasingRepository(context) }
     val writeOff = remember(context) { CafeWriteOffRepository(context) }
     val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
@@ -29,6 +30,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
+    var autoPolicy by remember { mutableStateOf(autoPurchasing.policy()) }
+    var autoSelected by remember { mutableStateOf(emptySet<String>()) }
     var realIngredients by remember { mutableStateOf(false) }
     var kitchenInstalled by remember { mutableStateOf(false) }
     var section by remember { mutableIntStateOf(requestedSection) }
@@ -43,6 +46,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         kitchenInstalled = kitchen.installed()
         products = menu.loadMenu()
         stock = purchasing.stock()
+        autoPolicy = autoPurchasing.policy()
+        autoSelected = CafePurchasingRepository.supplies.filter { autoPurchasing.enabled(it.itemId) }
+            .map { it.itemId }.toSet()
         movements = movementsRepo.movements()
     }
     fun run(action: suspend () -> Unit) {
@@ -171,6 +177,61 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     Text("Real ingredient recipes and FIFO stock are active.",
                         style = MaterialTheme.typography.bodySmall)
                 }
+                HorizontalDivider()
+                Text("Automatic replenishment", style = MaterialTheme.typography.titleLarge)
+                Text("Optional daily check at the start of each game day. Buys one supplier pack only when remaining stock is 20% or less. Purchases use real cash/bank and count toward a daily spending limit; no money is charged if nothing is bought.",
+                    style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Enable auto purchasing")
+                    Switch(checked = autoPolicy.enabled, enabled = !busy,
+                        onCheckedChange = { checked ->
+                            autoPurchasing.setEnabled(checked)
+                            autoPolicy = autoPurchasing.policy()
+                        })
+                }
+                Text("Daily purchase budget: €%.0f".format(Locale.ROOT, autoPolicy.dailyBudgetCents / 100.0))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        autoPurchasing.setDailyBudget((autoPolicy.dailyBudgetCents - 5000L).coerceAtLeast(0L))
+                        autoPolicy = autoPurchasing.policy()
+                    }) { Text("− €50") }
+                    OutlinedButton(onClick = {
+                        autoPurchasing.setDailyBudget((autoPolicy.dailyBudgetCents + 5000L).coerceAtMost(1000000L))
+                        autoPolicy = autoPurchasing.policy()
+                    }) { Text("+ €50") }
+                }
+                OutlinedButton(onClick = {
+                    autoPurchasing.enableCoreIngredients()
+                    autoPolicy = autoPurchasing.policy()
+                    autoSelected = CafePurchasingRepository.supplies.filter {
+                        autoPurchasing.enabled(it.itemId)
+                    }.map { it.itemId }.toSet()
+                    message = "Auto purchasing enabled for core ingredients and kitchen supplies. Review individual switches and budget."
+                }) { Text("Enable core ingredients auto-order") }
+                Text("Select supplier packs to replenish automatically:",
+                    style = MaterialTheme.typography.labelLarge)
+                CafePurchasingRepository.supplies.filter { supply ->
+                    val food = CafeExpandedMenuRepository.offerings.firstOrNull { it.stockId == supply.itemId }
+                    val isKitchen = CafeKitchenRepository.ingredients.any { it.id == supply.itemId }
+                    when {
+                        isKitchen -> kitchenInstalled
+                        food != null && food.id in CafeKitchenRepository.recipes ->
+                            products.any { it.id == food.id && it.ingredients.isEmpty() }
+                        food != null -> products.any { it.id == food.id }
+                        else -> true
+                    }
+                }.forEach { supply ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(supply.label, Modifier.weight(1f))
+                        Switch(checked = supply.itemId in autoSelected,
+                            onCheckedChange = { checked ->
+                                autoPurchasing.setItemEnabled(supply.itemId, checked)
+                                autoSelected = if (checked) autoSelected + supply.itemId
+                                    else autoSelected - supply.itemId
+                            })
+                    }
+                }
+                HorizontalDivider()
                 CafePurchasingRepository.supplies.filter { supply ->
                     val isKitchen = CafeKitchenRepository.ingredients.any { it.id == supply.itemId }
                     val food = CafeExpandedMenuRepository.offerings.firstOrNull { it.stockId == supply.itemId }

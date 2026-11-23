@@ -12,6 +12,7 @@ import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
 import com.example.runthebusiness.data.local.CafeKitchenRepository
 import com.example.runthebusiness.data.local.CafeSpoilageRepository
+import com.example.runthebusiness.data.local.CafeAutoPurchasingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.runthebusiness.engine.model.GameTime
@@ -31,6 +32,7 @@ class GameSimulationEngine(context: Context) {
     private val cafe = CafeServiceRepository(context.applicationContext)
     private val close = CafeDailyCloseRepository(context.applicationContext)
     private val spoilage = CafeSpoilageRepository(context.applicationContext)
+    private val autoPurchasing = CafeAutoPurchasingRepository(context.applicationContext)
     private val arrivals = CafeArrivalRepository(context.applicationContext)
     private val alerts = CafeManagementAlertsRepository(context.applicationContext)
     // Shared across UI screens so manual jumps and automatic ticks cannot interleave.
@@ -56,6 +58,9 @@ class GameSimulationEngine(context: Context) {
             }
             val next = clock.advanceGameTime(minutes, sessionId)
             spoilage.expire(next, sessionId)
+            if (before == null || next.day != before.day) {
+                autoPurchasing.replenish(next.day, sessionId)
+            }
             val served = cafe.processPending(sessionId)
             if (before != null && next.day > before.day) {
                 for (day in before.day until next.day) close.closeDay(day, sessionId)
@@ -162,6 +167,7 @@ class GameSimulationEngine(context: Context) {
     suspend fun startFreshGame() = mutex.withLock {
         withContext(Dispatchers.IO) {
             GameDatabase.getInstance(appContext).clearAllTables()
+            autoPurchasing.reset()
             GameRepository(appContext).initializeOpeningGame()
             CafeMenuRepository(appContext).seedMenu()
             CafeInventorySetupRepository(appContext).initializeRealStock()
