@@ -69,6 +69,16 @@ class CafeAuditExportRepository(context: Context) {
             WHERE o.gameDay $days
             GROUP BY l.productId, l.productName, p.type, p.isAvailable, p.fulfillment
             ORDER BY units DESC""")
+        writeSection("product_sales_daily", """SELECT o.gameDay, l.productId, l.productName,
+            SUM(l.quantity) AS units, COUNT(DISTINCT l.orderId) AS ordersWithProduct,
+            SUM(l.quantity * l.unitPriceCents) AS grossSalesCents
+            FROM customer_order_lines l JOIN customer_orders o ON o.id = l.orderId
+            WHERE o.gameDay $days
+            GROUP BY o.gameDay, l.productId, l.productName
+            ORDER BY o.gameDay, l.productName""")
+        writeSection("group_size_conversion", """SELECT guests, status,
+            COUNT(*) AS groups FROM cafe_arrivals WHERE gameDay $days
+            GROUP BY guests, status ORDER BY guests, status""")
         writeSection("current_inventory", """SELECT i.id AS inventoryItemId, i.name,
             i.unit, i.shelfLifeDays, COALESCE(SUM(b.quantityRemaining), 0) AS onHand
             FROM inventory_items i LEFT JOIN inventory_batches b ON b.inventoryItemId = i.id
