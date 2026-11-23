@@ -28,7 +28,11 @@ class CafeSaleRepository(context: Context) {
         sellMenuItem(null, sessionId)
 
     suspend fun sellMenuItem(productId: String?, sessionId: String = "debug_session_001", saleTime: GameTime? = null): CustomerOrderEntity =
+        sellBasket(listOf(productId), sessionId, saleTime)
+
+    suspend fun sellBasket(productIds: List<String?>, sessionId: String = "debug_session_001", saleTime: GameTime? = null): CustomerOrderEntity =
         withContext(Dispatchers.IO) {
+            require(productIds.isNotEmpty()) { "Basket cannot be empty" }
             db.withTransaction {
                 val session = checkNotNull(accounting.getSession(sessionId)) {
                     "Initialize opening game before making a sale"
@@ -39,7 +43,7 @@ class CafeSaleRepository(context: Context) {
                 val items = operations.getInventoryItems(business.id)
                 val storedBatches = operations.getInventoryBatches(business.id)
                 val currentTime = saleTime ?: GameTime(session.currentDay, session.currentHour, session.currentMinute)
-                val product = if (productId == null) {
+                val products = productIds.distinct().map { productId -> if (productId == null) {
                     Product(
                         id = "demo_product", locationId = location.id, name = "Diagnostic sale item",
                         sellingPriceCents = 5_000L,
@@ -65,7 +69,7 @@ class CafeSaleRepository(context: Context) {
                         } else recipes,
                         isAvailable = saved.isAvailable
                     )
-                }
+                } }
                 val state = SimulationState(
                     currentTime = currentTime,
                     businesses = listOf(Business(business.id, business.name, business.ownerId,
@@ -86,15 +90,16 @@ class CafeSaleRepository(context: Context) {
                                 batch.expiresDay, requireNotNull(batch.expiresHour),
                                 requireNotNull(batch.expiresMinute)))
                     },
-                    products = listOf(product),
+                    products = products,
                     ledgerAccounts = setup.getAccounts(sessionId).map {
                         LedgerAccount(it.code, it.name, AccountType.valueOf(it.type))
                     }
                 )
                 val id = UUID.randomUUID().toString()
+                val quantities = productIds.groupingBy { it ?: "demo_product" }.eachCount()
                 val order = CustomerOrder(
                     id = id, locationId = location.id, paymentMethod = PaymentMethod.CASH,
-                    items = listOf(CustomerOrderLine(product.id, 1, product.sellingPriceCents)),
+                    items = products.map { CustomerOrderLine(it.id, quantities.getValue(it.id), it.sellingPriceCents) },
                     createdAt = currentTime
                 )
                 val result = useCase.execute(state, order)
@@ -121,11 +126,12 @@ class CafeSaleRepository(context: Context) {
                     ) == 1) { "Stock changed during sale: ${updated.id}" }
                 }
 
+                val basketDescription = products.joinToString(", ") { "${quantities.getValue(it.id)} × ${it.name}" }
                 val entries = result.journalEntries
                 entries.forEach { entry ->
                     val readableDescription = when {
-                        entry.id.startsWith("sale_") -> "Sold 1 × ${product.name}"
-                        entry.id.startsWith("cogs_") -> "Inventory consumed · 1 × ${product.name}"
+                        entry.id.startsWith("sale_") -> "Sold $basketDescription"
+                        entry.id.startsWith("cogs_") -> "Inventory consumed · $basketDescription"
                         else -> entry.description
                     }
                     val event = BusinessEventEntity(
@@ -162,11 +168,13 @@ class CafeSaleRepository(context: Context) {
                     paymentMethod = order.paymentMethod.name, status = OrderStatus.COMPLETED.name
                 )
                 sales.insertOrder(row)
-                sales.insertOrderLine(CustomerOrderLineEntity(
-                    id = "order_line_$id", orderId = id,
-                    productId = product.id, productName = product.name,
-                    quantity = 1, unitPriceCents = product.sellingPriceCents
-                ))
+                products.forEach { product ->
+                    sales.insertOrderLine(CustomerOrderLineEntity(
+                        id = "order_line_${id}_${product.id}", orderId = id,
+                        productId = product.id, productName = product.name,
+                        quantity = quantities.getValue(product.id), unitPriceCents = product.sellingPriceCents
+                    ))
+                }
                 if (movementRows.isNotEmpty()) sales.insertStockMovements(movementRows)
                 row
             }

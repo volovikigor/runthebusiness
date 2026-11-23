@@ -64,27 +64,52 @@ class CafeServiceRepository(context: Context) {
                             .sortedBy { it.id }
                         var sold = false
                         var offered = false
-                        // Stable rotation prevents every group from choosing the same product.
                         val offset = ((now.totalMinutes + arrival.guests).rem(
                             products.size.coerceAtLeast(1).toLong())).toInt()
                         val batches = db.operationsDao().getInventoryBatches(business.id)
-                        for (product in products.drop(offset) + products.take(offset)) {
+                        val stock = batches.groupBy { it.inventoryItemId }
+                            .mapValues { (_, rows) -> rows.sumOf { it.quantityRemaining } }
+                            .toMutableMap()
+                        val basket = mutableListOf<String>()
+                        val drinks = products.filter { it.type == "DRINK" }
+                        val pastries = products.filter { it.type == "PASTRY" }
+                        suspend fun tryAdd(product: com.example.runthebusiness.data.local.entity.CafeProductEntity): Boolean {
+                            if (product.fulfillment == "BATCH_PRODUCED") return false
                             val required = if (product.fulfillment == "RESALE") {
                                 listOf(requireNotNull(product.finishedStockItemId) to 1.0)
                             } else {
                                 db.cafeMenuDao().getRecipe(product.id).map { it.ingredientId to it.quantity }
                             }
-                            val stocked = required.isNotEmpty() && required.all { (ingredient, amount) ->
-                                batches.filter { it.inventoryItemId == ingredient }
-                                    .sumOf { it.quantityRemaining } + 1e-8 >= amount
+                            if (required.isEmpty()) return false
+                            if (!required.all { (ingredient, amount) ->
+                                (stock[ingredient] ?: 0.0) + 1e-8 >= amount
+                            }) return false
+                            offered = true
+                            if (!CafePriceDemandRules.accepts(
+                                    arrival.id + "_" + basket.size, product.id, product.sellingPriceCents
+                                )) return false
+                            required.forEach { (ingredient, amount) ->
+                                stock[ingredient] = (stock[ingredient] ?: 0.0) - amount
                             }
-                            if (stocked && product.fulfillment != "BATCH_PRODUCED") {
-                                offered = true
-                                if (!CafePriceDemandRules.accepts(arrival.id, product.id, product.sellingPriceCents)) continue
-                                sale.sellMenuItem(product.id, sessionId, now)
-                                sold = true
-                                break
+                            basket.add(product.id)
+                            return true
+                        }
+                        repeat(arrival.guests) { guest ->
+                            if (drinks.isNotEmpty()) {
+                                val shift = (offset + guest) % drinks.size
+                                val rotated = drinks.drop(shift) + drinks.take(shift)
+                                for (drink in rotated) if (tryAdd(drink)) break
                             }
+                        }
+                        if (pastries.isNotEmpty() && (arrival.guests > 1 ||
+                                Math.floorMod(arrival.id.hashCode(), 2) == 0)) {
+                            val shift = offset % pastries.size
+                            val rotated = pastries.drop(shift) + pastries.take(shift)
+                            for (pastry in rotated) if (tryAdd(pastry)) break
+                        }
+                        if (basket.isNotEmpty()) {
+                            sale.sellBasket(basket, sessionId, now)
+                            sold = true
                         }
                         check(arrivalDao.markProcessed(arrival.id,
                             if (sold) "SERVED" else if (offered) "NO_PURCHASE" else "NO_STOCK") == 1)
