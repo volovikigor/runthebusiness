@@ -17,6 +17,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val context = LocalContext.current.applicationContext
     val menu = remember(context) { CafeMenuRepository(context) }
     val expanded = remember(context) { CafeExpandedMenuRepository(context) }
+    val kitchen = remember(context) { CafeKitchenRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
     val writeOff = remember(context) { CafeWriteOffRepository(context) }
     val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
@@ -29,6 +30,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
     var realIngredients by remember { mutableStateOf(false) }
+    var kitchenInstalled by remember { mutableStateOf(false) }
     var section by remember { mutableIntStateOf(requestedSection) }
     LaunchedEffect(requestedSection) { section = requestedSection }
     var busy by remember { mutableStateOf(false) }
@@ -38,6 +40,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     suspend fun reload() {
         started = dashboard.snapshot() != null
         realIngredients = inventorySetup.hasRealIngredients()
+        kitchenInstalled = kitchen.installed()
         products = menu.loadMenu()
         stock = purchasing.stock()
         movements = movementsRepo.movements()
@@ -104,6 +107,15 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 }
                 Text("Enable products to offer them to visitors. New items need supplier stock before sales.",
                     style = MaterialTheme.typography.bodySmall)
+                if (products.any { it.id == "ham_cheese_001" }) {
+                    OutlinedButton(onClick = { run {
+                        val result = kitchen.activate()
+                        val waitingText = if (result.waitingForStock.isEmpty())
+                            "All eligible meals use ingredients."
+                        else "Sell remaining ready-made stock first: ${result.waitingForStock.joinToString()}"
+                        message = "Kitchen recipes activated: ${result.converted}. $waitingText"
+                    } }, enabled = !busy) { Text("Activate kitchen recipes for sandwiches & salads") }
+                }
                 products.forEach { product ->
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(16.dp),
@@ -160,9 +172,15 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         style = MaterialTheme.typography.bodySmall)
                 }
                 CafePurchasingRepository.supplies.filter { supply ->
-                    supply.itemId in stock.keys ||
-                        products.any { it.id in CafeExpandedMenuRepository.offerings.map { o -> o.id } &&
-                            supply.itemId == "stock_" + it.id }
+                    val isKitchen = CafeKitchenRepository.ingredients.any { it.id == supply.itemId }
+                    val food = CafeExpandedMenuRepository.offerings.firstOrNull { it.stockId == supply.itemId }
+                    when {
+                        isKitchen -> kitchenInstalled
+                        food != null && food.id in CafeKitchenRepository.recipes ->
+                            products.any { it.id == food.id && it.ingredients.isEmpty() }
+                        food != null -> products.any { it.id == food.id }
+                        else -> true
+                    }
                 }.forEach { supply ->
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(16.dp),

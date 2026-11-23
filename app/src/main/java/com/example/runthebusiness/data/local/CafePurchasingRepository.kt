@@ -26,6 +26,8 @@ class CafePurchasingRepository(context: Context) {
             Supply("stock_croissants_001", "Croissants", 100.0, 160L, "pcs")
         ) + CafeExpandedMenuRepository.offerings.map {
             Supply(it.stockId, it.name, it.packSize, it.costCents, "pcs", it.shelfLifeDays)
+        } + CafeKitchenRepository.ingredients.map {
+            Supply(it.id, it.name, it.pack, it.costCents, it.unit, it.shelfDays)
         }
     }
 
@@ -50,6 +52,13 @@ class CafePurchasingRepository(context: Context) {
                 require(db.operationsDao().getInventoryItems(business.id).any { it.id == itemId }) {
                     "Install real ingredients before purchasing supplies"
                 }
+                val convertedFood = db.cafeMenuDao().getProducts(location.id)
+                    .any { it.fulfillment == "PREPARED" && it.finishedStockItemId == null &&
+                        CafeKitchenRepository.recipes.containsKey(it.id) &&
+                        CafeExpandedMenuRepository.offerings.any { offering ->
+                            offering.id == it.id && offering.stockId == itemId
+                        } }
+                require(!convertedFood) { "This meal is prepared from ingredients; purchase kitchen supplies instead" }
                 val cash = db.accountingDao().accountBalance(sessionId, "1000")
                 val bank = db.accountingDao().accountBalance(sessionId, "1100")
                 require(cash >= supply.costCents || bank >= supply.costCents) {
