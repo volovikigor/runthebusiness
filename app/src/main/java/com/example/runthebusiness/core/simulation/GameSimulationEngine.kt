@@ -75,7 +75,9 @@ class GameSimulationEngine(context: Context) {
      * No date teleportation: orders, inventory, journals and closes are processed.
      * Decision jumps stop at management alerts; calendar jumps always run to target.
      */
-    suspend fun jump(mode: JumpMode, sessionId: String = "debug_session_001"): NextEventResult {
+    suspend fun jump(mode: JumpMode, sessionId: String = "debug_session_001",
+        onProgress: ((day: Int, daysCompleted: Int, groupsServed: Int) -> Unit)? = null
+    ): NextEventResult {
         val startedAt = android.os.SystemClock.elapsedRealtime()
         val initial = checkNotNull(clock.loadGameTime(sessionId))
         val knownAlerts = if (mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_DAY)
@@ -112,6 +114,10 @@ class GameSimulationEngine(context: Context) {
             stepsRun++
             latest = step.time
             groups += step.groupsServed
+            if (mode == JumpMode.NEXT_WEEK && latest.day != initial.day &&
+                latest.hour == 0 && latest.minute == 0) {
+                onProgress?.invoke(latest.day, latest.day - initial.day, groups)
+            }
             // Management state changes on arrivals/sales, day boundaries and settlements.
             // During a calendar/decision jump, check on hourly boundaries; keep
             // NEXT_EVENT precise at every 15-minute interval.
