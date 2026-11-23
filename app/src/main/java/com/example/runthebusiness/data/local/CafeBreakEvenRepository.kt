@@ -10,6 +10,8 @@ data class CafeBreakEven(
     val orders: Int,
     val netSalesCents: Long,
     val cogsCents: Long,
+    val wasteCents: Long,
+    val wasteDailyCents: Long,
     val fixedDailyCents: Long,
     val avgContributionCents: Double,
     val ordersNeededPerDay: Int?,
@@ -47,14 +49,21 @@ class CafeBreakEvenRepository(context: Context) {
                 .sumOf { (it.purchaseCostCents - it.residualValueCents).coerceAtLeast(0L) /
                     (it.usefulLifeMonths.toLong() * 30L) }
             val fixed = rent + wages + depreciation
+            val waste = if (days > 0) db.cafeSalesDao().movementsSince(first)
+                .asSequence().filter { it.gameDay <= lastComplete &&
+                    it.sourceType == "WRITE_OFF" && it.quantityDelta < 0.0 }
+                .sumOf { kotlin.math.round(-it.quantityDelta * it.unitCostCents).toLong() }
+                else 0L
+            val wasteDaily = if (days > 0) kotlin.math.round(waste.toDouble() / days).toLong() else 0L
             val net = orders.sumOf { it.netCents }
             val cogs = orders.sumOf { it.cogsCents }
             val contribution = if (orders.isNotEmpty()) (net - cogs).toDouble() / orders.size else 0.0
-            val required = if (contribution > 0.0) ceil(fixed / contribution).toInt() else null
+            val required = if (contribution > 0.0) ceil((fixed + wasteDaily) / contribution).toInt() else null
             val netPerOrder = if (orders.isNotEmpty()) net.toDouble() / orders.size else 0.0
             CafeBreakEven(
                 observedDays = days, orders = orders.size, netSalesCents = net,
-                cogsCents = cogs, fixedDailyCents = fixed,
+                cogsCents = cogs, wasteCents = waste, wasteDailyCents = wasteDaily,
+                fixedDailyCents = fixed,
                 avgContributionCents = contribution, ordersNeededPerDay = required,
                 actualOrdersPerDay = if (days > 0) orders.size.toDouble() / days else 0.0,
                 targetNetSalesDailyCents = required?.let { ceil(it * netPerOrder).toLong() },

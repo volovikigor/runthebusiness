@@ -1,6 +1,7 @@
 package com.example.runthebusiness.data.local
 
 import android.content.Context
+import com.example.runthebusiness.industries.cafe.simulation.CafeReplenishmentRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -70,13 +71,28 @@ class CafeAutoPurchasingRepository(context: Context) {
                 }
             }
             val available = purchasing.stock(sessionId)
+            val lookbackDays = minOf(14, (day - 1).coerceAtLeast(1))
+            val allMovements = db.cafeSalesDao().movementsSince(1)
+            val history = allMovements.filter { it.gameDay >= (day - lookbackDays).coerceAtLeast(1) }
+            val soldByItem = history.filter { it.sourceType == "CUSTOMER_ORDER" &&
+                it.quantityDelta < 0.0 }.groupBy { it.inventoryItemId }
+                .mapValues { (_, rows) -> rows.sumOf { -it.quantityDelta } / lookbackDays }
+            // Distinguish initial stocking from repeatedly expiring unsold packs.
+            val previouslyPurchased = allMovements
+                .filter { it.sourceType == "INVENTORY_PURCHASE" }
+                .map { it.inventoryItemId }.toSet()
             var spent = 0L
             var purchased = 0
             for (supply in CafePurchasingRepository.supplies) {
                 if (!enabled(supply.itemId) || supply.itemId !in installed ||
                     supply.itemId !in required) continue
                 // One supplier pack when stock falls below 20% of a pack.
-                if ((available[supply.itemId] ?: 0.0) > supply.quantity * 0.2) continue
+                val current = available[supply.itemId] ?: 0.0
+                if (supply.itemId in previouslyPurchased) {
+                    if (!CafeReplenishmentRules.shouldAutoBuy(
+                            current, supply.quantity, soldByItem[supply.itemId] ?: 0.0,
+                            supply.shelfLifeDays)) continue
+                } else if (current > supply.quantity * 0.2) continue
                 if (spent + supply.costCents > config.dailyBudgetCents) continue
                 try {
                     purchasing.purchase(supply.itemId, sessionId)

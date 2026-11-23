@@ -80,8 +80,8 @@ class CafePurchasingRepository(context: Context) {
                         receivedMinute = session.currentMinute,
                         expiresDay = if (supply.shelfLifeDays > 0)
                             session.currentDay + supply.shelfLifeDays else null,
-                        expiresHour = if (supply.shelfLifeDays > 0) 0 else null,
-                        expiresMinute = if (supply.shelfLifeDays > 0) 0 else null
+                        expiresHour = if (supply.shelfLifeDays > 0) session.currentHour else null,
+                        expiresMinute = if (supply.shelfLifeDays > 0) session.currentMinute else null
                     )
                 ))
                 db.cafeSalesDao().insertStockMovements(listOf(StockMovementEntity(

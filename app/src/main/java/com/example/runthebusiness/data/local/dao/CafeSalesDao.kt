@@ -23,6 +23,9 @@ interface CafeSalesDao {
     @Query("SELECT * FROM stock_movements WHERE sourceId = :sourceId ORDER BY id")
     suspend fun getMovementsForSource(sourceId: String): List<StockMovementEntity>
 
+    @Query("SELECT * FROM stock_movements WHERE gameDay >= :fromDay ORDER BY gameDay, gameHour, gameMinute, id")
+    suspend fun movementsSince(fromDay: Int): List<StockMovementEntity>
+
     @Query("SELECT * FROM stock_movements ORDER BY gameDay DESC, gameHour DESC, gameMinute DESC, id DESC LIMIT :limit")
     suspend fun recentStockMovements(limit: Int = 100): List<StockMovementEntity>
 

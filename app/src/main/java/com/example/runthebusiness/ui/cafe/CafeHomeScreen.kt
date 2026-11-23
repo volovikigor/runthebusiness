@@ -335,11 +335,17 @@ fun CafeHomeScreen(
                     Text("Actual orders/day: %.1f".format(Locale.ROOT, economics.actualOrdersPerDay))
                     Text("Net sales (excl. IVA): ${euro(economics.netSalesCents)}")
                     Text("COGS: ${euro(economics.cogsCents)}")
+                    Text("Expired inventory (waste): ${euro(economics.wasteCents)}")
+                    Text("Waste/day: ${euro(economics.wasteDailyCents)}")
+                    val wasteRatio = if (economics.netSalesCents > 0)
+                        economics.wasteCents.toDouble() * 100.0 / economics.netSalesCents else 0.0
+                    Text("Waste as % of net sales: %.1f%%".format(Locale.ROOT, wasteRatio))
                     Text("Contribution/order: €%.2f".format(Locale.ROOT, economics.avgContributionCents / 100.0))
                     Text("Daily rent: ${euro(economics.rentDailyCents)}")
                     Text("Daily payroll: ${euro(economics.payrollDailyCents)}")
                     Text("Daily depreciation: ${euro(economics.depreciationDailyCents)}")
                     Text("Total fixed cost/day: ${euro(economics.fixedDailyCents)}")
+                    Text("Fixed cost + observed waste/day: ${euro(economics.fixedDailyCents + economics.wasteDailyCents)}")
                     if (economics.ordersNeededPerDay == null) {
                         Text("No break-even: observed contribution per order is non-positive.",
                             color = MaterialTheme.colorScheme.error)
@@ -349,7 +355,7 @@ fun CafeHomeScreen(
                             Text("Indicative net revenue/day: ${euro(it)}")
                         }
                     }
-                    Text("Diagnostic, not a forecast. Based on observed order mix and current rent, payroll and depreciation; excludes utilities, financing, taxes and unmodelled costs.",
+                    Text("Diagnostic, not a forecast. Break-even includes observed average expiry waste as a daily cost, assuming it stays constant; excludes utilities, financing, taxes and unmodelled costs.",
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
