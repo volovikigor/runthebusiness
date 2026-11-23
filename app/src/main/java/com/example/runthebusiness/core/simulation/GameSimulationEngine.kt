@@ -11,6 +11,7 @@ import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
 import com.example.runthebusiness.data.local.CafeKitchenRepository
+import com.example.runthebusiness.data.local.CafeSpoilageRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.runthebusiness.engine.model.GameTime
@@ -29,6 +30,7 @@ class GameSimulationEngine(context: Context) {
     private val clock = GameRepository(context.applicationContext)
     private val cafe = CafeServiceRepository(context.applicationContext)
     private val close = CafeDailyCloseRepository(context.applicationContext)
+    private val spoilage = CafeSpoilageRepository(context.applicationContext)
     private val arrivals = CafeArrivalRepository(context.applicationContext)
     private val alerts = CafeManagementAlertsRepository(context.applicationContext)
     // Shared across UI screens so manual jumps and automatic ticks cannot interleave.
@@ -43,15 +45,17 @@ class GameSimulationEngine(context: Context) {
     suspend fun advance(minutes: Long, sessionId: String = "debug_session_001"): StepResult =
         mutex.withLock {
             require(minutes in 1..1440) { "Advance must be between 1 and 1440 minutes" }
-            // Recover any previously generated but unprocessed arrivals first.
-            cafe.processPending(sessionId)
+            // Remove expired stock before fulfilling pending customer orders.
             val before = clock.loadGameTime(sessionId)
+            if (before != null) spoilage.expire(before, sessionId)
+            cafe.processPending(sessionId)
             if (before != null && before.day > 1) {
                 // Recover all unposted prior days (e.g. interrupted close or old saves).
                 val lastClosed = close.lastClosedDay(sessionId)
                 for (day in (lastClosed + 1) until before.day) close.closeDay(day, sessionId)
             }
             val next = clock.advanceGameTime(minutes, sessionId)
+            spoilage.expire(next, sessionId)
             val served = cafe.processPending(sessionId)
             if (before != null && next.day > before.day) {
                 for (day in before.day until next.day) close.closeDay(day, sessionId)
@@ -167,5 +171,8 @@ class GameSimulationEngine(context: Context) {
     }
 
     suspend fun resumePending(sessionId: String = "debug_session_001"): Int =
-        mutex.withLock { cafe.processPending(sessionId) }
+        mutex.withLock {
+            clock.loadGameTime(sessionId)?.let { spoilage.expire(it, sessionId) }
+            cafe.processPending(sessionId)
+        }
 }
