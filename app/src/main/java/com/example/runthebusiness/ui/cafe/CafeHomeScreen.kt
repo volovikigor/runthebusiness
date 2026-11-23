@@ -307,13 +307,23 @@ fun CafeHomeScreen(
                     Text("Completed days: ${funnel.days}")
                     Text("Arriving groups: ${funnel.groups} · guests: ${funnel.guests}")
                     Text("Served groups: ${funnel.servedGroups} · guests: ${funnel.servedGuests}")
+                    val days = funnel.days.coerceAtLeast(1)
+                    Text("Arriving guests/day: %.1f".format(Locale.ROOT, funnel.guests.toDouble() / days))
+                    Text("Served guests/day: %.1f".format(Locale.ROOT, funnel.servedGuests.toDouble() / days))
+                    Text("Orders/day: %.1f".format(Locale.ROOT, funnel.orders.toDouble() / days))
+                    Text("Average guests/order: %.2f".format(Locale.ROOT,
+                        if (funnel.orders > 0) funnel.servedGuests.toDouble() / funnel.orders else 0.0))
+                    Text("Average ticket (net): ${euro(if (funnel.orders > 0) funnel.netSalesCents / funnel.orders else 0L)}")
+                    Text("Net revenue/served guest: ${euro(if (funnel.servedGuests > 0) funnel.netSalesCents / funnel.servedGuests else 0L)}")
+                    Text("Items/order: %.2f".format(Locale.ROOT,
+                        if (funnel.orders > 0) funnel.orderLines.toDouble() / funnel.orders else 0.0))
                     val conversion = if (funnel.groups > 0)
                         100.0 * funnel.servedGroups / funnel.groups else 0.0
                     Text("Group conversion: %.1f%%".format(Locale.ROOT, conversion))
                     funnel.byStatus.forEach { (status, count) ->
                         Text("$status: $count groups")
                     }
-                    Text("Counts are arrival groups, not individual orders. Reasons include stock, price, seating and staff capacity.",
+                    Text("Orders are group transactions; one order may include items for multiple guests. Items/order counts order lines, not quantities.",
                         style = MaterialTheme.typography.bodySmall)
                 } ?: Text("No completed-day arrival data yet")
             }
