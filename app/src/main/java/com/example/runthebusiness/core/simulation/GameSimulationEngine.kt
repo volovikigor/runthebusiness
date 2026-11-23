@@ -68,12 +68,13 @@ class GameSimulationEngine(context: Context) {
     /**
      * Every jump uses the same 15-minute simulation path as the live clock.
      * No date teleportation: orders, inventory, journals and closes are processed.
-     * Decision jumps skip routine arrivals; calendar jumps stop on new critical alerts.
+     * Decision jumps stop at management alerts; calendar jumps always run to target.
      */
     suspend fun jump(mode: JumpMode, sessionId: String = "debug_session_001"): NextEventResult {
         val startedAt = android.os.SystemClock.elapsedRealtime()
         val initial = checkNotNull(clock.loadGameTime(sessionId))
-        val knownAlerts = alerts.load(sessionId).map { it.id }.toSet()
+        val knownAlerts = if (mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_DAY)
+            emptySet() else alerts.load(sessionId).map { it.id }.toSet()
         var previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
         var latest = initial
         var groups = 0
@@ -110,16 +111,15 @@ class GameSimulationEngine(context: Context) {
             // During a calendar/decision jump, check on hourly boundaries; keep
             // NEXT_EVENT precise at every 15-minute interval.
             // Hourly checks can report a new stock alert up to 45 minutes late.
-            val shouldCheckAlerts = mode == JumpMode.NEXT_EVENT || latest.minute == 0
+            val shouldCheckAlerts = mode == JumpMode.NEXT_EVENT ||
+                (mode == JumpMode.NEXT_DECISION && latest.minute == 0)
             if (shouldCheckAlerts) {
                 val alertStarted = android.os.SystemClock.elapsedRealtime()
                 val newDecision = alerts.load(sessionId).firstOrNull { it.id !in knownAlerts }
                 alertsMs += android.os.SystemClock.elapsedRealtime() - alertStarted
                 alertChecks++
                 if (newDecision != null) {
-                    val isCritical = newDecision.priority == 0
-                    if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT ||
-                        (mode == JumpMode.NEXT_WEEK && isCritical)) {
+                    if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT) {
                         return result(latest, "Management alert · ${newDecision.title}", groups)
                     }
                 }

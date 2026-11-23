@@ -236,7 +236,7 @@ fun CafeHomeScreen(
                         GameSimulationEngine.JumpMode.NEXT_EVENT to "Next routine event",
                         GameSimulationEngine.JumpMode.NEXT_DECISION to "Next management decision",
                         GameSimulationEngine.JumpMode.NEXT_DAY to "Finish current day",
-                        GameSimulationEngine.JumpMode.NEXT_WEEK to "Advance up to 7 days"
+                        GameSimulationEngine.JumpMode.NEXT_WEEK to "Advance 7 days"
                     ).forEach { (mode, label) ->
                         OutlinedButton(
                             enabled = !loading && speed == 0,
@@ -255,7 +255,7 @@ fun CafeHomeScreen(
                         Text("Jump result: $lastEventMessage",
                             style = MaterialTheme.typography.bodyMedium)
                     }
-                    Text("Weekly jump stops early on a newly arising critical alert. Routine events and ordinary reminders are processed along the way.",
+                    Text("Seven-day advance continues through stock shortages and financial alerts. Their effects still apply; check management alerts and Finance after the run.",
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
