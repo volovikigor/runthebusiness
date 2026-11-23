@@ -286,10 +286,36 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                                 Text("${item.quantity} × ${item.productName} · ${money(item.unitPriceCents)} each",
                                     style = MaterialTheme.typography.bodySmall)
                             }
-                            if (entry.id.startsWith("cogs_")) expandedSale?.stock?.forEach { movement ->
-                                Text("${movement.inventoryItemName}: %.3f consumed from FIFO batch".format(
-                                    Locale.ROOT, -movement.quantityDelta),
-                                    style = MaterialTheme.typography.bodySmall)
+                            if (entry.id.startsWith("cogs_")) expandedSale?.stock?.let { stock ->
+                                if (stock.isNotEmpty()) {
+                                    Text("Recipe cost breakdown · actual FIFO",
+                                        style = MaterialTheme.typography.titleSmall)
+                                    stock.filter { it.quantityDelta < 0.0 }.forEach { movement ->
+                                        val quantity = -movement.quantityDelta
+                                        val formattedQuantity = if (quantity % 1.0 == 0.0)
+                                            "%.0f".format(Locale.ROOT, quantity)
+                                        else "%.2f".format(Locale.ROOT, quantity).trimEnd('0').trimEnd('.')
+                                        val amountCents = kotlin.math.round(quantity * movement.unitCostCents).toLong()
+                                        val unit = when {
+                                            movement.inventoryItemId.startsWith("kitchen_") ->
+                                                when (movement.inventoryItemId) {
+                                                    "kitchen_bread" -> "pcs"
+                                                    "kitchen_dressing" -> "ml"
+                                                    else -> "g"
+                                                }
+                                            else -> "units"
+                                        }
+                                        Text("${movement.inventoryItemName}: $formattedQuantity $unit × " +
+                                            "${money(movement.unitCostCents)}/$unit = ${money(amountCents)}",
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    val totalCents = kotlin.math.round(
+                                        stock.filter { it.quantityDelta < 0.0 }
+                                            .sumOf { -it.quantityDelta * it.unitCostCents }
+                                    ).toLong()
+                                    Text("Total ingredient / finished-goods cost: ${money(totalCents)}",
+                                        style = MaterialTheme.typography.labelLarge)
+                                }
                             }
                             expandedPurchase.forEach { movement ->
                                 Text("${movement.inventoryItemName}: %.0f received".format(
