@@ -30,8 +30,8 @@ object CafeArrivalPlanner {
                 val cycle = Math.floorMod(day * 31L + hour * 7L + slot * 13L, 7L)
                 val guests = if (busy) (cycle % 3L + 2L).toInt()
                              else when (cycle.toInt()) {
-                                 0, 1, 2 -> 0
-                                 3, 4 -> 2
+                                 0, 1 -> 0
+                                 2, 3 -> 2
                                  else -> 3
                              }
                 if (guests > 0) result += Arrival(day, hour, slot, minOf(guests, seats))
