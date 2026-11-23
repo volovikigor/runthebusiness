@@ -98,8 +98,7 @@ class GameSimulationEngine(context: Context) {
             // During a calendar/decision jump, check on hourly boundaries; keep
             // NEXT_EVENT precise at every 15-minute interval.
             // Hourly checks can report a new stock alert up to 45 minutes late.
-            val shouldCheckAlerts = mode == JumpMode.NEXT_EVENT ||
-                latest.minute == 0 || latest.day != initial.day && latest.hour == 0
+            val shouldCheckAlerts = mode == JumpMode.NEXT_EVENT || latest.minute == 0
             if (shouldCheckAlerts) {
                 val alertStarted = android.os.SystemClock.elapsedRealtime()
                 val newDecision = alerts.load(sessionId).firstOrNull { it.id !in knownAlerts }
