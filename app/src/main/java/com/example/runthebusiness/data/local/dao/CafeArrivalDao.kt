@@ -17,6 +17,9 @@ interface CafeArrivalDao {
     @Query("SELECT * FROM cafe_arrivals WHERE locationId = :locationId ORDER BY gameDay, gameHour, gameMinute, id")
     suspend fun history(locationId: String): List<CafeArrivalEntity>
 
+    @Query("SELECT * FROM cafe_arrivals WHERE locationId = :locationId AND status = 'SERVED' AND gameDay >= :fromDay ORDER BY gameDay, gameHour, gameMinute, id")
+    suspend fun recentServed(locationId: String, fromDay: Int): List<CafeArrivalEntity>
+
     @Query("UPDATE cafe_arrivals SET status = :status WHERE id = :id AND status = 'ARRIVED'")
     suspend fun markProcessed(id: String, status: String): Int
 

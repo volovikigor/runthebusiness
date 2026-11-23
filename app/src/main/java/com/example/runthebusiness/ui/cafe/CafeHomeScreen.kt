@@ -26,6 +26,8 @@ import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
+import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
+import com.example.runthebusiness.data.local.CafeDayPerformance
 import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
 import com.example.runthebusiness.data.local.ManagementAlert
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
@@ -49,6 +51,7 @@ fun CafeHomeScreen(
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
+    val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val dailyClose = remember(context) { CafeDailyCloseRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
@@ -66,6 +69,8 @@ fun CafeHomeScreen(
     var lastClosedDay by remember { mutableIntStateOf(0) }
     var lastEventMessage by remember { mutableStateOf<String?>(null) }
     var alerts by remember { mutableStateOf<List<ManagementAlert>>(emptyList()) }
+    var dailyPerformance by remember { mutableStateOf<List<CafeDayPerformance>>(emptyList()) }
+    var showPerformance by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
@@ -75,6 +80,7 @@ fun CafeHomeScreen(
         diagnostics = diagnosticsRepo.inspect()
         lastClosedDay = dailyClose.lastClosedDay()
         alerts = if (state != null) alertsRepo.load() else emptyList()
+        dailyPerformance = if (state != null) performanceRepo.recent() else emptyList()
     }
     fun run(action: suspend () -> Unit) {
         scope.launch {
@@ -246,6 +252,43 @@ fun CafeHomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SummaryTile("Orders", "${cafe.salesCount}", Modifier.weight(1f))
                 SummaryTile("Output IVA", euro(cafe.outputVatCents), Modifier.weight(1f))
+            }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Daily performance", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = { showPerformance = !showPerformance }) {
+                    Text(if (showPerformance) "Hide" else "Last 14 days")
+                }
+            }
+            if (showPerformance) {
+                Text("Revenue is gross sales, not profit. Lost groups are observed arrivals that were not served; hypothetical lost revenue is not estimated.",
+                    style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth()) {
+                    Text("Day", Modifier.weight(0.6f), style = MaterialTheme.typography.labelSmall)
+                    Text("Served / arrived", Modifier.weight(1.4f), style = MaterialTheme.typography.labelSmall)
+                    Text("Lost", Modifier.weight(0.6f), style = MaterialTheme.typography.labelSmall)
+                    Text("Revenue", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall)
+                }
+                dailyPerformance.forEach { day ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${day.day}", Modifier.weight(0.6f))
+                        Text("${day.servedGroups} / ${day.arrivingGroups}", Modifier.weight(1.4f))
+                        Text("${day.lostGroups}", Modifier.weight(0.6f))
+                        Text(euro(day.revenueCents), Modifier.weight(1.2f))
+                    }
+                    val reasons = listOfNotNull(
+                        day.noStock.takeIf { it > 0 }?.let { "stock $it" },
+                        day.noSeats.takeIf { it > 0 }?.let { "seats $it" },
+                        day.declinedPrice.takeIf { it > 0 }?.let { "no purchase $it" },
+                        day.staffDisruption.takeIf { it > 0 }?.let { "staff $it" },
+                        day.rentShutdown.takeIf { it > 0 }?.let { "rent $it" }
+                    )
+                    if (reasons.isNotEmpty()) Text("Lost: ${reasons.joinToString(" · ")}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider()
+                }
             }
             Text("Visitor arrivals", style = MaterialTheme.typography.titleMedium)
             val todayVisitors = visitors.filter { it.gameDay == cafe.time.day }

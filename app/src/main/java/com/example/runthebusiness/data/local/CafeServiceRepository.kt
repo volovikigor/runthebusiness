@@ -27,17 +27,23 @@ class CafeServiceRepository(context: Context) {
             val cafe = db.operationsDao().getLocations(business.id).singleOrNull()
                 ?: return@withContext 0
             val arrivalDao = db.cafeArrivalDao()
+            val pending = arrivalDao.pending(location.id)
+            if (pending.isEmpty()) return@withContext 0
             val impact = consequences.load(sessionId)
             var served = 0
-            for (arrival in arrivalDao.pending(location.id)) {
+            // Build the seating timeline once per batch rather than querying the
+            // entire growing arrival history for every group (quadratic work).
+            val earliestDay = pending.first().gameDay
+            val lookbackDays = (cafe.averageVisitMinutes / 1440) + 2
+            val visits = arrivalDao.recentServed(location.id,
+                (earliestDay - lookbackDays).coerceAtLeast(1))
+                .map { CafeSeatingRules.Visit(
+                    GameTime(it.gameDay, it.gameHour, it.gameMinute).totalMinutes,
+                    it.guests, true
+                ) }.toMutableList()
+            for (arrival in pending) {
                 db.withTransaction {
                     val now = GameTime(arrival.gameDay, arrival.gameHour, arrival.gameMinute)
-                    val visits = arrivalDao.history(location.id).map {
-                        CafeSeatingRules.Visit(
-                            GameTime(it.gameDay, it.gameHour, it.gameMinute).totalMinutes,
-                            it.guests, it.status == "SERVED"
-                        )
-                    }
                     val seats = CafeSeatingRules.availableSeats(
                         now.totalMinutes, cafe.tableCount * cafe.seatsPerTable,
                         cafe.averageVisitMinutes, visits
@@ -82,7 +88,10 @@ class CafeServiceRepository(context: Context) {
                         }
                         check(arrivalDao.markProcessed(arrival.id,
                             if (sold) "SERVED" else if (offered) "NO_PURCHASE" else "NO_STOCK") == 1)
-                        if (sold) served++
+                        if (sold) {
+                            served++
+                            visits.add(CafeSeatingRules.Visit(now.totalMinutes, arrival.guests, true))
+                        }
                     }
                 }
             }
