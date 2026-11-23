@@ -230,7 +230,7 @@ fun CafeHomeScreen(
                             Text("Bank funds are insufficient for all bills. Deposit cash before paying.",
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                        if (position.cashCents > 0L) {
+                        if (position.cashCents > 0L && position.totalDueCents > position.bankCents) {
                             OutlinedButton(enabled = !loading, onClick = { run {
                                 val transfer = minOf(position.cashCents,
                                     (position.totalDueCents - position.bankCents).coerceAtLeast(0L))
