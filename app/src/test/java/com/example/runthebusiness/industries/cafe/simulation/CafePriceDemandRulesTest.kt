@@ -23,6 +23,37 @@ class CafePriceDemandRulesTest {
         }
     }
 
+    @Test fun expandedMenuUsesItsOwnReferencePrices() {
+        assertEquals(900L, CafePriceDemandRules.referencePriceCents("caesar_salad_001"))
+        assertEquals(750L, CafePriceDemandRules.referencePriceCents("chicken_sandwich_001"))
+        assertEquals(490L, CafePriceDemandRules.referencePriceCents("cheesecake_001"))
+        assertTrue(CafePriceDemandRules.accepts("lunch_1", "caesar_salad_001", 900L))
+    }
+
+    @Test fun lunchDemandForFoodExceedsBreakfastDemand() {
+        val lunch = (1..1000).count {
+            CafePriceDemandRules.wantsCategory("group_$it", 12, "FOOD")
+        }
+        val breakfast = (1..1000).count {
+            CafePriceDemandRules.wantsCategory("group_$it", 9, "FOOD")
+        }
+        assertTrue(lunch > breakfast)
+    }
+
+    @Test fun afternoonDessertDemandExceedsBreakfastDemand() {
+        val afternoon = (1..1000).count {
+            CafePriceDemandRules.wantsCategory("group_$it", 16, "DESSERT")
+        }
+        val breakfast = (1..1000).count {
+            CafePriceDemandRules.wantsCategory("group_$it", 9, "DESSERT")
+        }
+        assertTrue(afternoon > breakfast)
+        assertEquals(
+            CafePriceDemandRules.wantsCategory("group_42", 16, "DESSERT"),
+            CafePriceDemandRules.wantsCategory("group_42", 16, "DESSERT")
+        )
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun zeroPriceIsRejected() {
         CafePriceDemandRules.accepts("arrival_1", "espresso_001", 0L)
