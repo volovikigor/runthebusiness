@@ -30,14 +30,9 @@ class CafeManagementAlertsRepository(context: Context) {
             // Game cadence: rent on days 14, 28, ...; payroll on days 7, 14, 21, ...
             // Accruals remain visible in Finance every day; alerts are only for due/late bills.
             fun lastDueDay(period: Int): Int = (day / period) * period
-            val settlements = db.accountingDao().getJournalEntries(sessionId)
-                .filter { it.id.startsWith("settlement_") }
-            suspend fun settledSince(account: String, cutoff: Int): Boolean = settlements.any { entry ->
-                entry.gameDay >= cutoff && db.accountingDao().getJournalLines(entry.id)
-                    .any { it.accountCode == account && it.debitCents > 0L }
-            }
             suspend fun isDue(period: Int, account: String): Boolean =
-                day >= period && !settledSince(account, lastDueDay(period))
+                day >= period && (db.accountingDao().lastSettlementDay(sessionId, account) ?: 0) <
+                    lastDueDay(period)
             fun isLate(period: Int): Boolean = if (period == 7) impact.payrollDaysLate > 2
                 else impact.rentDaysLate > 2
             val alerts = mutableListOf<ManagementAlert>()
