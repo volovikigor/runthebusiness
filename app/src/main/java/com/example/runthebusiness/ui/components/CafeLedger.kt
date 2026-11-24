@@ -52,15 +52,20 @@ private fun CafeSectionHeader(
     Column(Modifier.background(MaterialTheme.colorScheme.background)) {
         Text(title, Modifier.padding(start = 16.dp, top = 10.dp),
             style = MaterialTheme.typography.headlineMedium)
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                .selectableGroup().padding(horizontal = 8.dp)
-        ) {
-            sections.forEach { label ->
-                CafeTab(label, label == selected, { onSelect(label) }, Modifier.widthIn(min = 56.dp))
-            }
-        }
+        CafeLedgerOptions(sections, selected, onSelect)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+fun CafeLedgerOptions(sections: List<String>, selected: String, onSelect: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+            .selectableGroup().padding(horizontal = 8.dp)
+    ) {
+        sections.forEach { label ->
+            CafeTab(label, label == selected, { onSelect(label) }, Modifier.widthIn(min = 56.dp))
+        }
     }
 }
 
@@ -102,8 +107,8 @@ private fun CafeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
 }
 
 @Composable
-fun CafeLedgerPanel(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+fun CafeLedgerPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.tertiary)
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),

@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.*
 import com.example.runthebusiness.ui.components.CafeSectionScreen
+import com.example.runthebusiness.ui.components.CafeLedgerPanel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -249,19 +250,21 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             }
             3 -> staff?.let { team ->
                 Text("Staff", style = MaterialTheme.typography.titleLarge)
-                Text("Today · ${team.currentCount} employees · €%.2f per day".format(
-                    Locale.ROOT, team.currentCostCents / 100.0))
-                Text("Day ${team.today + 1} · ${team.plannedCount} employees · €%.2f per day".format(
-                    Locale.ROOT, team.plannedCostCents / 100.0))
-                Text("Daily cost includes employer social contributions.",
-                    style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        enabled = !busy && team.plannedCount > 1,
-                        onClick = { run { staffRepo.changePlannedSize(-1) } }
-                    ) { Text("Remove 1") }
-                    Button(enabled = !busy, onClick = { run { staffRepo.changePlannedSize(1) } }) {
-                        Text("Hire 1")
+                CafeLedgerPanel {
+                    Text("Today · ${team.currentCount} employees · €%.2f per day".format(
+                        Locale.ROOT, team.currentCostCents / 100.0))
+                    Text("Day ${team.today + 1} · ${team.plannedCount} employees · €%.2f per day".format(
+                        Locale.ROOT, team.plannedCostCents / 100.0))
+                    Text("Daily cost includes employer social contributions.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            enabled = !busy && team.plannedCount > 1,
+                            onClick = { run { staffRepo.changePlannedSize(-1) } }
+                        ) { Text("Remove 1") }
+                        Button(enabled = !busy, onClick = { run { staffRepo.changePlannedSize(1) } }) {
+                            Text("Hire 1")
+                        }
                     }
                 }
                 HorizontalDivider()
