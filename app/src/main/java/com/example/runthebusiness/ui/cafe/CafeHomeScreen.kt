@@ -105,6 +105,7 @@ fun CafeHomeScreen(
     var customerFlow by remember { mutableStateOf<CafeCustomerFlow?>(null) }
     var showCustomerFlow by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showDetails by remember { mutableStateOf(false) }
     var confirmNewGame by remember { mutableStateOf(false) }
 
     suspend fun reload() {
@@ -262,106 +263,6 @@ fun CafeHomeScreen(
                     }
                 }
             }
-            Text("Game clock", style = MaterialTheme.typography.titleMedium)
-            if (clockError != null) {
-                Text("Automatic clock paused: $clockError",
-                    color = MaterialTheme.colorScheme.error)
-            }
-            Text("Automatic time • 1 real second = 1 / 5 / 20 game minutes",
-                style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(0 to "Pause", 1 to "×1", 5 to "×5", 20 to "×20").forEach { (value, label) ->
-                    FilterChip(
-                        selected = speed == value,
-                        onClick = { onSpeedChange(value) },
-                        label = { Text(label) }
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { run { simulation.advance(15L) } }, enabled = !loading) {
-                    Text("+15 min")
-                }
-                Button(onClick = { run { simulation.advance(60L) } }, enabled = !loading) {
-                    Text("+1 hour")
-                }
-                OutlinedButton(onClick = { run { } }, enabled = !loading) { Text("Refresh") }
-            }
-            HorizontalDivider()
-            Text("Daily close", style = MaterialTheme.typography.titleMedium)
-            Text("Last financially closed day: ${if (lastClosedDay == 0) "none" else "Day $lastClosedDay"}",
-                style = MaterialTheme.typography.bodyMedium)
-            if (cafe.time.hour >= cafe.closingHour) {
-                Text("Trading hours ended. Finish the day to post rent, salaries and depreciation.",
-                    style = MaterialTheme.typography.bodySmall)
-                Button(
-                    enabled = !loading && speed == 0,
-                    onClick = {
-                        run {
-                            val remaining = (24 - cafe.time.hour) * 60L - cafe.time.minute
-                            simulation.advance(remaining)
-                        }
-                    }
-                ) { Text("Finish day & post expenses") }
-                if (speed != 0) Text("Pause the clock to finish the day manually.",
-                    style = MaterialTheme.typography.bodySmall)
-            } else {
-                Text("Day ${cafe.time.day} in progress. Closing becomes available after ${cafe.closingHour}:00.",
-                    style = MaterialTheme.typography.bodySmall)
-            }
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Time navigation", style = MaterialTheme.typography.titleMedium)
-                    Text("All jumps simulate intermediate orders, stock usage, journal entries and daily closes.",
-                        style = MaterialTheme.typography.bodySmall)
-                    listOf(
-                        GameSimulationEngine.JumpMode.NEXT_EVENT to "Next routine event",
-                        GameSimulationEngine.JumpMode.NEXT_DECISION to "Next management decision",
-                        GameSimulationEngine.JumpMode.NEXT_DAY to "Finish current day",
-                        GameSimulationEngine.JumpMode.NEXT_WEEK to "Advance 7 days"
-                    ).forEach { (mode, label) ->
-                        OutlinedButton(
-                            enabled = !loading && speed == 0,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                run {
-                                    if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) {
-                                        weeklyProgress = 0 to cafe.time.day
-                                        weeklyGroups = 0
-                                    }
-                                    val result = simulation.jump(mode, onProgress = { day, completed, groups ->
-                                        weeklyProgress = completed to day
-                                        weeklyGroups = groups
-                                    })
-                                    lastEventMessage = result.description
-                                    if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) {
-                                        auditExport.saveDesktopReport()
-                                        lastEventMessage += " · Diagnostic CSV ready for ADB transfer"
-                                    }
-                                }
-                            }
-                        ) { Text(label) }
-                    }
-                    weeklyProgress?.let { (completed, day) ->
-                        Text("Simulating day $day · $completed / 7 days completed",
-                            style = MaterialTheme.typography.titleMedium)
-                        LinearProgressIndicator(
-                            progress = { (completed / 7f).coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text("$weeklyGroups customer groups served so far",
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (speed != 0) Text("Pause the clock to jump.",
-                        style = MaterialTheme.typography.bodySmall)
-                    if (lastEventMessage != null) {
-                        Text("Jump result: $lastEventMessage",
-                            style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Text("Seven-day advance continues through stock shortages and financial alerts. Their effects still apply; check management alerts and Finance after the run.",
-                        style = MaterialTheme.typography.bodySmall)
-                }
-            }
             Text("Management decisions", style = MaterialTheme.typography.titleMedium)
             if (alerts.isEmpty()) {
                 Text("No immediate management alerts.",
@@ -382,6 +283,10 @@ fun CafeHomeScreen(
                     }
                 }
             }
+            TextButton(onClick = { showDetails = !showDetails }) {
+                Text(if (showDetails) "Hide reports & settings" else "Reports & settings")
+            }
+            if (showDetails) {
             Text("Business at a glance", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SummaryTile("Sales", euro(cafe.grossSalesCents), Modifier.weight(1f))
@@ -576,8 +481,9 @@ fun CafeHomeScreen(
                     }
                 }
             }
-            Text("Sales totals include all recorded days. Time now serves eligible visitor groups; staff queues and recurring costs are not yet simulated.",
+            Text("Sales totals include all recorded days.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
