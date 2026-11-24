@@ -43,6 +43,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
     val consequencesRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentConsequencesRepository(context) }
+    var supplierBills by remember {
+        mutableStateOf<List<com.example.runthebusiness.data.local.SupplierBill>>(emptyList())
+    }
     var bills by remember { mutableStateOf<List<com.example.runthebusiness.data.local.ScheduledBill>>(emptyList()) }
     var paymentStatus by remember { mutableStateOf<com.example.runthebusiness.data.local.PaymentConsequences?>(null) }
     val detailsRepo = remember(context) { CafeTransactionDetailRepository(context) }
@@ -117,6 +120,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 statements = financeRepo.load()
                 cashPosition = cashRepo.position()
                 bills = billsRepo.snapshot()
+                supplierBills = billsRepo.supplierBills()
                 paymentStatus = consequencesRepo.load()
                 daily = financeRepo.dailyProfitLoss()
                 entries = journalRepo.journal().asReversed()
@@ -236,6 +240,27 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             if (forecast == null && !busy && error == null) Text("Start the café to see its cash forecast.")
         }
         if (section == "Bills") {
+            val today = forecast?.days?.firstOrNull()?.day
+            cashPosition?.let { position ->
+                if (supplierBills.isNotEmpty()) {
+                    Text("Supplier invoices", style = MaterialTheme.typography.titleMedium)
+                    supplierBills.forEach { invoice ->
+                        val overdue = today != null && invoice.dueDay < today
+                        Text(invoice.label, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "${money(invoice.amountCents)} · due Day ${invoice.dueDay}" +
+                                if (overdue) " · overdue" else "",
+                            color = if (overdue) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface
+                        )
+                        OutlinedButton(
+                            enabled = !busy && position.bankCents >= invoice.amountCents,
+                            onClick = { paymentAction { cashRepo.paySupplier(invoice.id) } }
+                        ) { Text("Pay supplier") }
+                    }
+                }
+            }
+
             cashPosition?.let { position ->
                 val payment = paymentStatus
                 val overdue = payment?.rentDaysLate ?: 0
@@ -379,7 +404,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             cashPosition?.let { position ->
                 Text("Cash: ${money(position.cashCents)} · Bank: ${money(position.bankCents)}")
                 Text("Accrued rent payable: ${money(position.rentPayableCents)}")
-                Text("Accrued gross salaries payable: ${money(position.salariesPayableCents)}")
+                Text("Accrued salaries payable: ${money(position.salariesPayableCents)}")
                 Text("Available after these payables: ${money(position.liquidityGapCents)}",
                     style = MaterialTheme.typography.titleSmall,
                     color = if (position.liquidityGapCents < 0L) MaterialTheme.colorScheme.error
@@ -391,7 +416,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 }
                 listOf(
                     Triple("2000", "Pay accrued rent", position.rentPayableCents),
-                    Triple("2300", "Pay accrued gross salaries", position.salariesPayableCents)
+                    Triple("2300", "Pay accrued salaries", position.salariesPayableCents)
                 ).forEach { (code, label, due) ->
                     Button(
                         enabled = !busy && due > 0L && position.bankCents >= due,
@@ -558,7 +583,7 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
     }
     Text(
         if (forecast.historyDays > 0) {
-            "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading. Balances are shown before any deposits."
+            "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading. Corporate tax uses profit booked so far. Balances exclude deposits."
         } else {
             "Sales and stock purchases will be estimated after the first completed day."
         },

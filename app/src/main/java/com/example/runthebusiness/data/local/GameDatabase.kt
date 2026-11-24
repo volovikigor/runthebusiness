@@ -28,7 +28,7 @@ import com.example.runthebusiness.data.local.entity.*
         CafeProductEntity::class, CafeRecipeItemEntity::class,
         CafeArrivalEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
@@ -314,13 +314,23 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    INSERT OR IGNORE INTO ledger_accounts (sessionId, businessId, code, name, type)
+                    SELECT sessionId, id, '2010', 'Supplier invoices payable', 'LIABILITY'
+                    FROM businesses
+                """.trimIndent())
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build().also { INSTANCE = it }
             }
     }
 }

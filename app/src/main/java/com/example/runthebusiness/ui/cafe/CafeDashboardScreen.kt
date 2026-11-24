@@ -26,10 +26,12 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
     val simulation = remember(context) { GameSimulationEngine(context) }
     val dashboard = remember(context) { CafeDashboardRepository(context) }
+    val bills = remember(context) { CafePaymentRegisterRepository(context) }
     val scope = rememberCoroutineScope()
     var products by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
+    var supplierCreditBlocked by remember { mutableStateOf(false) }
     var started by remember { mutableStateOf(false) }
     var autoPolicy by remember { mutableStateOf(autoPurchasing.policy()) }
     var autoSelected by remember { mutableStateOf(emptySet<String>()) }
@@ -42,7 +44,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
-        started = dashboard.snapshot() != null
+        val currentDay = dashboard.snapshot()?.time?.day
+        started = currentDay != null
+        supplierCreditBlocked = currentDay != null && bills.supplierBills().any { it.dueDay < currentDay }
         realIngredients = inventorySetup.hasRealIngredients()
         kitchenInstalled = kitchen.installed()
         products = menu.loadMenu()
@@ -53,8 +57,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         movements = movementsRepo.movements()
     }
     fun run(action: suspend () -> Unit) {
+        if (busy) return
+        busy = true
         scope.launch {
-            busy = true
             error = null
             try {
                 action()
@@ -208,6 +213,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 }) { Text("Enable core ingredients auto-order") }
                 Text("Select supplier packs to replenish automatically:",
                     style = MaterialTheme.typography.labelLarge)
+                if (supplierCreditBlocked) {
+                    Text("Supplier credit paused · pay overdue invoices in Bills.",
+                        color = MaterialTheme.colorScheme.error)
+                }
                 CafePurchasingRepository.supplies.filter { supply ->
                     val food = CafeExpandedMenuRepository.offerings.firstOrNull { it.stockId == supply.itemId }
                     val isKitchen = CafeKitchenRepository.ingredients.any { it.id == supply.itemId }
@@ -258,6 +267,18 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                                     }
                                 }) { Text("Buy") }
                             }
+                            val shelfLife = if (supply.shelfLifeDays > 0) {
+                                "Shelf life ${supply.shelfLifeDays} days"
+                            } else {
+                                "Shelf-stable"
+                            }
+                            Text(shelfLife, style = MaterialTheme.typography.bodySmall)
+                            OutlinedButton(enabled = !busy && !supplierCreditBlocked, onClick = {
+                                run {
+                                    purchasing.purchase(supply.itemId, onCredit = true)
+                                    message = "Purchased ${supply.label} · invoice added to Bills"
+                                }
+                            }) { Text("Buy · pay in ${supply.creditDays} days") }
                         }
                     }
                 }

@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import com.example.runthebusiness.data.local.entity.*
+import com.example.runthebusiness.data.local.SupplierBill
 
 @Dao
 interface AccountingDao {
@@ -85,8 +86,10 @@ interface AccountingDao {
     suspend fun accountBalance(sessionId: String, accountCode: String): Long
 
     @Query("""
-        SELECT COALESCE(SUM(CASE WHEN e.gameDay < :dueDay THEN l.creditCents ELSE 0 END - l.debitCents), 0)
+        SELECT COALESCE(SUM(CASE WHEN e.gameDay < :dueDay THEN l.creditCents - l.debitCents
+            WHEN b.eventType = 'PAYABLE_SETTLEMENT' THEN -l.debitCents ELSE 0 END), 0)
         FROM journal_lines l JOIN journal_entries e ON e.id = l.entryId
+        LEFT JOIN business_events b ON b.id = e.sourceEventId
         WHERE e.sessionId = :sessionId AND l.accountCode = :accountCode
     """)
     suspend fun payableDue(sessionId: String, accountCode: String, dueDay: Int): Long
@@ -102,6 +105,41 @@ interface AccountingDao {
     suspend fun tradingCashMovement(
         sessionId: String, account: String, fromDay: Int, beforeDay: Int, includeSales: Boolean
     ): Long
+
+    @Query("""
+        SELECT e.id, e.description AS label,
+          e.gameDay + CASE e.sourceObjectType WHEN 'PERISHABLE_INVOICE' THEN 7 ELSE 14 END AS dueDay,
+          l.creditCents AS amountCents
+        FROM business_events e JOIN journal_entries j ON j.sourceEventId = e.id
+        JOIN journal_lines l ON l.entryId = j.id
+        WHERE e.sessionId = :sessionId AND e.eventType = 'SUPPLIER_INVOICE'
+          AND l.accountCode = '2010'
+          AND NOT EXISTS (
+            SELECT 1 FROM business_events p WHERE p.sessionId = e.sessionId
+              AND p.eventType = 'SUPPLIER_SETTLEMENT' AND p.sourceObjectId = e.id
+          )
+        ORDER BY dueDay, e.id
+    """)
+    suspend fun supplierBills(sessionId: String): List<SupplierBill>
+
+    @Query("""
+        SELECT COALESCE(SUM(l.creditCents - l.debitCents), 0)
+        FROM journal_lines l JOIN journal_entries j ON j.id = l.entryId
+        JOIN ledger_accounts a ON a.sessionId = j.sessionId AND a.businessId = j.businessId
+          AND a.code = l.accountCode
+        WHERE j.sessionId = :sessionId AND j.gameDay BETWEEN :fromDay AND :throughDay
+          AND a.type IN ('REVENUE', 'EXPENSE') AND a.code != '5800'
+    """)
+    suspend fun periodProfitBeforeTax(sessionId: String, fromDay: Int, throughDay: Int): Long
+
+    @Query("""
+        SELECT COALESCE(SUM(l.creditCents), 0)
+        FROM journal_lines l JOIN journal_entries j ON j.id = l.entryId
+        JOIN business_events e ON e.id = j.sourceEventId
+        WHERE j.sessionId = :sessionId AND l.accountCode = '2200'
+          AND j.gameDay >= :fromDay AND j.gameDay < :beforeDay AND e.eventType = 'CUSTOMER_SALE'
+    """)
+    suspend fun vatFromSales(sessionId: String, fromDay: Int, beforeDay: Int): Long
 
     @Transaction
     suspend fun saveAccountingOperation(

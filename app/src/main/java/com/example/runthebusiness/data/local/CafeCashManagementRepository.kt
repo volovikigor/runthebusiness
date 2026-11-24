@@ -18,7 +18,7 @@ data class CashPosition(
     val liquidityGapCents: Long get() = totalCashCents - totalDueCents
 }
 
-/** Settles accrued rent or gross salary from the bank, without creating a second expense. */
+/** Posts bank deposits and settles recorded liabilities. */
 class CafeCashManagementRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
 
@@ -75,11 +75,21 @@ class CafeCashManagementRepository(context: Context) {
             }
         }
 
-    suspend fun pay(accountCode: String, sessionId: String = "debug_session_001", amountCents: Long? = null): Long =
+    suspend fun paySupplier(invoiceId: String, sessionId: String = "debug_session_001"): Long =
+        db.withTransaction {
+            val bill = db.accountingDao().supplierBills(sessionId).singleOrNull { it.id == invoiceId }
+                ?: error("Supplier invoice is already paid or unavailable")
+            settle("2010", sessionId, bill.amountCents, invoiceId)
+        }
+
+    suspend fun pay(accountCode: String, sessionId: String = "debug_session_001", amountCents: Long? = null): Long {
+        require(accountCode in setOf("2000", "2200", "2300", "2400", "2600"))
+        return settle(accountCode, sessionId, amountCents)
+    }
+
+    private suspend fun settle(accountCode: String, sessionId: String, amountCents: Long?,
+        invoiceId: String? = null): Long =
         withContext(Dispatchers.IO) {
-            require(accountCode == "2000" || accountCode == "2300") {
-                "Only rent and salary settlements are supported"
-            }
             db.withTransaction {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId))
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
@@ -95,13 +105,20 @@ class CafeCashManagementRepository(context: Context) {
                 val id = UUID.randomUUID().toString()
                 val entryId = "settlement_$id"
                 val eventId = "event_$entryId"
-                val description = if (accountCode == "2000") "Rent payable settled by bank"
-                    else "Gross salaries payable settled by bank"
+                val description = when (accountCode) {
+                    "2000" -> "Rent payable settled by bank"
+                    "2200" -> "VAT settled by bank"
+                    "2300" -> "Salaries payable settled by bank"
+                    "2400" -> "Social contributions settled by bank"
+                    "2600" -> "Corporate tax settled by bank"
+                    else -> "Supplier invoice settled by bank"
+                }
                 db.accountingDao().saveAccountingOperation(
                     BusinessEventEntity(
                         id = eventId, sessionId = sessionId, businessId = business.id,
-                        eventType = "PAYABLE_SETTLEMENT", sourceObjectType = "LEDGER_ACCOUNT",
-                        sourceObjectId = accountCode, gameDay = session.currentDay,
+                        eventType = if (invoiceId == null) "PAYABLE_SETTLEMENT" else "SUPPLIER_SETTLEMENT",
+                        sourceObjectType = if (invoiceId == null) "LEDGER_ACCOUNT" else "SUPPLIER_INVOICE",
+                        sourceObjectId = invoiceId ?: accountCode, gameDay = session.currentDay,
                         gameHour = session.currentHour, gameMinute = session.currentMinute,
                         description = description
                     ),

@@ -3,6 +3,7 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.core.finance.dailyMonthlyAccrual
+import com.example.runthebusiness.core.finance.CafeTaxPolicy
 import com.example.runthebusiness.data.local.entity.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -11,7 +12,7 @@ import kotlinx.coroutines.withContext
  * Simplified 30-day game month. Accruals are non-cash and idempotent per day.
  * Rent: Dr 5400 / Cr 2000; wages: Dr 5200 / Cr 2300;
  * depreciation: Dr 5600 / Cr 1590.
- * Actual settlement and employer payroll taxes are future milestones.
+ * Social contributions accrue daily; corporate income tax accrues at period close.
  */
 class CafeDailyCloseRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
@@ -46,6 +47,12 @@ class CafeDailyCloseRepository(context: Context) {
                     val wage = dailyMonthlyAccrual(employee.monthlyGrossSalaryCents, day)
                     accruals += Accrual("salary_${employee.id}", employee.locationId,
                         "Daily gross salary · ${employee.name}", "5200", "2300", wage)
+                    accruals += Accrual("employee_social_${employee.id}", employee.locationId,
+                        "Employee social contribution · ${employee.name}", "2300", "2400",
+                        CafeTaxPolicy.employeeSocialCents(wage))
+                    accruals += Accrual("employer_social_${employee.id}", employee.locationId,
+                        "Employer social contribution · ${employee.name}", "5300", "2400",
+                        CafeTaxPolicy.employerSocialCents(wage))
                 }
                 equipment.filter { it.isOperational && day >= it.placedInServiceDay &&
                     it.usefulLifeMonths > 0 }.forEach { asset ->
@@ -60,10 +67,10 @@ class CafeDailyCloseRepository(context: Context) {
                             "Daily depreciation · ${asset.name}", "5600", "1590", amount)
                     }
                 }
-                for (a in accruals) {
-                    if (a.amount <= 0L) continue
+                suspend fun post(a: Accrual) {
+                    if (a.amount <= 0L) return
                     val id = "daily_close_${day}_${a.kind}_${a.locationId}"
-                    if (id in existing) continue
+                    if (id in existing) return
                     val eventId = "event_$id"
                     db.accountingDao().saveAccountingOperation(
                         BusinessEventEntity(
@@ -90,6 +97,14 @@ class CafeDailyCloseRepository(context: Context) {
                             )
                         )
                     )
+                }
+                accruals.forEach { post(it) }
+                if (day % CafeTaxPolicy.taxPeriodDays == 0) {
+                    val profit = db.accountingDao().periodProfitBeforeTax(
+                        sessionId, day - CafeTaxPolicy.taxPeriodDays + 1, day
+                    )
+                    post(Accrual("corporate_tax", "", "Corporate income tax for period ending Day $day",
+                        "5800", "2600", CafeTaxPolicy.corporateTaxCents(profit)))
                 }
                 if (accruals.any { it.amount > 0L && "daily_close_${day}_${it.kind}_${it.locationId}" !in existing }) {
                     CafePaymentConsequencesRepository.invalidate()

@@ -17,13 +17,14 @@ class CafePurchasingRepository(context: Context) {
 
     data class Supply(val itemId: String, val label: String, val quantity: Double, val unitCostCents: Long, val unit: String, val shelfLifeDays: Int = 0) {
         val costCents: Long get() = (quantity * unitCostCents).toLong()
+        val creditDays: Int get() = if (shelfLifeDays in 1..7) 7 else 14
     }
 
     companion object {
         val supplies = listOf(
-            Supply("stock_beans_001", "Coffee beans", 1000.0, 4L, "g"),
-            Supply("stock_milk_001", "Milk", 10000.0, 1L, "ml"),
-            Supply("stock_croissants_001", "Croissants", 100.0, 160L, "pcs")
+            Supply("stock_beans_001", "Coffee beans", 1000.0, 4L, "g", 90),
+            Supply("stock_milk_001", "Milk", 10000.0, 1L, "ml", 7),
+            Supply("stock_croissants_001", "Croissants", 100.0, 160L, "pcs", 3)
         ) + CafeExpandedMenuRepository.offerings.map {
             Supply(it.stockId, it.name, it.packSize, it.costCents, "pcs", it.shelfLifeDays)
         } + CafeKitchenRepository.ingredients.map {
@@ -41,14 +42,15 @@ class CafePurchasingRepository(context: Context) {
             }
         }
 
-    suspend fun purchase(itemId: String, sessionId: String = "debug_session_001", quantity: Double? = null): Long =
-        purchase(itemId, sessionId, quantity, skipUnavailable = false)
+    suspend fun purchase(itemId: String, sessionId: String = "debug_session_001", quantity: Double? = null,
+        onCredit: Boolean = false): Long =
+        purchase(itemId, sessionId, quantity, skipUnavailable = false, onCredit = onCredit)
 
     internal suspend fun purchaseIfAvailable(itemId: String, sessionId: String, quantity: Double): Long =
         purchase(itemId, sessionId, quantity, skipUnavailable = true)
 
     private suspend fun purchase(
-        itemId: String, sessionId: String, quantity: Double?, skipUnavailable: Boolean
+        itemId: String, sessionId: String, quantity: Double?, skipUnavailable: Boolean, onCredit: Boolean = false
     ): Long =
         withContext(Dispatchers.IO) {
             val standard = supplies.singleOrNull { it.itemId == itemId }
@@ -74,13 +76,22 @@ class CafePurchasingRepository(context: Context) {
                 require(!convertedFood) { "This meal is prepared from ingredients; purchase kitchen supplies instead" }
                 val cash = db.accountingDao().accountBalance(sessionId, "1000")
                 val bank = db.accountingDao().accountBalance(sessionId, "1100")
-                val canAfford = cash >= supply.costCents || bank >= supply.costCents
+                if (onCredit) {
+                    require(db.accountingDao().supplierBills(sessionId).none { it.dueDay < session.currentDay }) {
+                        "Pay overdue supplier invoices before buying on credit"
+                    }
+                }
+                val canAfford = onCredit || cash >= supply.costCents || bank >= supply.costCents
                 if (skipUnavailable && !canAfford) return@withTransaction 0L
                 require(canAfford) {
                     "Insufficient funds: supplier pack costs €%.2f".format(
                         java.util.Locale.ROOT, supply.costCents / 100.0)
                 }
-                val paymentAccount = if (cash >= supply.costCents) "1000" else "1100"
+                val paymentAccount = when {
+                    onCredit -> "2010"
+                    cash >= supply.costCents -> "1000"
+                    else -> "1100"
+                }
                 val id = UUID.randomUUID().toString()
                 db.operationsDao().insertInventoryBatches(listOf(
                     InventoryBatchEntity(
@@ -110,11 +121,17 @@ class CafePurchasingRepository(context: Context) {
                 )))
                 val eventId = "purchase_event_$id"
                 val entryId = "purchase_$id"
-                val description = "Cash purchase: ${supply.label}, ${supply.quantity} ${supply.unit}"
+                val description = if (onCredit) "Supplier invoice · ${supply.label}, ${supply.quantity} ${supply.unit}"
+                    else "Cash purchase: ${supply.label}, ${supply.quantity} ${supply.unit}"
                 db.accountingDao().saveAccountingOperation(
                     BusinessEventEntity(
                         id = eventId, sessionId = sessionId, businessId = business.id,
-                        eventType = "INVENTORY_PURCHASE", sourceObjectType = "INVENTORY_BATCH",
+                        eventType = if (onCredit) "SUPPLIER_INVOICE" else "INVENTORY_PURCHASE",
+                        sourceObjectType = when {
+                            !onCredit -> "INVENTORY_BATCH"
+                            supply.creditDays == 7 -> "PERISHABLE_INVOICE"
+                            else -> "SHELF_STABLE_INVOICE"
+                        },
                         sourceObjectId = "purchase_batch_$id",
                         gameDay = session.currentDay, gameHour = session.currentHour,
                         gameMinute = session.currentMinute, description = description
