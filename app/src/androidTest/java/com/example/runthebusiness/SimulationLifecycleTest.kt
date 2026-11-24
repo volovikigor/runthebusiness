@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeArrivalRepository
 import com.example.runthebusiness.data.local.CafeCashForecastRepository
+import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeSaleRepository
@@ -96,6 +97,11 @@ class SimulationLifecycleTest {
 
         simulation.advance(480)
         assertEquals(GameTime(1, 17), game.loadGameTime())
+        val shift = CafeDailyPerformanceRepository(context).recent().single()
+        val dayOrders = CafeSaleRepository(context).loadDemoSales()
+        assertTrue(shift.arrivingGroups > 20)
+        assertEquals(dayOrders.size, shift.servedGroups)
+        assertEquals(dayOrders.sumOf { it.netCents - it.cogsCents }, shift.grossMarginCents)
         assertTrue(!dashboard.snapshot()!!.isTrading)
         assertEquals(0, close.lastClosedDay())
         simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
@@ -110,16 +116,24 @@ class SimulationLifecycleTest {
         assertEquals(dayOne.toSet(), accounting.entryIdsWithPrefix("debug_session_001", "daily_close_1_%").toSet())
         assertEquals(1, close.lastClosedDay())
 
-        simulation.advance(480)
+        simulation.jump(GameSimulationEngine.JumpMode.NEXT_OPENING)
         assertEquals(GameTime(2, 8), game.loadGameTime())
         assertTrue(dashboard.snapshot()!!.isTrading)
         assertTrue(CafeArrivalRepository(context).recent().any { it.gameDay == 2 && it.gameHour == 8 })
         game.setCafeOpen(false)
+        simulation.advance(540)
+        assertEquals(GameTime(2, 17), game.loadGameTime())
+        game.setCafeOpen(true)
+        simulation.jump(GameSimulationEngine.JumpMode.NEXT_OPENING)
+        assertEquals(GameTime(3, 8), game.loadGameTime())
+        assertEquals(2, close.lastClosedDay())
+        game.setCafeOpen(false)
+        assertEquals(GameTime(3, 8), simulation.jump(GameSimulationEngine.JumpMode.NEXT_OPENING).time)
         simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
         simulation.advance(480)
-        assertEquals(2, close.lastClosedDay())
+        assertEquals(3, close.lastClosedDay())
         assertTrue(!dashboard.snapshot()!!.isTrading)
-        assertTrue(CafeArrivalRepository(context).recent().none { it.gameDay == 3 })
+        assertTrue(CafeArrivalRepository(context).recent().none { it.gameDay == 4 })
     }
 
     @Test
