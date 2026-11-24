@@ -14,6 +14,11 @@ import com.example.runthebusiness.data.local.CafeCashForecastRepository
 import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.CafeDashboardRepository
+import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
+import com.example.runthebusiness.data.local.CafeKitchenRepository
+import com.example.runthebusiness.data.local.CafeMenuReadinessRepository
+import com.example.runthebusiness.data.local.CafePurchasingRepository
+import com.example.runthebusiness.data.local.stockShortages
 import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.GameRepository
@@ -215,6 +220,26 @@ class SimulationLifecycleTest {
         } finally {
             register.reset()
         }
+    }
+
+    @Test
+    fun buyingSharedIngredientRefreshesTheShortageAcrossRecipes() = runBlocking {
+        GameSimulationEngine(context).startGame()
+        CafeKitchenRepository(context).activate()
+        val menu = CafeExpandedMenuRepository(context)
+        val affected = setOf("ham_cheese_001", "caesar_salad_001")
+        for (id in affected) menu.setEnabled(id, true)
+        val readiness = CafeMenuReadinessRepository(context)
+
+        val cheese = readiness.snapshot().stockShortages().single { it.supply.itemId == "kitchen_cheese" }
+        assertEquals(affected, cheese.dishes.map { it.productId }.toSet())
+        val paid = CafePurchasingRepository(context).purchase(cheese.supply.itemId)
+        assertEquals(checkNotNull(cheese.supply.supplierPackCents), paid)
+
+        val afterPurchase = readiness.snapshot()
+        assertTrue(afterPurchase.stockShortages().none { it.supply.itemId == cheese.supply.itemId })
+        assertEquals(affected, afterPurchase.filter { it.productId in affected && !it.ready }
+            .map { it.productId }.toSet())
     }
 
     private fun clearSave() {
