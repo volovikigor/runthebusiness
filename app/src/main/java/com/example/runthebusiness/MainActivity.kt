@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
 import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
 import com.example.runthebusiness.ui.cafe.CafeHomeScreen
+import com.example.runthebusiness.ui.components.CafeBottomNavigation
 import com.example.runthebusiness.ui.theme.RunthebusinessTheme
 
 class MainActivity : ComponentActivity() {
@@ -213,26 +214,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     bottomBar = {
-                        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { navigateTab(0) },
-                                icon = { Text("☕") },
-                                label = { Text("Café") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { navigateTab(1) },
-                                icon = { Text("▤") },
-                                label = { Text("Operations") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 2,
-                                onClick = { navigateTab(2) },
-                                icon = { Text("€") },
-                                label = { Text("Finance") }
-                            )
-                        }
+                        CafeBottomNavigation(selectedTab, ::navigateTab)
                     }
                 ) { padding ->
                     if (restoring || settingUp || jumping) {

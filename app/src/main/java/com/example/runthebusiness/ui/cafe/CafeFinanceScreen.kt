@@ -4,9 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +24,8 @@ import com.example.runthebusiness.data.local.DailyProfitLoss
 import com.example.runthebusiness.data.local.CafeTransactionDetailRepository
 import com.example.runthebusiness.data.local.SaleDetail
 import com.example.runthebusiness.data.local.entity.StockMovementEntity
+import com.example.runthebusiness.ui.components.CafeSectionScreen
+import com.example.runthebusiness.ui.components.CafeLedgerPanel
 import kotlinx.coroutines.launch
 import java.util.Locale
 import com.example.runthebusiness.data.local.CafeCashForecast
@@ -189,39 +188,29 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             (accountFilter == null || entry.lines.any { it.account.substringBefore(" ") == accountFilter })
     }
 
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("Finance", style = MaterialTheme.typography.headlineMedium)
-        OutlinedButton(enabled = !busy, onClick = {
-            scope.launch {
-                busy = true
-                try {
-                    exportData = auditRepo.exportCsv()
-                    saveAudit.launch("cafe_audit.csv")
-                } catch (e: Exception) {
-                    error = "Export failed: ${e.message}"
-                } finally { busy = false }
-            }
-        }) { Text("Export full audit CSV (journal + inventory + visitors)") }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Forecast", "Bills", "P&L", "BS", "Cash", "Journal").forEach { tab ->
-                FilterChip(selected = section == tab, onClick = {
-                    if (tab == "Journal" && section != "Journal") previousSection = section
-                    section = tab; accountFilter = null; expandedId = null
-                }, label = { Text(tab, maxLines = 1) })
-            }
+    CafeSectionScreen(
+        modifier, "Finance", listOf("Forecast", "Bills", "P&L", "BS", "Cash", "Journal"), section,
+        onSelect = { tab ->
+            if (tab == "Journal" && section != "Journal") previousSection = section
+            section = tab
+            accountFilter = null
+            expandedId = null
         }
+    ) {
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (section == "Forecast") {
             forecast?.let { report ->
                 cashPosition?.let { position ->
-                    Text("Available now · Cash ${money(position.cashCents)} · Bank ${money(position.bankCents)}")
-                    OutlinedButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
-                        Text("Deposit cash into bank")
+                    CafeLedgerPanel {
+                        Text("Available now", style = MaterialTheme.typography.titleSmall)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Till ${money(position.cashCents)}")
+                            Text("Bank ${money(position.bankCents)}")
+                        }
+                        TextButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
+                            Text("Deposit cash into bank")
+                        }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -434,6 +423,17 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         if (section == "Journal") {
             Text("General ledger · newest first", style = MaterialTheme.typography.titleMedium)
+            TextButton(enabled = !busy, onClick = {
+                scope.launch {
+                    busy = true
+                    try {
+                        exportData = auditRepo.exportCsv()
+                        saveAudit.launch("cafe_audit.csv")
+                    } catch (e: Exception) {
+                        error = "Export failed: ${e.message}"
+                    } finally { busy = false }
+                }
+            }) { Text("Export audit CSV") }
             if (accountFilter != null) {
                 AssistChip(onClick = { accountFilter = null }, label = { Text("Account $accountFilter ×") })
             }

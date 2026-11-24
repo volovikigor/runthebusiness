@@ -353,6 +353,23 @@ class SimulationLifecycleTest {
         assertEquals(4, checkNotNull(staff.snapshot()).currentCount)
     }
 
+    @Test
+    fun ledgerNavigationKeepsStaffInventoryAndFinanceAvailable() {
+        startCafe()
+        click("Operations")
+        assertVisible("Pricing")
+        click("Staff")
+        assertVisible("Service capacity")
+        click("Inventory")
+        assertVisible("Expired batches are written off automatically.")
+        assertEquals(null, findNode("Write off 1 g · Coffee beans"))
+        click("Purchasing")
+        assertVisible("Automatic replenishment")
+        click("Finance")
+        assertVisible("Available now")
+        assertVisible("7-day cash forecast")
+    }
+
     private fun clearSave() {
         GameDatabase.getInstance(context).clearAllTables()
     }
