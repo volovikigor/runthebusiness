@@ -158,6 +158,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 val canControlTime = appForeground && !jumping && !restoring && !settingUp && time != null
+                fun startJump(mode: GameSimulationEngine.JumpMode) {
+                    if (!canControlTime) return
+                    progressionJob?.cancel()
+                    gameSpeed = 0
+                    skipMenu = false
+                    clockError = null
+                    resultMessage = null
+                    progress = 0
+                    groups = 0
+                    jumpMode = mode
+                }
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
@@ -174,12 +185,7 @@ class MainActivity : ComponentActivity() {
                                             GameSimulationEngine.JumpMode.NEXT_DAY to "Next day",
                                             GameSimulationEngine.JumpMode.NEXT_WEEK to "Next week").forEach { (mode, label) ->
                                             DropdownMenuItem(text = { Text(label) }, onClick = {
-                                                skipMenu = false
-                                                clockError = null
-                                                resultMessage = null
-                                                progress = 0
-                                                groups = 0
-                                                jumpMode = mode
+                                                startJump(mode)
                                             })
                                         }
                                     }
@@ -240,6 +246,7 @@ class MainActivity : ComponentActivity() {
                             speed = gameSpeed,
                             time = time,
                             onStartGame = ::startGame,
+                            onSkipToOpening = { startJump(GameSimulationEngine.JumpMode.NEXT_OPENING) },
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
                             onOpenFinance = { financeTarget = "Bills"; navigateTab(2) }
                         )

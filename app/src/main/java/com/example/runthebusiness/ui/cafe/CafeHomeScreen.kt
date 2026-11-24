@@ -51,11 +51,47 @@ private val Honey = Color(0xFFDDAF72)
 private val Cream = Color(0xFFFFF2D9)
 
 @Composable
+private fun CafeShiftSummary(
+    shift: CafeDayPerformance,
+    currentDay: Int,
+    onOpenOperations: (Int) -> Unit,
+    onOpenFinance: () -> Unit
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                if (shift.day == currentDay) "Today's shift" else "Last shift · Day ${shift.day}",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text("${shift.servedGroups} of ${shift.arrivingGroups} groups served · ${shift.lostGroups} lost")
+            if (shift.pendingGroups > 0) Text("Awaiting service: ${shift.pendingGroups}")
+            Text("Net sales ${euro(shift.netSalesCents)} · Gross margin ${euro(shift.grossMarginCents)}")
+            if (shift.noStock > 0) {
+                Text("Out of stock · ${shift.noStock}")
+                TextButton(onClick = { onOpenOperations(1) }) { Text("Go to purchasing") }
+            }
+            if (shift.declinedPrice > 0) {
+                Text("Left without buying · ${shift.declinedPrice}")
+                TextButton(onClick = { onOpenOperations(0) }) { Text("Review menu prices") }
+            }
+            if (shift.noSeats > 0) Text("No seats available · ${shift.noSeats}")
+            if (shift.staffCapacity > 0) Text("Staff at capacity · ${shift.staffCapacity}")
+            if (shift.staffDisruption > 0) Text("Overdue payroll disruption · ${shift.staffDisruption}")
+            if (shift.rentShutdown > 0) Text("Closed due to overdue rent · ${shift.rentShutdown}")
+            if (shift.staffDisruption > 0 || shift.rentShutdown > 0) {
+                TextButton(onClick = onOpenFinance) { Text("Review unpaid bills") }
+            }
+        }
+    }
+}
+
+@Composable
 fun CafeHomeScreen(
     modifier: Modifier = Modifier,
     speed: Int = 0,
     time: GameTime? = null,
     onStartGame: (Boolean) -> Unit = {},
+    onSkipToOpening: () -> Unit = {},
     onOpenOperations: (Int) -> Unit = {},
     onOpenFinance: () -> Unit = {}
 ) {
@@ -164,6 +200,25 @@ fun CafeHomeScreen(
                 Text("Start café")
             }
         } else {
+            if (!cafe.isOpen) {
+                Text("Scheduled opening is disabled.", style = MaterialTheme.typography.bodySmall)
+            } else if (!cafe.isTrading) {
+                val openingDay = if (cafe.time.hour < cafe.openingHour) "today" else "tomorrow"
+                Button(onClick = onSkipToOpening, enabled = !loading) {
+                    Text("Skip to opening · %02d:00 %s".format(Locale.ROOT, cafe.openingHour, openingDay))
+                }
+            }
+            OutlinedButton(
+                onClick = { run { game.setCafeOpen(!cafe.isOpen) } },
+                enabled = !loading
+            ) {
+                Text(when {
+                    !cafe.isOpen && cafe.time.hour in cafe.openingHour until cafe.closingHour -> "Open café"
+                    !cafe.isOpen -> "Enable scheduled opening"
+                    cafe.isTrading -> "Close café"
+                    else -> "Disable scheduled opening"
+                })
+            }
             CafeScene(
                 name = cafe.cafeName,
                 day = cafe.time.day,
@@ -186,22 +241,19 @@ fun CafeHomeScreen(
                     paymentStatus?.staffDisruption == true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Text("Café status: ${if (cafe.isTrading) "OPEN" else "CLOSED"} • Hours %02d:00–%02d:00".format(
-                Locale.ROOT, cafe.openingHour, cafe.closingHour
-            ), style = MaterialTheme.typography.titleMedium,
-                color = if (cafe.isTrading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-            if (!cafe.isOpen) {
-                Text("The café is closed. No visitors will arrive until you open it.",
-                    color = MaterialTheme.colorScheme.error)
+            val shiftDay = if (cafe.time.hour < cafe.openingHour && cafe.time.day > 1) {
+                cafe.time.day - 1
+            } else {
+                cafe.time.day
             }
-            if (cafe.isOpen && !cafe.isTrading) {
-                Text("The café opens automatically during business hours.",
-                    style = MaterialTheme.typography.bodySmall)
+            dailyPerformance.firstOrNull { it.day == shiftDay }?.let { shift ->
+                CafeShiftSummary(
+                    shift = shift,
+                    currentDay = cafe.time.day,
+                    onOpenOperations = onOpenOperations,
+                    onOpenFinance = onOpenFinance
+                )
             }
-            OutlinedButton(
-                onClick = { run { game.setCafeOpen(!cafe.isOpen) } },
-                enabled = !loading
-            ) { Text(if (cafe.isOpen) "Close café" else "Open café") }
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val ready = menuReadiness.count { it.ready }
@@ -389,6 +441,7 @@ fun CafeHomeScreen(
                         day.noStock.takeIf { it > 0 }?.let { "stock $it" },
                         day.noSeats.takeIf { it > 0 }?.let { "seats $it" },
                         day.declinedPrice.takeIf { it > 0 }?.let { "no purchase $it" },
+                        day.staffCapacity.takeIf { it > 0 }?.let { "staff capacity $it" },
                         day.staffDisruption.takeIf { it > 0 }?.let { "staff $it" },
                         day.rentShutdown.takeIf { it > 0 }?.let { "rent $it" }
                     )
@@ -398,26 +451,13 @@ fun CafeHomeScreen(
                     HorizontalDivider()
                 }
             }
-            Text("Visitor arrivals", style = MaterialTheme.typography.titleMedium)
-            val todayVisitors = visitors.filter { it.gameDay == cafe.time.day }
-            Text("${todayVisitors.sumOf { it.guests }} visitors in ${todayVisitors.size} arrival events today")
-            if (visitors.isEmpty()) {
-                Text("Advance the clock during opening hours to generate visitors.")
-            } else {
+            if (visitors.isNotEmpty()) {
+                Text("Recent arrivals", style = MaterialTheme.typography.titleMedium)
                 visitors.take(5).forEach { visitor ->
                     Text("Day ${visitor.gameDay} • %02d:%02d — ${visitor.guests} guests arrived".format(
                         Locale.ROOT, visitor.gameHour, visitor.gameMinute
                     ), style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-            Text("Served groups: ${todayVisitors.count { it.status == "SERVED" }} • Turned away: ${todayVisitors.count { it.status == "NO_SEATS" || it.status == "NO_STOCK" || it.status == "STAFF_DISRUPTION" || it.status == "RENT_SHUTDOWN" }}",
-                style = MaterialTheme.typography.bodySmall)
-            val staffLost = todayVisitors.count { it.status == "STAFF_DISRUPTION" }
-            val rentLost = todayVisitors.count { it.status == "RENT_SHUTDOWN" }
-            if (staffLost + rentLost > 0) {
-                Text("Lost groups today: $staffLost from unpaid payroll · $rentLost from rent suspension",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
             }
             HorizontalDivider()
             HorizontalDivider()

@@ -14,11 +14,14 @@ data class CafeDayPerformance(
     val declinedPrice: Int,
     val staffDisruption: Int,
     val rentShutdown: Int,
+    val staffCapacity: Int,
+    val pendingGroups: Int,
     val revenueCents: Long,
+    val netSalesCents: Long,
     val cogsCents: Long
 ) {
-    val lostGroups: Int get() = arrivingGroups - servedGroups
-    val grossMarginCents: Long get() = revenueCents - cogsCents
+    val lostGroups: Int get() = arrivingGroups - servedGroups - pendingGroups
+    val grossMarginCents: Long get() = netSalesCents - cogsCents
 }
 
 /** Daily business outcomes from existing durable arrivals and sales; no schema changes. */
@@ -53,6 +56,9 @@ class CafeDailyPerformanceRepository(context: Context) {
                     declinedPrice = groups.count { it.status == "NO_PURCHASE" },
                     staffDisruption = groups.count { it.status == "STAFF_DISRUPTION" },
                     rentShutdown = groups.count { it.status == "RENT_SHUTDOWN" },
+                    staffCapacity = groups.count { it.status == "STAFF_CAPACITY" },
+                    pendingGroups = groups.count { it.status == "ARRIVED" },
+                    netSalesCents = sales.sumOf { it.netCents },
                     revenueCents = sales.sumOf { it.grossCents },
                     cogsCents = sales.sumOf { it.cogsCents }
                 )
