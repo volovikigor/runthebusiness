@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
                 var operationsSection by remember { mutableIntStateOf(0) }
                 var financeTarget by remember { mutableStateOf("P&L") }
                 var gameSpeed by remember { mutableIntStateOf(0) }
+                LaunchedEffect(selectedTab) { if (selectedTab != 0) gameSpeed = 0 }
                 var clockRevision by remember { mutableIntStateOf(0) }
                 var clockError by remember { mutableStateOf<String?>(null) }
                 val context = LocalContext.current.applicationContext
@@ -103,7 +104,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
-                        Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                        if (selectedTab == 0) Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(time?.let { "Day ${it.day} · %02d:%02d".format(it.hour, it.minute) } ?: "Maison Café",
                                     Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -135,7 +136,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     bottomBar = {
-                        NavigationBar {
+                        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { navigateTab(0) },
