@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 import com.example.runthebusiness.data.local.entity.*
 
 @Dao
@@ -37,6 +38,9 @@ interface AccountingDao {
     suspend fun getSession(
         sessionId: String
     ): GameSessionEntity?
+
+    @Query("SELECT * FROM game_sessions WHERE id = :sessionId")
+    fun observeSession(sessionId: String): Flow<GameSessionEntity?>
 
     @Query("UPDATE game_sessions SET currentDay = :day, currentHour = :hour, currentMinute = :minute, updatedAtMillis = :updatedAt WHERE id = :sessionId")
     suspend fun updateGameTime(sessionId: String, day: Int, hour: Int, minute: Int, updatedAt: Long): Int

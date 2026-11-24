@@ -21,6 +21,7 @@ data class CafeDashboardSnapshot(
     val stockRemaining: Double,
     val stockOriginal: Double
 ) {
+    val isTrading: Boolean get() = isOpen && time.hour in openingHour until closingHour
     val grossProfitCents: Long get() = netSalesCents - cogsCents
 }
 

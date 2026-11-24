@@ -42,6 +42,14 @@ class CafePurchasingRepository(context: Context) {
         }
 
     suspend fun purchase(itemId: String, sessionId: String = "debug_session_001", quantity: Double? = null): Long =
+        purchase(itemId, sessionId, quantity, skipUnavailable = false)
+
+    internal suspend fun purchaseIfAvailable(itemId: String, sessionId: String, quantity: Double): Long =
+        purchase(itemId, sessionId, quantity, skipUnavailable = true)
+
+    private suspend fun purchase(
+        itemId: String, sessionId: String, quantity: Double?, skipUnavailable: Boolean
+    ): Long =
         withContext(Dispatchers.IO) {
             val standard = supplies.singleOrNull { it.itemId == itemId }
                 ?: error("Unknown supplier pack")
@@ -53,19 +61,22 @@ class CafePurchasingRepository(context: Context) {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId)) { "Start the café first" }
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
                 val location = db.businessLocationDao().getLocations(business.id).single()
-                require(db.operationsDao().getInventoryItems(business.id).any { it.id == itemId }) {
-                    "Install real ingredients before purchasing supplies"
-                }
+                val installed = db.operationsDao().getInventoryItems(business.id).any { it.id == itemId }
+                if (skipUnavailable && !installed) return@withTransaction 0L
+                require(installed) { "Install real ingredients before purchasing supplies" }
                 val convertedFood = db.cafeMenuDao().getProducts(location.id)
                     .any { it.fulfillment == "PREPARED" && it.finishedStockItemId == null &&
                         CafeKitchenRepository.recipes.containsKey(it.id) &&
                         CafeExpandedMenuRepository.offerings.any { offering ->
                             offering.id == it.id && offering.stockId == itemId
                         } }
+                if (skipUnavailable && convertedFood) return@withTransaction 0L
                 require(!convertedFood) { "This meal is prepared from ingredients; purchase kitchen supplies instead" }
                 val cash = db.accountingDao().accountBalance(sessionId, "1000")
                 val bank = db.accountingDao().accountBalance(sessionId, "1100")
-                require(cash >= supply.costCents || bank >= supply.costCents) {
+                val canAfford = cash >= supply.costCents || bank >= supply.costCents
+                if (skipUnavailable && !canAfford) return@withTransaction 0L
+                require(canAfford) {
                     "Insufficient funds: supplier pack costs €%.2f".format(
                         java.util.Locale.ROOT, supply.costCents / 100.0)
                 }
