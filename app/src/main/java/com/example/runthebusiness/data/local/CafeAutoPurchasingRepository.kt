@@ -33,7 +33,7 @@ class CafeAutoPurchasingRepository(context: Context) {
         prefs.edit().putLong("daily_budget", cents).apply()
     }
 
-    fun enabled(itemId: String): Boolean = prefs.getBoolean("item_$itemId", false)
+    fun enabled(itemId: String): Boolean = prefs.getBoolean("item_$itemId", true)
 
     fun setItemEnabled(itemId: String, enabled: Boolean) {
         require(CafePurchasingRepository.supplies.any { it.itemId == itemId })
@@ -45,7 +45,7 @@ class CafeAutoPurchasingRepository(context: Context) {
         listOf("stock_beans_001", "stock_milk_001", "stock_croissants_001").forEach {
             editor.putBoolean("item_$it", true)
         }
-        CafeKitchenRepository.ingredients.forEach { editor.putBoolean("item_${it.id}", true) }
+        CafePurchasingRepository.supplies.forEach { editor.putBoolean("item_${it.itemId}", true) }
         editor.putBoolean("enabled", true).apply()
     }
 
@@ -83,12 +83,23 @@ class CafeAutoPurchasingRepository(context: Context) {
                 .map { it.inventoryItemId }.toSet()
             var spent = 0L
             var purchased = 0
-            for (supply in CafePurchasingRepository.supplies) {
+            // Rotate priority daily so a limited budget does not always starve the same items.
+            val candidates = CafePurchasingRepository.supplies.filter {
+                enabled(it.itemId) && it.itemId in installed && it.itemId in required
+            }
+            val shift = if (candidates.isEmpty()) 0 else Math.floorMod(day, candidates.size)
+            val rotated = candidates.drop(shift) + candidates.take(shift)
+            val prioritized = rotated.sortedBy { if ((available[it.itemId] ?: 0.0) <= 1e-8) 0 else 1 }
+            for (supply in prioritized) {
                 if (!enabled(supply.itemId) || supply.itemId !in installed ||
                     supply.itemId !in required) continue
                 // One supplier pack when stock falls below 20% of a pack.
                 val current = available[supply.itemId] ?: 0.0
-                if (supply.itemId in previouslyPurchased) {
+                // A zero-stock item has censored sales history. Allow a controlled
+                // trial pack once a week even when observed demand is insufficient.
+                val trial = current <= 1e-8 && Math.floorMod(day, 7) ==
+                    Math.floorMod(supply.itemId.hashCode(), 7)
+                if (supply.itemId in previouslyPurchased && !trial) {
                     if (!CafeReplenishmentRules.shouldAutoBuy(
                             current, supply.quantity, soldByItem[supply.itemId] ?: 0.0,
                             supply.shelfLifeDays)) continue
