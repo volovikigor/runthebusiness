@@ -41,10 +41,14 @@ class CafePurchasingRepository(context: Context) {
             }
         }
 
-    suspend fun purchase(itemId: String, sessionId: String = "debug_session_001"): Long =
+    suspend fun purchase(itemId: String, sessionId: String = "debug_session_001", quantity: Double? = null): Long =
         withContext(Dispatchers.IO) {
-            val supply = supplies.singleOrNull { it.itemId == itemId }
+            val standard = supplies.singleOrNull { it.itemId == itemId }
                 ?: error("Unknown supplier pack")
+            val supply = if (quantity == null) standard else {
+                require(quantity.isFinite() && quantity > 0 && quantity <= standard.quantity && quantity == kotlin.math.floor(quantity))
+                standard.copy(quantity = quantity)
+            }
             db.withTransaction {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId)) { "Start the café first" }
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
