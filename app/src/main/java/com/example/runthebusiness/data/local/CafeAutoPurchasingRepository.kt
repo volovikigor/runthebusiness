@@ -1,7 +1,6 @@
 package com.example.runthebusiness.data.local
 
 import android.content.Context
-import com.example.runthebusiness.industries.cafe.simulation.CafeReplenishmentRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -77,42 +76,45 @@ class CafeAutoPurchasingRepository(context: Context) {
             val soldByItem = history.filter { it.sourceType == "CUSTOMER_ORDER" &&
                 it.quantityDelta < 0.0 }.groupBy { it.inventoryItemId }
                 .mapValues { (_, rows) -> rows.sumOf { -it.quantityDelta } / lookbackDays }
-            // Distinguish initial stocking from repeatedly expiring unsold packs.
-            val previouslyPurchased = allMovements
-                .filter { it.sourceType == "INVENTORY_PURCHASE" }
-                .map { it.inventoryItemId }.toSet()
+            // Reserve a small baseline for each active recipe, including products
+            // whose historical sales were censored by missing ingredients.
+            val baseline = mutableMapOf<String, Double>()
+            for (product in products) {
+                val recipe = when (product.fulfillment) {
+                    "RESALE" -> listOfNotNull(product.finishedStockItemId?.let { it to 1.0 })
+                    "PREPARED" -> db.cafeMenuDao().getRecipe(product.id).map { it.ingredientId to it.quantity }
+                    else -> emptyList()
+                }
+                val servings = if (product.type == "DRINK") 12.0 else 4.0
+                recipe.forEach { (id, qty) ->
+                    baseline[id] = (baseline[id] ?: 0.0) + qty * servings
+                }
+            }
             var spent = 0L
             var purchased = 0
-            // Rotate priority daily so a limited budget does not always starve the same items.
             val candidates = CafePurchasingRepository.supplies.filter {
                 enabled(it.itemId) && it.itemId in installed && it.itemId in required
             }
             val shift = if (candidates.isEmpty()) 0 else Math.floorMod(day, candidates.size)
             val rotated = candidates.drop(shift) + candidates.take(shift)
-            val prioritized = rotated.sortedBy { if ((available[it.itemId] ?: 0.0) <= 1e-8) 0 else 1 }
+            val prioritized = rotated.sortedBy { if ((available[it.itemId] ?: 0.0) < (baseline[it.itemId] ?: 0.0)) 0 else 1 }
             for (supply in prioritized) {
-                if (!enabled(supply.itemId) || supply.itemId !in installed ||
-                    supply.itemId !in required) continue
-                // One supplier pack when stock falls below 20% of a pack.
                 val current = available[supply.itemId] ?: 0.0
-                // A zero-stock item has censored sales history. Allow a controlled
-                // trial pack once a week even when observed demand is insufficient.
-                val trial = current <= 1e-8 && Math.floorMod(day, 7) ==
-                    Math.floorMod(supply.itemId.hashCode(), 7)
-                if (supply.itemId in previouslyPurchased && !trial) {
-                    if (!CafeReplenishmentRules.shouldAutoBuy(
-                            current, supply.quantity, soldByItem[supply.itemId] ?: 0.0,
-                            supply.shelfLifeDays)) continue
-                } else if (current > supply.quantity * 0.2) continue
-                if (spent + supply.costCents > config.dailyBudgetCents) continue
+                val daily = soldByItem[supply.itemId] ?: 0.0
+                val coverage = if (supply.shelfLifeDays in 1..3) 1.25 else 2.0
+                val target = maxOf(baseline[supply.itemId] ?: 0.0, daily * coverage)
+                val needed = kotlin.math.ceil(target - current).coerceAtMost(supply.quantity)
+                if (needed <= 0.0 || supply.unitCostCents <= 0L) continue
+                val affordable = (config.dailyBudgetCents - spent) / supply.unitCostCents
+                val quantity = minOf(needed, affordable.toDouble())
+                if (quantity <= 0.0) continue
                 try {
-                    purchasing.purchase(supply.itemId, sessionId)
-                    spent += supply.costCents
+                    spent += purchasing.purchase(supply.itemId, sessionId, quantity)
                     purchased++
                 } catch (_: IllegalArgumentException) {
-                    // Insufficient funds or unavailable supplier pack: leave item out of stock.
+                    // Insufficient funds or unavailable supply.
                 } catch (_: IllegalStateException) {
-                    // Insufficient funds or changed fulfillment: no purchase this day.
+                    // Changed fulfillment or missing inventory.
                 }
             }
             prefs.edit().putInt("last_day", day).commit()
