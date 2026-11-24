@@ -121,7 +121,8 @@ internal object CafeStartingFactory {
             LedgerAccount("1590", "Accumulated depreciation", AccountType.ASSET),
             LedgerAccount("1600", "Input VAT", AccountType.ASSET),
 
-            LedgerAccount("2000", "Accounts payable", AccountType.LIABILITY),
+            LedgerAccount("2000", "Rent payable", AccountType.LIABILITY),
+            LedgerAccount("2010", "Supplier invoices payable", AccountType.LIABILITY),
             LedgerAccount("2100", "Loan payable", AccountType.LIABILITY),
             LedgerAccount("2200", "Output VAT", AccountType.LIABILITY),
             LedgerAccount("2300", "Salaries payable", AccountType.LIABILITY),

@@ -100,6 +100,7 @@ fun CafeHomeScreen(
     val flowRepo = remember(context) { CafeCustomerFlowRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
+    var supplierDueCents by remember { mutableLongStateOf(0L) }
     var bills by remember { mutableStateOf<List<com.example.runthebusiness.data.local.ScheduledBill>>(emptyList()) }
     val consequencesRepo = remember(context) { CafePaymentConsequencesRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
@@ -140,6 +141,9 @@ fun CafeHomeScreen(
         state = dashboard.snapshot()
         cashPosition = if (state != null) cashRepo.position() else null
         bills = if (state != null) billsRepo.snapshot() else emptyList()
+        supplierDueCents = state?.time?.day?.let { day ->
+            billsRepo.supplierBills().filter { it.dueDay <= day }.sumOf { it.amountCents }
+        } ?: 0L
         paymentStatus = if (state != null) consequencesRepo.load() else null
         recent = sales.loadDemoSales().take(6)
         menuReadiness = if (state != null) menuReadinessRepo.snapshot() else emptyList()
@@ -319,7 +323,7 @@ fun CafeHomeScreen(
             cashPosition?.let { position ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("Payments · ${euro(bills.sumOf { it.due })} due")
+                        Text("Payments · ${euro(bills.sumOf { it.due } + supplierDueCents)} due")
                         Text("Bank · ${euro(position.bankCents)}")
                         if (paymentStatus?.staffDisruption == true || paymentStatus?.rentShutdown == true)
                             Text("Overdue bills affecting service", color = MaterialTheme.colorScheme.error)

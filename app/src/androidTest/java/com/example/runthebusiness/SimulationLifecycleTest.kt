@@ -160,8 +160,8 @@ class SimulationLifecycleTest {
         val due = report.days.last()
         assertEquals(14, due.day)
         val bills = due.payments.associate { it.label to it.amountCents }
-        assertEquals(mapOf("Rent" to 65_000L, "Payroll" to 234_000L), bills)
-        assertEquals(3_201_000L, due.bankCents)
+        assertEquals(mapOf("Rent" to 65_000L, "Payroll" to 219_960L), bills)
+        assertEquals(3_215_040L, due.bankCents)
         val loan = report.installments.first()
         assertEquals(31, loan.dueDay)
         assertEquals(25_000L, loan.interestCents)
@@ -240,6 +240,78 @@ class SimulationLifecycleTest {
         assertTrue(afterPurchase.stockShortages().none { it.supply.itemId == cheese.supply.itemId })
         assertEquals(affected, afterPurchase.filter { it.productId in affected && !it.ready }
             .map { it.productId }.toSet())
+    }
+
+    @Test
+    fun supplierCreditPreservesShelfLifeAndBlocksRenewalUntilOverdueInvoiceIsPaid() = runBlocking {
+        GameSimulationEngine(context).startGame()
+        val id = "debug_session_001"
+        val db = GameDatabase.getInstance(context)
+        val dao = db.accountingDao()
+        val purchasing = CafePurchasingRepository(context)
+        val cash = CafeCashManagementRepository(context)
+        val register = CafePaymentRegisterRepository(context)
+        val bank = cash.position().bankCents
+
+        purchasing.purchase("stock_milk_001", onCredit = true)
+        purchasing.purchase("stock_beans_001", onCredit = true)
+        val invoices = register.supplierBills()
+        assertEquals(listOf(8, 15), invoices.map { it.dueDay })
+        assertEquals(bank, cash.position().bankCents)
+        assertEquals(-14_000L, dao.accountBalance(id, "2010"))
+        val business = db.gameSetupDao().getBusinesses(id).single()
+        val batches = db.operationsDao().getInventoryBatches(business.id).filter { it.id.startsWith("purchase_batch_") }
+        assertEquals(8, batches.single { it.inventoryItemId == "stock_milk_001" }.expiresDay)
+        assertEquals(91, batches.single { it.inventoryItemId == "stock_beans_001" }.expiresDay)
+        val forecast = checkNotNull(CafeCashForecastRepository(context).load())
+        assertEquals(10_000L, forecast.days.last().payments.single().amountCents)
+
+        dao.updateGameTime(id, 9, 8, 0, System.currentTimeMillis())
+        assertTrue(runCatching { purchasing.purchase("stock_milk_001", onCredit = true) }.isFailure)
+        cash.paySupplier(invoices.first().id)
+        assertTrue(runCatching { cash.paySupplier(invoices.first().id) }.isFailure)
+        assertEquals(bank - 10_000L, cash.position().bankCents)
+        assertEquals(listOf(invoices.last()), register.supplierBills())
+        purchasing.purchase("stock_milk_001", onCredit = true)
+        assertEquals(2, register.supplierBills().size)
+    }
+
+    @Test
+    fun monthEndTaxesAccrueOnceAndSettleFromBank() = runBlocking {
+        val simulation = GameSimulationEngine(context)
+        simulation.startGame()
+        val id = "debug_session_001"
+        val db = GameDatabase.getInstance(context)
+        val dao = db.accountingDao()
+        val business = db.gameSetupDao().getBusinesses(id).single().id
+        dao.updateGameTime(id, 30, 23, 45, System.currentTimeMillis())
+        dao.saveAccountingOperation(
+            BusinessEventEntity("tax_test_sale", id, business, "CUSTOMER_SALE", "TEST",
+                "tax_test_sale", 30, 12, 0, "Test net sales and VAT"),
+            JournalEntryEntity("tax_test_sale", id, business, "tax_test_sale", "Test sales", 30, 12, 0),
+            listOf(
+                JournalLineEntity("tax_test_1", "tax_test_sale", 1, "1100", "", 110_000L, 0L),
+                JournalLineEntity("tax_test_2", "tax_test_sale", 2, "4000", "", 0L, 100_000L),
+                JournalLineEntity("tax_test_3", "tax_test_sale", 3, "2200", "", 0L, 10_000L)
+            )
+        )
+        simulation.advance(15)
+        val register = CafePaymentRegisterRepository(context)
+        val taxes = register.snapshot().filter { it.account in setOf("2200", "2400", "2600") }
+            .associate { it.account to it.due }
+        assertEquals(mapOf("2200" to 10_000L, "2400" to 6_480L, "2600" to 17_692L), taxes)
+        assertEquals(-16_920L, dao.accountBalance(id, "2300"))
+        CafeDailyCloseRepository(context).closeDay(30)
+        assertEquals(-17_692L, dao.accountBalance(id, "2600"))
+        val projected = checkNotNull(CafeCashForecastRepository(context).load()).days.first().payments
+        assertTrue(projected.any { it.label == "Corporate income tax" && it.amountCents == 17_692L })
+
+        val cash = CafeCashManagementRepository(context)
+        val bank = cash.position().bankCents
+        taxes.forEach { (account, due) -> cash.pay(account, amountCents = due) }
+        assertEquals(bank - taxes.values.sum(), cash.position().bankCents)
+        assertTrue(register.snapshot().filter { it.account in taxes.keys }.all { it.due == 0L })
+        assertEquals(17_692L, dao.accountBalance(id, "5800"))
     }
 
     private fun clearSave() {

@@ -2,6 +2,7 @@ package com.example.runthebusiness.data.local
 
 import android.content.Context
 import androidx.room.withTransaction
+import com.example.runthebusiness.core.finance.CafeTaxPolicy
 import com.example.runthebusiness.core.finance.CashForecast
 import com.example.runthebusiness.core.finance.ForecastDay
 import com.example.runthebusiness.core.finance.ForecastPayment
@@ -41,18 +42,32 @@ class CafeCashForecastRepository(context: Context) {
         }.filter { it.dueDay >= today }.sortedBy { it.dueDay }
         val payments = installments.map { ForecastPayment("Loan installment", it.dueDay, it.totalCents) }
             .toMutableList()
+        payments += bills.supplierBills(sessionId).map { ForecastPayment(it.label, it.dueDay, it.amountCents) }
         for (bill in bills.snapshot(sessionId)) {
             if (bill.due > 0L) {
-                payments += ForecastPayment(bill.label, bill.nextDueDay - 14, bill.due)
+                payments += ForecastPayment(bill.label, bill.nextDueDay - bill.periodDays, bill.due)
             }
             if (bill.nextDueDay > today + 7) continue
-            val monthlyAmounts = if (bill.account == "2000") {
-                locations.map { it.monthlyRentCents }
-            } else {
-                staff.map { it.monthlyGrossSalaryCents }
-            }
-            val futureAccrual = (today until bill.nextDueDay).sumOf { day ->
-                monthlyAmounts.sumOf { dailyMonthlyAccrual(it, day) }
+            val futureAccrual = when (bill.account) {
+                "2000" -> (today until bill.nextDueDay).sumOf { day ->
+                    locations.sumOf { dailyMonthlyAccrual(it.monthlyRentCents, day) }
+                }
+                "2300", "2400" -> (today until bill.nextDueDay).sumOf { day ->
+                    staff.sumOf { employee ->
+                        val gross = dailyMonthlyAccrual(employee.monthlyGrossSalaryCents, day)
+                        val withheld = CafeTaxPolicy.employeeSocialCents(gross)
+                        if (bill.account == "2300") gross - withheld
+                        else withheld + CafeTaxPolicy.employerSocialCents(gross)
+                    }
+                }
+                "2200" -> if (historyDays > 0 && locations.any { it.isOpen }) {
+                    val futureDays = (bill.nextDueDay - today - 1).coerceAtLeast(0)
+                    dao.vatFromSales(sessionId, today - historyDays, today) * futureDays / historyDays
+                } else 0L
+                "2600" -> CafeTaxPolicy.corporateTaxCents(dao.periodProfitBeforeTax(
+                    sessionId, bill.nextDueDay - bill.periodDays, today
+                ))
+                else -> 0L
             }
             val nextBill = (bill.accrued - bill.due).coerceAtLeast(0L) + futureAccrual
             if (nextBill > 0L) payments += ForecastPayment(bill.label, bill.nextDueDay, nextBill)
