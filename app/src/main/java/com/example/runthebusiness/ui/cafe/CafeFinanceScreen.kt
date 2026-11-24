@@ -570,6 +570,10 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
     val today = forecast.days.first().day
     val firstShortfall = forecast.days.firstOrNull { it.bankShortfallCents > 0L }
     Text("7-day cash forecast", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Staff cost today ${money(forecast.staffCostTodayCents)} · Day ${today + 1} ${money(forecast.staffCostTomorrowCents)}",
+        style = MaterialTheme.typography.bodySmall
+    )
     if (firstShortfall != null) {
         Text(
             "Bank shortfall on Day ${firstShortfall.day} · ${money(firstShortfall.bankShortfallCents)}",

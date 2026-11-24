@@ -20,6 +20,7 @@ import com.example.runthebusiness.data.local.CafeMenuReadinessRepository
 import com.example.runthebusiness.data.local.CafePurchasingRepository
 import com.example.runthebusiness.data.local.stockShortages
 import com.example.runthebusiness.data.local.CafeSaleRepository
+import com.example.runthebusiness.data.local.CafeStaffRepository
 import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.entity.BusinessEventEntity
@@ -312,6 +313,44 @@ class SimulationLifecycleTest {
         assertEquals(bank - taxes.values.sum(), cash.position().bankCents)
         assertTrue(register.snapshot().filter { it.account in taxes.keys }.all { it.due == 0L })
         assertEquals(17_692L, dao.accountBalance(id, "5800"))
+    }
+
+    @Test
+    fun staffingPlanUpdatesForecastBeforeApplyingAtMidnight() = runBlocking {
+        val simulation = GameSimulationEngine(context)
+        simulation.startGame()
+        GameRepository(context).setCafeOpen(false)
+        val id = "debug_session_001"
+        val dao = GameDatabase.getInstance(context).accountingDao()
+        dao.updateGameTime(id, 7, 23, 45, System.currentTimeMillis())
+        val staff = CafeStaffRepository(context)
+        staff.changePlannedSize(-1)
+
+        val planned = checkNotNull(staff.snapshot())
+        assertEquals(3, planned.currentCount)
+        assertEquals(2, planned.plannedCount)
+        assertEquals(45.0, planned.currentCapacity, 0.001)
+        assertEquals(30.0, planned.plannedCapacity, 0.001)
+        val forecast = checkNotNull(CafeCashForecastRepository(context).load())
+        assertEquals(23_400L, forecast.staffCostTodayCents)
+        assertEquals(15_600L, forecast.staffCostTomorrowCents)
+        assertEquals(84_600L, forecast.days.last().payments.single { it.label == "Payroll" }.amountCents)
+
+        simulation.advance(15)
+        assertEquals(GameTime(8, 0), GameRepository(context).loadGameTime())
+        assertEquals(-16_920L, dao.accountBalance(id, "2300"))
+        assertEquals(2, checkNotNull(staff.snapshot()).currentCount)
+        staff.changePlannedSize(1)
+        assertEquals(3, checkNotNull(staff.snapshot()).plannedCount)
+        simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
+        assertEquals(-28_200L, dao.accountBalance(id, "2300"))
+        assertEquals(3, checkNotNull(staff.snapshot()).currentCount)
+        staff.changePlannedSize(1)
+        val hire = checkNotNull(staff.snapshot())
+        assertEquals(4, hire.plannedCount)
+        assertEquals(31_200L, hire.plannedCostCents)
+        simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
+        assertEquals(4, checkNotNull(staff.snapshot()).currentCount)
     }
 
     private fun clearSave() {

@@ -14,6 +14,26 @@ interface OperationsDao {
     suspend fun getLocations(businessId: String): List<CafeLocationEntity>
     @Query("SELECT * FROM employees WHERE locationId IN (SELECT id FROM locations WHERE businessId = :businessId)")
     suspend fun getEmployees(businessId: String): List<EmployeeEntity>
+    @Query("UPDATE employees SET activeNextDay = :active WHERE id = :id")
+    suspend fun planEmployeeStatus(id: String, active: Boolean?): Int
+
+    @Query("""
+        UPDATE employees SET isActive = activeNextDay, activeNextDay = NULL
+        WHERE activeNextDay IS NOT NULL AND locationId IN (SELECT id FROM locations WHERE businessId = :businessId)
+    """)
+    suspend fun applyNextDayStaffing(businessId: String)
+
+    @Query("""
+        SELECT COALESCE(MAX(workload), 0) FROM (
+            SELECT SUM(l.quantity * MAX(1, p.preparationMinutes)) AS workload
+            FROM customer_orders o JOIN customer_order_lines l ON l.orderId = o.id
+            JOIN cafe_products p ON p.id = l.productId
+            WHERE o.locationId = :locationId AND o.gameDay = :day
+            GROUP BY o.gameHour, o.gameMinute / 15
+        )
+    """)
+    suspend fun peakStaffWorkload(locationId: String, day: Int): Int
+
     @Query("SELECT * FROM equipment WHERE locationId IN (SELECT id FROM locations WHERE businessId = :businessId)")
     suspend fun getEquipment(businessId: String): List<EquipmentEntity>
     @Query("SELECT * FROM inventory_items WHERE locationId IN (SELECT id FROM locations WHERE businessId = :businessId)")

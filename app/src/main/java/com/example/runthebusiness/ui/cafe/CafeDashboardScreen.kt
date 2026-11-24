@@ -26,6 +26,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
     val simulation = remember(context) { GameSimulationEngine(context) }
     val dashboard = remember(context) { CafeDashboardRepository(context) }
+    val staffRepo = remember(context) { CafeStaffRepository(context) }
+    var staff by remember { mutableStateOf<CafeStaffSnapshot?>(null) }
     val bills = remember(context) { CafePaymentRegisterRepository(context) }
     val scope = rememberCoroutineScope()
     var products by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
@@ -46,6 +48,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     suspend fun reload() {
         val currentDay = dashboard.snapshot()?.time?.day
         started = currentDay != null
+        staff = staffRepo.snapshot()
         supplierCreditBlocked = currentDay != null && bills.supplierBills().any { it.dueDay < currentDay }
         realIngredients = inventorySetup.hasRealIngredients()
         kitchenInstalled = kitchen.installed()
@@ -76,11 +79,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     ) {
         Text("Operations", style = MaterialTheme.typography.headlineMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("Pricing", "Purchasing", "Inventory").forEachIndexed { index, title ->
+            listOf("Pricing", "Purchasing", "Inventory", "Staff").forEachIndexed { index, title ->
                 SegmentedButton(
                     selected = section == index,
                     onClick = { section = index; message = null },
-                    shape = SegmentedButtonDefaults.itemShape(index, 3),
+                    shape = SegmentedButtonDefaults.itemShape(index, 4),
                     label = { Text(title) }
                 )
             }
@@ -281,6 +284,32 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                             }) { Text("Buy · pay in ${supply.creditDays} days") }
                         }
                     }
+                }
+            }
+            3 -> staff?.let { team ->
+                Text("Staff", style = MaterialTheme.typography.titleLarge)
+                Text("Today · ${team.currentCount} employees · €%.2f per day".format(
+                    Locale.ROOT, team.currentCostCents / 100.0))
+                Text("Day ${team.today + 1} · ${team.plannedCount} employees · €%.2f per day".format(
+                    Locale.ROOT, team.plannedCostCents / 100.0))
+                Text("Daily cost includes employer social contributions.",
+                    style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        enabled = !busy && team.plannedCount > 1,
+                        onClick = { run { staffRepo.changePlannedSize(-1) } }
+                    ) { Text("Remove 1") }
+                    Button(enabled = !busy, onClick = { run { staffRepo.changePlannedSize(1) } }) {
+                        Text("Hire 1")
+                    }
+                }
+                HorizontalDivider()
+                Text("Service capacity", style = MaterialTheme.typography.titleMedium)
+                Text("Today %.1f · Tomorrow %.1f work minutes per 15-minute slot".format(
+                    Locale.ROOT, team.currentCapacity, team.plannedCapacity))
+                if (team.today > 1) {
+                    Text("Day ${team.today - 1} · peak workload ${team.peakWorkload} work minutes per slot")
+                    Text("Groups lost to staff capacity · ${team.capacityLosses}")
                 }
             }
             else -> {

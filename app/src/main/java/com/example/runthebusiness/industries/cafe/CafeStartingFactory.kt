@@ -63,8 +63,7 @@ internal object CafeStartingFactory {
                 id = "employee_$index",
                 locationId = locationId,
                 name = "Employee $index",
-                role = roles[(index - 1) % roles.size],
-                monthlyGrossSalaryCents = 180_000L
+                role = roles[(index - 1) % roles.size]
             )
         }
 

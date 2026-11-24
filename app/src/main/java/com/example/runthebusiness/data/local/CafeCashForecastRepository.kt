@@ -12,7 +12,9 @@ import com.example.runthebusiness.core.finance.dailyMonthlyAccrual
 data class CafeCashForecast(
     val days: List<ForecastDay>,
     val historyDays: Int,
-    val installments: List<LoanInstallment>
+    val installments: List<LoanInstallment>,
+    val staffCostTodayCents: Long,
+    val staffCostTomorrowCents: Long
 )
 
 class CafeCashForecastRepository(context: Context) {
@@ -25,7 +27,9 @@ class CafeCashForecastRepository(context: Context) {
         val setup = db.gameSetupDao()
         val business = setup.getBusinesses(sessionId).singleOrNull() ?: return@withTransaction null
         val locations = db.businessLocationDao().getLocations(business.id)
-        val staff = db.operationsDao().getEmployees(business.id).filter { it.isActive }
+        val staff = db.operationsDao().getEmployees(business.id)
+        val currentStaff = staff.filter { it.isActive }
+        val nextDayStaff = staff.filter { it.plannedActive }
         val historyDays = minOf(7, today - 1)
         suspend fun average(account: String): Long {
             if (historyDays == 0) return 0L
@@ -53,7 +57,8 @@ class CafeCashForecastRepository(context: Context) {
                     locations.sumOf { dailyMonthlyAccrual(it.monthlyRentCents, day) }
                 }
                 "2300", "2400" -> (today until bill.nextDueDay).sumOf { day ->
-                    staff.sumOf { employee ->
+                    val workingStaff = if (day == today) currentStaff else nextDayStaff
+                    workingStaff.sumOf { employee ->
                         val gross = dailyMonthlyAccrual(employee.monthlyGrossSalaryCents, day)
                         val withheld = CafeTaxPolicy.employeeSocialCents(gross)
                         if (bill.account == "2300") gross - withheld
@@ -79,7 +84,9 @@ class CafeCashForecastRepository(context: Context) {
                 average("1000"), average("1100"), payments
             ),
             historyDays = historyDays,
-            installments = installments
+            installments = installments,
+            staffCostTodayCents = currentStaff.staffCostCents(today),
+            staffCostTomorrowCents = nextDayStaff.staffCostCents(today + 1)
         )
     }
 }
