@@ -150,17 +150,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 } finally { busy = false }
             }
         }) { Text("Export full audit CSV (journal + inventory + visitors)") }
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("Bills", "P&L", "BS", "Cash", "Journal").forEachIndexed { index, tab ->
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index, 5),
-                    selected = section == tab,
-                    onClick = {
-                        if (tab == "Journal" && section != "Journal") previousSection = section
-                        section = tab; accountFilter = null; expandedId = null
-                    },
-                    label = { Text(tab) }
-                )
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Bills", "P&L", "BS", "Cash", "Journal").forEach { tab ->
+                FilterChip(selected = section == tab, onClick = {
+                    if (tab == "Journal" && section != "Journal") previousSection = section
+                    section = tab; accountFilter = null; expandedId = null
+                }, label = { Text(tab, maxLines = 1) })
             }
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
