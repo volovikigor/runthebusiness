@@ -25,10 +25,15 @@ class CafePaymentConsequencesRepository(context: Context) {
                 ?: return@withContext PaymentConsequences(0, 0)
             val day = session.currentDay
             suspend fun daysLate(period: Int, account: String): Int {
-                for (due in period..day step period) {
-                    if (db.accountingDao().payableDue(sessionId, account, due) > 0L) return day - due
+                var low = 1
+                var high = day / period
+                if (high == 0 || db.accountingDao().payableDue(sessionId, account, high * period) <= 0L) return 0
+                while (low < high) {
+                    val mid = (low + high) / 2
+                    if (db.accountingDao().payableDue(sessionId, account, mid * period) > 0L) high = mid
+                    else low = mid + 1
                 }
-                return 0
+                return day - low * period
             }
             PaymentConsequences(
                 payrollDaysLate = daysLate(14, "2300"),
