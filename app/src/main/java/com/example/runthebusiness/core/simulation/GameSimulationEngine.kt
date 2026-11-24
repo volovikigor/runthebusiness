@@ -83,7 +83,7 @@ class GameSimulationEngine(context: Context) {
         return StepResult(time, served)
     }
 
-    enum class JumpMode { NEXT_EVENT, NEXT_DECISION, NEXT_DAY, NEXT_WEEK }
+    enum class JumpMode { NEXT_EVENT, NEXT_DECISION, NEXT_DAY, NEXT_WEEK, NEXT_OPENING }
 
     /**
      * Every jump uses the same 15-minute simulation path as the live clock.
@@ -95,6 +95,19 @@ class GameSimulationEngine(context: Context) {
     ): NextEventResult = mutex.withLock {
         val startedAt = android.os.SystemClock.elapsedRealtime()
         val initial = checkNotNull(clock.loadGameTime(sessionId))
+        if (mode == JumpMode.NEXT_OPENING) {
+            val location = checkNotNull(clock.loadBusinessLocations(sessionId).singleOrNull())
+            if (!location.isOpen) return@withLock NextEventResult(initial, "Enable café opening first", 0)
+            if (initial.hour in location.openingHour until location.closingHour) {
+                return@withLock NextEventResult(initial, "The café is already open", 0)
+            }
+            val opening = GameTime(
+                day = if (initial.hour < location.openingHour) initial.day else Math.addExact(initial.day, 1),
+                hour = location.openingHour
+            )
+            val step = advanceLocked(opening.totalMinutes - initial.totalMinutes, sessionId)
+            return@withLock NextEventResult(step.time, "Reached café opening time", step.groupsServed)
+        }
         val knownAlerts = if (mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_DAY)
             emptySet() else alerts.load(sessionId).map { it.id }.toSet()
         var previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
@@ -115,6 +128,7 @@ class GameSimulationEngine(context: Context) {
             JumpMode.NEXT_DECISION -> 96 * 14
             JumpMode.NEXT_DAY -> 96
             JumpMode.NEXT_WEEK -> 96 * 7
+            JumpMode.NEXT_OPENING -> error("Opening jump handled above")
         }
         val startMinutes = (initial.day - 1L) * 1440L + initial.hour * 60L + initial.minute
         val targetMinutes = when (mode) {
