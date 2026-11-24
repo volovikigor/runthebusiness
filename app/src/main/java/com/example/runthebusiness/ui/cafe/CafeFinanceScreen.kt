@@ -27,10 +27,14 @@ import com.example.runthebusiness.data.local.SaleDetail
 import com.example.runthebusiness.data.local.entity.StockMovementEntity
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.example.runthebusiness.data.local.CafeCashForecast
+import com.example.runthebusiness.data.local.CafeCashForecastRepository
 
 @Composable
-fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = "P&L") {
+fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = "Forecast") {
     val context = LocalContext.current.applicationContext
+    val forecastRepo = remember(context) { CafeCashForecastRepository(context) }
+    var forecast by remember { mutableStateOf<CafeCashForecast?>(null) }
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
     val auditRepo = remember(context) { CafeAuditExportRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
@@ -49,7 +53,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     var showDaily by remember { mutableStateOf(false) }
     var section by remember { mutableStateOf(requestedSection) }
     LaunchedEffect(requestedSection) { section = requestedSection }
-    var previousSection by remember { mutableStateOf("P&L") }
+    var previousSection by remember { mutableStateOf("Forecast") }
     var accountFilter by remember { mutableStateOf<String?>(null) }
     var selectedDay by remember { mutableStateOf<Int?>(null) }
     var expandedId by remember { mutableStateOf<String?>(null) }
@@ -75,7 +79,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         exportData = null
     }
 
-    BackHandler(enabled = expandedId != null || section != "P&L") {
+    BackHandler(enabled = expandedId != null || section != "Forecast") {
         when {
             expandedId != null -> expandedId = null
             section == "Journal" -> {
@@ -83,7 +87,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 accountFilter = null
                 selectedDay = null
             }
-            else -> section = "P&L"
+            else -> section = "Forecast"
         }
     }
 
@@ -99,6 +103,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             busy = true
             error = null
             try {
+                forecast = forecastRepo.load()
                 statements = financeRepo.load()
                 cashPosition = cashRepo.position()
                 bills = billsRepo.snapshot()
@@ -154,7 +159,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }) { Text("Export full audit CSV (journal + inventory + visitors)") }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Bills", "P&L", "BS", "Cash", "Journal").forEach { tab ->
+            listOf("Forecast", "Bills", "P&L", "BS", "Cash", "Journal").forEach { tab ->
                 FilterChip(selected = section == tab, onClick = {
                     if (tab == "Journal" && section != "Journal") previousSection = section
                     section = tab; accountFilter = null; expandedId = null
@@ -163,6 +168,10 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+        if (section == "Forecast") {
+            forecast?.let { CashForecastSection(it) }
+            if (forecast == null && !busy && error == null) Text("Start the café to see its cash forecast.")
+        }
         if (section == "Bills") {
             cashPosition?.let { position ->
                 val payment = paymentStatus
@@ -323,7 +332,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             try {
                                 cashRepo.transferCashToBank(10_000L)
                                 settlementMessage = "Deposited €100.00 cash into bank"
-                                statements = financeRepo.load()
+                                forecast = forecastRepo.load()
+                statements = financeRepo.load()
                                 cashPosition = cashRepo.position()
                                 entries = journalRepo.journal().asReversed()
                             } catch (e: Exception) {
@@ -345,7 +355,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                                 try {
                                     val paid = cashRepo.pay(code)
                                     settlementMessage = "Paid ${money(paid)} by bank"
-                                    statements = financeRepo.load()
+                                    forecast = forecastRepo.load()
+                statements = financeRepo.load()
                                     cashPosition = cashRepo.position()
                                     daily = financeRepo.dailyProfitLoss()
                                     entries = journalRepo.journal().asReversed()
@@ -492,6 +503,57 @@ private fun StatementTotal(label: String, cents: Long) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.titleSmall)
         Text(money(cents), style = MaterialTheme.typography.titleSmall)
+    }
+}
+
+@Composable
+private fun CashForecastSection(forecast: CafeCashForecast) {
+    val today = forecast.days.first().day
+    val firstShortfall = forecast.days.firstOrNull { it.bankShortfallCents > 0L }
+    Text("7-day cash forecast", style = MaterialTheme.typography.titleMedium)
+    if (firstShortfall != null) {
+        Text(
+            "Bank shortfall on Day ${firstShortfall.day} · ${money(firstShortfall.bankShortfallCents)}",
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+    val firstCashGap = forecast.days.firstOrNull { it.cashCents < 0L }
+    if (firstCashGap != null) {
+        Text("Cash shortfall on Day ${firstCashGap.day} · ${money(-firstCashGap.cashCents)}",
+            color = MaterialTheme.colorScheme.error)
+    }
+    Text(
+        if (forecast.historyDays > 0) {
+            "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading."
+        } else {
+            "Sales and stock purchases will be estimated after the first completed day."
+        },
+        style = MaterialTheme.typography.bodySmall
+    )
+    forecast.days.forEach { day ->
+        HorizontalDivider()
+        Text(
+            if (day.day == today) "Today after due payments" else "Day ${day.day} · closing balances",
+            style = MaterialTheme.typography.titleSmall
+        )
+        Text("Cash ${money(day.cashCents)} · Bank ${money(day.bankCents)}")
+        day.payments.forEach { payment ->
+            val overdue = if (payment.dueDay < today) " · due Day ${payment.dueDay}" else ""
+            Text("${payment.label} ${money(payment.amountCents)}$overdue", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+    if (forecast.installments.isNotEmpty()) {
+        HorizontalDivider()
+        Text("Next loan installments", style = MaterialTheme.typography.titleMedium)
+        Text("Scheduled amounts used in the forecast. Loan payments are not posted yet.",
+            style = MaterialTheme.typography.bodySmall)
+        forecast.installments.take(3).forEach { installment ->
+            Text("Day ${installment.dueDay} · ${money(installment.totalCents)}")
+            Text(
+                "Principal ${money(installment.principalCents)} · Interest ${money(installment.interestCents)}",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 

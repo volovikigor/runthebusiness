@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeArrivalRepository
+import com.example.runthebusiness.data.local.CafeCashForecastRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeSaleRepository
@@ -119,6 +120,30 @@ class SimulationLifecycleTest {
         assertEquals(2, close.lastClosedDay())
         assertTrue(!dashboard.snapshot()!!.isTrading)
         assertTrue(CafeArrivalRepository(context).recent().none { it.gameDay == 3 })
+    }
+
+    @Test
+    fun cashForecastReadsRentPayrollAndLoanWithoutPostingPayments() = runBlocking {
+        val simulation = GameSimulationEngine(context)
+        simulation.startGame()
+        GameRepository(context).setCafeOpen(false)
+        repeat(6) { simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY) }
+
+        val report = checkNotNull(CafeCashForecastRepository(context).load())
+        assertEquals(6, report.historyDays)
+        assertEquals(7, report.days.first().day)
+        assertEquals(3_500_000L, report.days.first().bankCents)
+        val due = report.days.last()
+        assertEquals(14, due.day)
+        val bills = due.payments.associate { it.label to it.amountCents }
+        assertEquals(mapOf("Rent" to 65_000L, "Payroll" to 234_000L), bills)
+        assertEquals(3_201_000L, due.bankCents)
+        val loan = report.installments.first()
+        assertEquals(31, loan.dueDay)
+        assertEquals(25_000L, loan.interestCents)
+        assertEquals(96_664L, loan.totalCents)
+        assertEquals(3_500_000L, GameDatabase.getInstance(context).accountingDao()
+            .accountBalance("debug_session_001", "1100"))
     }
 
     private fun clearSave() {

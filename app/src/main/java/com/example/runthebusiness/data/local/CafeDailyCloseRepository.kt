@@ -2,6 +2,7 @@ package com.example.runthebusiness.data.local
 
 import android.content.Context
 import androidx.room.withTransaction
+import com.example.runthebusiness.core.finance.dailyMonthlyAccrual
 import com.example.runthebusiness.data.local.entity.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,16 +37,13 @@ class CafeDailyCloseRepository(context: Context) {
                 data class Accrual(val kind: String, val locationId: String,
                     val description: String, val debit: String, val credit: String, val amount: Long)
                 val accruals = mutableListOf<Accrual>()
-                val dayOfMonth = (day - 1) % 30 + 1
                 locations.forEach { loc ->
-                    val rent = loc.monthlyRentCents / 30L +
-                        if (dayOfMonth <= loc.monthlyRentCents % 30) 1L else 0L
+                    val rent = dailyMonthlyAccrual(loc.monthlyRentCents, day)
                     accruals += Accrual("rent", loc.id, "Daily rent accrual · ${loc.name}",
                         "5400", "2000", rent)
                 }
                 employees.filter { it.isActive }.forEach { employee ->
-                    val wage = employee.monthlyGrossSalaryCents / 30L +
-                        if (dayOfMonth <= employee.monthlyGrossSalaryCents % 30) 1L else 0L
+                    val wage = dailyMonthlyAccrual(employee.monthlyGrossSalaryCents, day)
                     accruals += Accrual("salary_${employee.id}", employee.locationId,
                         "Daily gross salary · ${employee.name}", "5200", "2300", wage)
                 }
