@@ -252,77 +252,13 @@ fun CafeHomeScreen(
                 }
             }
             cashPosition?.let { position ->
-                val payment = paymentStatus
-                val overdue = payment?.rentDaysLate ?: 0
-                val payrollLate = payment?.payrollDaysLate ?: 0
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Payment register", style = MaterialTheme.typography.titleMedium)
-                        bills.forEach { bill ->
-                            HorizontalDivider()
-                            Text(bill.label, style = MaterialTheme.typography.titleSmall)
-                            Text("Due now: ${euro(bill.due)} · Accrued: ${euro(bill.accrued)}")
-                            Text("Next cycle: Day ${bill.nextDueDay}", style = MaterialTheme.typography.bodySmall)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Automatic payment", Modifier.weight(1f))
-                                Switch(checked = bill.automatic, enabled = !loading,
-                                    onCheckedChange = { enabled -> run { billsRepo.setAutomatic(bill.account, enabled) } })
-                            }
-                            if (bill.due > 0L) {
-                                OutlinedButton(enabled = !loading && position.bankCents >= bill.due,
-                                    onClick = { run { cashRepo.pay(bill.account, amountCents = bill.due) } }) {
-                                    Text("Pay due · ${euro(bill.due)}")
-                                }
-                            }
-                        }
-                        HorizontalDivider()
-                        Text("Early settlement & cash deposits", style = MaterialTheme.typography.titleSmall)
-                        Text("Bank: €%.2f · Cash: €%.2f".format(Locale.ROOT,
-                            position.bankCents / 100.0, position.cashCents / 100.0))
-                        Text("Rent payable: €%.2f · %d days late".format(Locale.ROOT,
-                            position.rentPayableCents / 100.0, overdue))
-                        Text("Payroll payable: €%.2f · %d days late".format(Locale.ROOT,
-                            position.salariesPayableCents / 100.0, payrollLate))
-                        if (payment?.rentShutdown == true) {
-                            Text("Trading blocked by overdue rent. Pay rent to reopen.",
-                                color = MaterialTheme.colorScheme.error)
-                        } else if (overdue >= 5) {
-                            Text("Rent shutdown starts after 7 days overdue.",
-                                color = MaterialTheme.colorScheme.error)
-                        }
-                        if (payment?.staffDisruption == true) {
-                            Text("Late payroll is disrupting service.",
-                                color = MaterialTheme.colorScheme.error)
-                        } else if (payrollLate >= 1) {
-                            Text("Payroll disruption starts after 2 days overdue.",
-                                color = MaterialTheme.colorScheme.error)
-                        }
-                        if (position.bankCents < position.totalDueCents &&
-                            position.cashCents > 0L) {
-                            Text("Bank funds are insufficient for all bills. Deposit cash before paying.",
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (position.cashCents > 0L && position.totalDueCents > position.bankCents) {
-                            OutlinedButton(enabled = !loading, onClick = { run {
-                                val transfer = minOf(position.cashCents,
-                                    (position.totalDueCents - position.bankCents).coerceAtLeast(0L))
-                                if (transfer > 0L) cashRepo.transferCashToBank(transfer)
-                            } }) { Text("Deposit cash needed for bills") }
-                        }
-                        if (position.rentPayableCents > 0L) {
-                            Button(enabled = !loading && position.bankCents >= position.rentPayableCents,
-                                onClick = { run { cashRepo.pay("2000") } }) {
-                                Text("Pay rent · €%.2f".format(Locale.ROOT, position.rentPayableCents / 100.0))
-                            }
-                        }
-                        if (position.salariesPayableCents > 0L) {
-                            Button(enabled = !loading && position.bankCents >= position.salariesPayableCents,
-                                onClick = { run { cashRepo.pay("2300") } }) {
-                                Text("Pay payroll · €%.2f".format(Locale.ROOT, position.salariesPayableCents / 100.0))
-                            }
-                        }
-                        Text("Bills are accrued in P&L already; settlement only reduces bank and payables.",
-                            style = MaterialTheme.typography.bodySmall)
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Payments · ${euro(bills.sumOf { it.due })} due")
+                        Text("Bank · ${euro(position.bankCents)}")
+                        if (paymentStatus?.staffDisruption == true || paymentStatus?.rentShutdown == true)
+                            Text("Overdue bills affecting service", color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = onOpenFinance, enabled = !loading) { Text("Manage payments") }
                     }
                 }
             }

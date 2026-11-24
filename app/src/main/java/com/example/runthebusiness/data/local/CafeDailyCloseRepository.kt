@@ -93,6 +93,9 @@ class CafeDailyCloseRepository(context: Context) {
                         )
                     )
                 }
+                if (accruals.any { it.amount > 0L && "daily_close_${day}_${it.kind}_${it.locationId}" !in existing }) {
+                    CafePaymentConsequencesRepository.invalidate()
+                }
             }
         }
 }

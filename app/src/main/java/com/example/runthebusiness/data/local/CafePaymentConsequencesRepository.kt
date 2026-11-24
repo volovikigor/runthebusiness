@@ -19,11 +19,20 @@ data class PaymentConsequences(
 class CafePaymentConsequencesRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
 
+    companion object {
+        private val revision = java.util.concurrent.atomic.AtomicLong()
+        fun invalidate() { revision.incrementAndGet() }
+    }
+    private data class Cached(val session: String, val day: Int, val revision: Long, val value: PaymentConsequences)
+    @Volatile private var cached: Cached? = null
+
     suspend fun load(sessionId: String = "debug_session_001"): PaymentConsequences =
         withContext(Dispatchers.IO) {
             val session = db.accountingDao().getSession(sessionId)
                 ?: return@withContext PaymentConsequences(0, 0)
             val day = session.currentDay
+            val version = revision.get()
+            cached?.let { if (it.session == sessionId && it.day == day && it.revision == version) return@withContext it.value }
             suspend fun daysLate(period: Int, account: String): Int {
                 var low = 1
                 var high = day / period
@@ -35,9 +44,11 @@ class CafePaymentConsequencesRepository(context: Context) {
                 }
                 return day - low * period
             }
-            PaymentConsequences(
+            val result = PaymentConsequences(
                 payrollDaysLate = daysLate(14, "2300"),
                 rentDaysLate = daysLate(14, "2000")
             )
+            cached = Cached(sessionId, day, version, result)
+            result
         }
 }

@@ -195,6 +195,7 @@ class GameSimulationEngine(context: Context) {
             GameDatabase.getInstance(appContext).clearAllTables()
             autoPurchasing.reset()
             bills.reset()
+            com.example.runthebusiness.data.local.CafePaymentConsequencesRepository.invalidate()
             GameRepository(appContext).initializeOpeningGame()
             CafeMenuRepository(appContext).seedMenu()
             CafeInventorySetupRepository(appContext).initializeRealStock()

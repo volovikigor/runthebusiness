@@ -136,6 +136,6 @@ class CafeCashManagementRepository(context: Context) {
                     )
                 )
                 due
-            }
+            }.also { CafePaymentConsequencesRepository.invalidate() }
         }
 }
