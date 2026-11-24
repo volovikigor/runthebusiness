@@ -8,6 +8,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeArrivalRepository
+import com.example.runthebusiness.data.local.CafeCashManagementRepository
+import com.example.runthebusiness.data.local.CafePaymentRegisterRepository
 import com.example.runthebusiness.data.local.CafeCashForecastRepository
 import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
@@ -15,6 +17,9 @@ import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.GameRepository
+import com.example.runthebusiness.data.local.entity.BusinessEventEntity
+import com.example.runthebusiness.data.local.entity.JournalEntryEntity
+import com.example.runthebusiness.data.local.entity.JournalLineEntity
 import com.example.runthebusiness.engine.model.GameTime
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -116,15 +121,15 @@ class SimulationLifecycleTest {
         assertEquals(dayOne.toSet(), accounting.entryIdsWithPrefix("debug_session_001", "daily_close_1_%").toSet())
         assertEquals(1, close.lastClosedDay())
 
-        simulation.jump(GameSimulationEngine.JumpMode.NEXT_OPENING)
+        simulation.skipClosedHours()
         assertEquals(GameTime(2, 8), game.loadGameTime())
         assertTrue(dashboard.snapshot()!!.isTrading)
         assertTrue(CafeArrivalRepository(context).recent().any { it.gameDay == 2 && it.gameHour == 8 })
         game.setCafeOpen(false)
-        simulation.advance(540)
-        assertEquals(GameTime(2, 17), game.loadGameTime())
+        simulation.advance(525)
+        assertEquals(GameTime(2, 16, 45), game.loadGameTime())
         game.setCafeOpen(true)
-        simulation.jump(GameSimulationEngine.JumpMode.NEXT_OPENING)
+        simulation.advancePlayback()
         assertEquals(GameTime(3, 8), game.loadGameTime())
         assertEquals(2, close.lastClosedDay())
         game.setCafeOpen(false)
@@ -158,6 +163,58 @@ class SimulationLifecycleTest {
         assertEquals(96_664L, loan.totalCents)
         assertEquals(3_500_000L, GameDatabase.getInstance(context).accountingDao()
             .accountBalance("debug_session_001", "1100"))
+
+        GameDatabase.getInstance(context).accountingDao()
+            .updateGameTime("debug_session_001", 32, 8, 0, System.currentTimeMillis())
+        val later = checkNotNull(CafeCashForecastRepository(context).load())
+        assertEquals(61, later.installments.first().dueDay)
+        assertTrue(later.days.none { day -> day.payments.any { it.label == "Loan installment" } })
+    }
+
+    @Test
+    fun automaticDepositCoversOnlyTheDueRentShortfall() = runBlocking {
+        val simulation = GameSimulationEngine(context)
+        simulation.startGame()
+        GameRepository(context).setCafeOpen(false)
+        val sessionId = "debug_session_001"
+        val db = GameDatabase.getInstance(context)
+        val businessId = db.gameSetupDao().getBusinesses(sessionId).single().id
+        val dao = db.accountingDao()
+        val cashOnHand = 3_480_000L
+        dao.saveAccountingOperation(
+            BusinessEventEntity("test_cash", sessionId, businessId, "TEST_TRANSFER", "TEST",
+                "test_cash", 1, 8, 0, "Fund test till"),
+            JournalEntryEntity("test_cash", sessionId, businessId, "test_cash", "Fund test till", 1, 8, 0),
+            listOf(
+                JournalLineEntity("test_cash_1", "test_cash", 1, "1000", "", cashOnHand, 0L),
+                JournalLineEntity("test_cash_2", "test_cash", 2, "1100", "", 0L, cashOnHand)
+            )
+        )
+        val register = CafePaymentRegisterRepository(context)
+        val cash = CafeCashManagementRepository(context)
+        register.reset()
+        try {
+            register.setAutomatic("2000", true)
+            repeat(13) { simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY) }
+            assertEquals(65_000L, register.snapshot().single { it.account == "2000" }.due)
+            assertEquals(20_000L, cash.position().bankCents)
+
+            register.setAutomaticDeposits(true)
+            register.settleAutomatic()
+            val paid = cash.position()
+            assertEquals(0L, paid.bankCents)
+            assertEquals(cashOnHand - 45_000L, paid.cashCents)
+            assertEquals(0L, paid.rentPayableCents)
+            register.settleAutomatic()
+            assertEquals(paid, cash.position())
+
+            cash.transferCashToBank(4_321L)
+            val manuallyDeposited = cash.position()
+            assertEquals(4_321L, manuallyDeposited.bankCents)
+            assertEquals(paid.totalCashCents, manuallyDeposited.totalCashCents)
+        } finally {
+            register.reset()
+        }
     }
 
     private fun clearSave() {

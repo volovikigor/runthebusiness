@@ -91,7 +91,6 @@ fun CafeHomeScreen(
     speed: Int = 0,
     time: GameTime? = null,
     onStartGame: (Boolean) -> Unit = {},
-    onSkipToOpening: () -> Unit = {},
     onOpenOperations: (Int) -> Unit = {},
     onOpenFinance: () -> Unit = {}
 ) {
@@ -200,25 +199,6 @@ fun CafeHomeScreen(
                 Text("Start café")
             }
         } else {
-            if (!cafe.isOpen) {
-                Text("Scheduled opening is disabled.", style = MaterialTheme.typography.bodySmall)
-            } else if (!cafe.isTrading) {
-                val openingDay = if (cafe.time.hour < cafe.openingHour) "today" else "tomorrow"
-                Button(onClick = onSkipToOpening, enabled = !loading) {
-                    Text("Skip to opening · %02d:00 %s".format(Locale.ROOT, cafe.openingHour, openingDay))
-                }
-            }
-            OutlinedButton(
-                onClick = { run { game.setCafeOpen(!cafe.isOpen) } },
-                enabled = !loading
-            ) {
-                Text(when {
-                    !cafe.isOpen && cafe.time.hour in cafe.openingHour until cafe.closingHour -> "Open café"
-                    !cafe.isOpen -> "Enable scheduled opening"
-                    cafe.isTrading -> "Close café"
-                    else -> "Disable scheduled opening"
-                })
-            }
             CafeScene(
                 name = cafe.cafeName,
                 day = cafe.time.day,
@@ -241,6 +221,17 @@ fun CafeHomeScreen(
                     paymentStatus?.staffDisruption == true,
                 modifier = Modifier.fillMaxWidth()
             )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (cafe.isOpen) "Scheduled hours · %02d:00–%02d:00".format(Locale.ROOT, cafe.openingHour, cafe.closingHour)
+                    else "Scheduled opening is disabled.",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                TextButton(onClick = { run { game.setCafeOpen(!cafe.isOpen) } }, enabled = !loading) {
+                    Text(if (cafe.isOpen) "Close manually" else "Resume schedule")
+                }
+            }
             val shiftDay = if (cafe.time.hour < cafe.openingHour && cafe.time.day > 1) {
                 cafe.time.day - 1
             } else {

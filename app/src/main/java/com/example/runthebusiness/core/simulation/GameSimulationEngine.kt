@@ -48,6 +48,28 @@ class GameSimulationEngine(context: Context) {
     suspend fun advance(minutes: Long, sessionId: String = "debug_session_001"): StepResult =
         mutex.withLock { advanceLocked(minutes, sessionId) }
 
+    suspend fun skipClosedHours(sessionId: String = "debug_session_001"): StepResult? =
+        mutex.withLock { skipClosedHoursLocked(sessionId) }
+
+    suspend fun advancePlayback(sessionId: String = "debug_session_001"): StepResult =
+        mutex.withLock {
+            skipClosedHoursLocked(sessionId)?.let { return@withLock it }
+            val tick = advanceLocked(15L, sessionId)
+            val morning = skipClosedHoursLocked(sessionId) ?: return@withLock tick
+            StepResult(morning.time, tick.groupsServed + morning.groupsServed)
+        }
+
+    private suspend fun skipClosedHoursLocked(sessionId: String): StepResult? {
+        val time = checkNotNull(clock.loadGameTime(sessionId))
+        val location = clock.loadBusinessLocations(sessionId).singleOrNull() ?: return null
+        if (!location.isOpen || time.hour in location.openingHour until location.closingHour) return null
+        val opening = GameTime(
+            day = if (time.hour < location.openingHour) time.day else Math.addExact(time.day, 1),
+            hour = location.openingHour
+        )
+        return advanceLocked(opening.totalMinutes - time.totalMinutes, sessionId)
+    }
+
     private suspend fun advanceLocked(minutes: Long, sessionId: String): StepResult {
         require(minutes in 1..1440) { "Advance must be between 1 and 1440 minutes" }
         var time = checkNotNull(clock.loadGameTime(sessionId))
@@ -96,16 +118,8 @@ class GameSimulationEngine(context: Context) {
         val startedAt = android.os.SystemClock.elapsedRealtime()
         val initial = checkNotNull(clock.loadGameTime(sessionId))
         if (mode == JumpMode.NEXT_OPENING) {
-            val location = checkNotNull(clock.loadBusinessLocations(sessionId).singleOrNull())
-            if (!location.isOpen) return@withLock NextEventResult(initial, "Enable café opening first", 0)
-            if (initial.hour in location.openingHour until location.closingHour) {
-                return@withLock NextEventResult(initial, "The café is already open", 0)
-            }
-            val opening = GameTime(
-                day = if (initial.hour < location.openingHour) initial.day else Math.addExact(initial.day, 1),
-                hour = location.openingHour
-            )
-            val step = advanceLocked(opening.totalMinutes - initial.totalMinutes, sessionId)
+            val step = skipClosedHoursLocked(sessionId)
+                ?: return@withLock NextEventResult(initial, "No scheduled opening to skip to", 0)
             return@withLock NextEventResult(step.time, "Reached café opening time", step.groupsServed)
         }
         val knownAlerts = if (mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_DAY)

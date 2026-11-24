@@ -134,14 +134,16 @@ class MainActivity : ComponentActivity() {
                                 progress = completed
                                 groups = served
                             })
+                            if (mode == GameSimulationEngine.JumpMode.NEXT_DAY) simulation.skipClosedHours()
                             resultMessage = result.description
                             if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) audit.saveDesktopReport()
                         } else {
+                            simulation.skipClosedHours()
                             // Advance 15 game minutes per tick. x1 = 15s, x5 = 3s, x20 = 0.75s.
                             while (true) {
                                 delay(15_000L / speed)
                                 if (!appForeground || selectedTab != 0 || gameSpeed != speed || settingUp) break
-                                simulation.advance(15L)
+                                simulation.advancePlayback()
                                 clockError = null
                             }
                         }
@@ -246,7 +248,6 @@ class MainActivity : ComponentActivity() {
                             speed = gameSpeed,
                             time = time,
                             onStartGame = ::startGame,
-                            onSkipToOpening = { startJump(GameSimulationEngine.JumpMode.NEXT_OPENING) },
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
                             onOpenFinance = { financeTarget = "Bills"; navigateTab(2) }
                         )
