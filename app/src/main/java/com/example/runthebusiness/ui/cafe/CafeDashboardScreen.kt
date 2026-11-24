@@ -1,6 +1,7 @@
 package com.example.runthebusiness.ui.cafe
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,8 +25,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val kitchen = remember(context) { CafeKitchenRepository(context) }
     val purchasing = remember(context) { CafePurchasingRepository(context) }
     val autoPurchasing = remember(context) { CafeAutoPurchasingRepository(context) }
-    val writeOff = remember(context) { CafeWriteOffRepository(context) }
-    val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
+    val inventoryRepo = remember(context) { CafeInventorySummaryRepository(context) }
+    var inventory by remember { mutableStateOf<CafeInventorySummary?>(null) }
+    var openIngredient by remember { mutableStateOf<String?>(null) }
+    var selectedPack by remember { mutableStateOf<CafePurchasingRepository.Supply?>(null) }
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
     val simulation = remember(context) { GameSimulationEngine(context) }
     val dashboard = remember(context) { CafeDashboardRepository(context) }
@@ -35,14 +38,12 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val scope = rememberCoroutineScope()
     var products by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
-    var movements by remember { mutableStateOf<List<com.example.runthebusiness.data.local.entity.StockMovementEntity>>(emptyList()) }
     var supplierCreditBlocked by remember { mutableStateOf(false) }
     var started by remember { mutableStateOf(false) }
     var autoPolicy by remember { mutableStateOf(autoPurchasing.policy()) }
     var autoSelected by remember { mutableStateOf(emptySet<String>()) }
     var realIngredients by remember { mutableStateOf(false) }
     var autoSettings by remember { mutableStateOf(false) }
-    var manualWriteOff by remember { mutableStateOf(false) }
     var kitchenInstalled by remember { mutableStateOf(false) }
     var section by remember { mutableIntStateOf(requestedSection) }
     LaunchedEffect(requestedSection) { section = requestedSection }
@@ -59,10 +60,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         kitchenInstalled = kitchen.installed()
         products = menu.loadMenu()
         stock = purchasing.stock()
+        inventory = inventoryRepo.load()
         autoPolicy = autoPurchasing.policy()
         autoSelected = CafePurchasingRepository.supplies.filter { autoPurchasing.enabled(it.itemId) }
             .map { it.itemId }.toSet()
-        movements = movementsRepo.movements()
     }
     fun run(action: suspend () -> Unit) {
             if (busy) return
@@ -77,6 +78,31 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             }
         }
         LaunchedEffect(Unit) { run { } }
+    selectedPack?.let { supply ->
+        fun order(onCredit: Boolean) {
+            selectedPack = null
+            run {
+                purchasing.purchase(supply.itemId, onCredit = onCredit)
+                message = if (onCredit) "${supply.label} ordered · invoice in Bills" else "${supply.label} purchased"
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { selectedPack = null },
+            title = { Text("Order ${supply.label}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("%.0f %s · €%.2f".format(Locale.ROOT, supply.quantity, supply.unit, supply.costCents / 100.0))
+                    Text("Stock arrives immediately.", style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = { order(false) }, modifier = Modifier.fillMaxWidth()) { Text("Pay now") }
+                    OutlinedButton(enabled = !supplierCreditBlocked, onClick = { order(true) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Invoice · pay in ${supply.creditDays} days") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { selectedPack = null }) { Text("Cancel") } }
+        )
+    }
+
 
         val sections = listOf("Pricing", "Purchasing", "Inventory", "Staff")
     CafeSectionScreen(
@@ -115,28 +141,17 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         message = "11 new menu items added. Enable and stock the ones you want to sell."
                     } }, enabled = !busy) { Text("Expand menu: cakes, sandwiches & salads") }
                 }
-                if (products.any { it.id == "ham_cheese_001" }) {
-                    OutlinedButton(onClick = { run {
-                        val result = kitchen.activate()
-                        val waitingText = if (result.waitingForStock.isEmpty())
-                            "All eligible meals use ingredients."
-                        else "Sell remaining ready-made stock first: ${result.waitingForStock.joinToString()}"
-                        message = "Kitchen recipes activated: ${result.converted}. $waitingText"
-                    } }, enabled = !busy) { Text("Activate kitchen recipes for sandwiches & salads") }
-                }
                 products.forEach { product ->
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(product.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                        Switch(
-                            modifier = Modifier.semantics { contentDescription = "Offer ${product.name}" },
-                            checked = product.enabled, enabled = !busy,
-                            onCheckedChange = { checked -> run { expanded.setEnabled(product.id, checked) } }
-                        )
-                    }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(product.type.lowercase().replaceFirstChar(Char::uppercase), Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall)
+                        Column(Modifier.weight(1f)) {
+                            Text(product.name, style = MaterialTheme.typography.titleSmall)
+                            TextButton(
+                                enabled = !busy,
+                                onClick = { run { expanded.setEnabled(product.id, !product.enabled) } },
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) { Text(if (product.enabled) "On menu · Remove" else "Add to menu") }
+                        }
                         IconButton(
                             modifier = Modifier.semantics { contentDescription = "Decrease ${product.name} price by €0.10" },
                             enabled = !busy && product.priceCents > 50L,
@@ -207,30 +222,17 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         else -> true
                     }
                 }.forEach { supply ->
-                    HorizontalDivider()
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(supply.label, style = MaterialTheme.typography.titleSmall)
-                            Text("%.0f %s in stock · pack %.0f %s".format(Locale.ROOT,
-                                stock[supply.itemId] ?: 0.0, supply.unit, supply.quantity, supply.unit),
-                                style = MaterialTheme.typography.bodySmall)
-                            if (supply.shelfLifeDays > 0) {
-                                Text("Shelf life ${supply.shelfLifeDays} days",
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
+                    CafeLedgerPanel {
+                        Text(supply.label, style = MaterialTheme.typography.titleMedium)
+                        Text("%.0f %s available · %.0f %s per pack".format(Locale.ROOT,
+                            stock[supply.itemId] ?: 0.0, supply.unit, supply.quantity, supply.unit),
+                            style = MaterialTheme.typography.bodySmall)
+                        if (supply.shelfLifeDays > 0) {
+                            Text("Shelf life ${supply.shelfLifeDays} days", style = MaterialTheme.typography.bodySmall)
                         }
-                        Text("€%.2f".format(Locale.ROOT, supply.costCents / 100.0),
-                            style = MaterialTheme.typography.titleSmall)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(enabled = !busy, onClick = { run {
-                            purchasing.purchase(supply.itemId)
-                            message = "Purchased ${supply.label}"
-                        } }) { Text("Pay now") }
-                        TextButton(enabled = !busy && !supplierCreditBlocked, onClick = { run {
-                            purchasing.purchase(supply.itemId, onCredit = true)
-                            message = "Purchased ${supply.label} · invoice added to Bills"
-                        } }) { Text("Pay in ${supply.creditDays} days") }
+                        Button(enabled = !busy, onClick = { selectedPack = supply }) {
+                            Text("Order pack · €%.2f".format(Locale.ROOT, supply.costCents / 100.0))
+                        }
                     }
                     if (autoSettings) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -269,6 +271,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 }
                 HorizontalDivider()
                 Text("Service capacity", style = MaterialTheme.typography.titleMedium)
+                Text("Hiring adds capacity. It can recover orders when the team is overloaded. Customer demand still depends on the café and menu.",
+                    style = MaterialTheme.typography.bodySmall)
                 Text("Today %.1f · Tomorrow %.1f work minutes per 15-minute slot".format(
                     Locale.ROOT, team.currentCapacity, team.plannedCapacity))
                 if (team.today > 1) {
@@ -276,62 +280,51 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     Text("Groups lost to staff capacity · ${team.capacityLosses}")
                 }
             }
-            else -> {
-                Text("Inventory", style = MaterialTheme.typography.titleLarge)
-                Text("Expired batches are written off automatically.",
+            else -> inventory?.let { report ->
+                Text("Stock balance", style = MaterialTheme.typography.titleLarge)
+                Text("Day ${report.fromDay}–${report.throughDay} · ending stock as of now",
                     style = MaterialTheme.typography.bodySmall)
-                CafePurchasingRepository.supplies.forEach { supply ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(supply.label, Modifier.weight(1f))
-                        Text("%.0f %s".format(Locale.ROOT, stock[supply.itemId] ?: 0.0, supply.unit))
-                    }
-                    HorizontalDivider()
+                CafeLedgerPanel {
+                    Text("Write-offs · €%.2f".format(Locale.ROOT, report.items.sumOf { it.total.wasteCents } / 100.0),
+                        style = MaterialTheme.typography.titleMedium)
+                    Text("Expired stock is written off automatically.", style = MaterialTheme.typography.bodySmall)
                 }
-                TextButton(onClick = { manualWriteOff = !manualWriteOff }) {
-                    Text(if (manualWriteOff) "Hide manual write-offs" else "Manual write-offs")
-                }
-                if (manualWriteOff) {
-                    Text("Use for spills, damage or stock corrections.",
-                        style = MaterialTheme.typography.bodySmall)
-                    CafePurchasingRepository.supplies.filter { (stock[it.itemId] ?: 0.0) >= 1.0 }.forEach { supply ->
-                        OutlinedButton(
-                            enabled = !busy && (stock[supply.itemId] ?: 0.0) >= 1.0,
-                            onClick = {
-                                run {
-                                    val expense = writeOff.writeOffOne(supply.itemId)
-                                    message = "Written off 1 ${supply.unit} of ${supply.label} · €%.2f".format(
-                                        Locale.ROOT, expense / 100.0)
-                                }
-                            }
-                        ) { Text("Write off 1 ${supply.unit} · ${supply.label}") }
-                    }
-                }
-                HorizontalDivider()
-                Text("Recent stock movements", style = MaterialTheme.typography.titleMedium)
-                if (movements.isEmpty()) Text("No movements recorded yet.")
-                movements.take(30).forEach { movement ->
-                    val action = when (movement.sourceType) {
-                        "INVENTORY_PURCHASE" -> "Purchase"
-                        "WRITE_OFF" -> "Write-off"
-                        "CUSTOMER_ORDER" -> "Sale consumption"
-                        else -> "Stock adjustment"
-                    }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(movement.inventoryItemName, style = MaterialTheme.typography.titleSmall)
-                            Text("Day ${movement.gameDay} · $action", style = MaterialTheme.typography.bodySmall)
+                report.items.forEach { item ->
+                    val expanded = openIngredient == item.id
+                    CafeLedgerPanel {
+                        Row(Modifier.fillMaxWidth().clickable {
+                            openIngredient = if (expanded) null else item.id
+                        }.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(item.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            Text(if (expanded) "Hide days" else "View by day", color = MaterialTheme.colorScheme.primary)
                         }
-                        Text(if (movement.quantityDelta % 1.0 == 0.0)
-                            "%+.0f".format(Locale.ROOT, movement.quantityDelta)
-                        else "%+.2f".format(Locale.ROOT, movement.quantityDelta).trimEnd('0').trimEnd('.'))
+                        InventoryBalance(item.total, item.unit)
+                        if (expanded) {
+                            item.days.forEach { day ->
+                                HorizontalDivider()
+                                Text("Day ${day.day}", style = MaterialTheme.typography.titleSmall)
+                                InventoryBalance(day, item.unit)
+                            }
+                        }
                     }
-                    HorizontalDivider()
                 }
-
-
             }
         }
         OutlinedButton(onClick = { run { } }, enabled = !busy) { Text("Refresh") }
+    }
+}
+
+
+@Composable
+private fun InventoryBalance(period: InventoryPeriod, unit: String) {
+    val format: (Double) -> String = { value ->
+        "%.2f".format(Locale.ROOT, value).trimEnd('0').trimEnd('.')
+    }
+    Text("Opening ${format(period.opening)} · Closing ${format(period.closing)} $unit",
+        style = MaterialTheme.typography.titleSmall)
+    Text("Purchased ${format(period.purchased)} · Consumed ${format(period.consumed)} · Written off ${format(period.writtenOff)} $unit",
+        style = MaterialTheme.typography.bodySmall)
+    if (kotlin.math.abs(period.other) > 0.00001) {
+        Text("Other movements ${format(period.other)} $unit", style = MaterialTheme.typography.bodySmall)
     }
 }

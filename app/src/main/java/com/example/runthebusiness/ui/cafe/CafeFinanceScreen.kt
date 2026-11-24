@@ -1,8 +1,6 @@
 package com.example.runthebusiness.ui.cafe
 
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -17,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
-import com.example.runthebusiness.data.local.CafeAuditExportRepository
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
 import com.example.runthebusiness.data.local.CashPosition
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
@@ -42,7 +39,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     val forecastRepo = remember(context) { CafeCashForecastRepository(context) }
     var forecast by remember { mutableStateOf<CafeCashForecast?>(null) }
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
-    val auditRepo = remember(context) { CafeAuditExportRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
@@ -78,23 +74,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     var expandedPurchase by remember { mutableStateOf<List<StockMovementEntity>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var exportData by remember { mutableStateOf<String?>(null) }
-    val saveAudit = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        val data = exportData
-        if (uri != null && data != null) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use { stream ->
-                    stream.write(data.toByteArray(Charsets.UTF_8))
-                } ?: error("Cannot open selected file")
-                settlementMessage = "Audit CSV saved. Share the file for review."
-            } catch (e: Exception) {
-                error = "Export failed: ${e.message}"
-            }
-        }
-        exportData = null
-    }
 
     BackHandler(enabled = expandedId != null || section != "Forecast") {
         when {
@@ -209,13 +188,11 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             forecast?.let { report ->
                 cashPosition?.let { position ->
                     CafeLedgerPanel {
-                        Text("Available now", style = MaterialTheme.typography.titleSmall)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Till ${money(position.cashCents)}")
-                            Text("Bank ${money(position.bankCents)}")
-                        }
+                        Text("Available now", style = MaterialTheme.typography.titleMedium)
+                        FinanceAmountRow("Cash on hand", position.cashCents)
+                        FinanceAmountRow("Bank balance", position.bankCents)
                         ForecastWarnings(report)
-                        TextButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
+                        Button(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
                             Text("Deposit cash into bank")
                         }
                     }
@@ -247,19 +224,20 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     }
                     invoices.forEach { invoice ->
                         val overdue = today != null && invoice.dueDay < today
-                        HorizontalDivider()
-                        FinanceAmountRow(invoice.label, invoice.amountCents)
+                        CafeLedgerPanel {
+                        FinanceAmountRow(invoice.label.removePrefix("Supplier invoice · "), invoice.amountCents)
                         Text("Due Day ${invoice.dueDay}" + if (overdue) " · overdue" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(enabled = !busy && position.bankCents >= invoice.amountCents,
                             onClick = { paymentAction { cashRepo.paySupplier(invoice.id) } }
                         ) { Text("Pay supplier") }
+                        }
                     }
                     recurring.forEach { bill ->
                         val dueDay = if (dueNow) bill.nextDueDay - bill.periodDays else bill.nextDueDay
                         val overdue = dueNow && today != null && dueDay < today
-                        HorizontalDivider()
+                        CafeLedgerPanel {
                         FinanceAmountRow(bill.label, if (dueNow) bill.due else bill.accrued)
                         Text(
                             if (dueNow) "Due since Day $dueDay · next cycle Day ${bill.nextDueDay}"
@@ -276,6 +254,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                                     onClick = { paymentAction { cashRepo.pay(bill.account, amountCents = bill.due) } }
                                 ) { Text("Pay due") }
                             }
+                        }
                         }
                     }
                 }
@@ -334,7 +313,11 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         val report = statements
         if (report != null && section == "P&L") {
-            Text("Profit & Loss", style = MaterialTheme.typography.titleMedium)
+            CafeLedgerPanel {
+                Text("Profit & Loss", style = MaterialTheme.typography.titleMedium)
+                FinanceAmountRow("Net result", report.netIncomeCents)
+                Text("After recorded expenses and tax", style = MaterialTheme.typography.bodySmall)
+            }
             CafeLedgerOptions(listOf("Cumulative", "By day"), if (showDaily) "By day" else "Cumulative") {
                 showDaily = it == "By day"
             }
@@ -354,36 +337,37 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 StatementSection("Expenses", report.expenses, onAccount = {
                     openJournal(it)
                 })
-                StatementTotal("Net profit / loss", report.netIncomeCents)
             }
         }
         if (report != null && section == "BS") {
-            Text("Balance Sheet · current balances", style = MaterialTheme.typography.titleMedium)
-            StatementSection("Assets", report.assets, onAccount = {
-                openJournal(it)
-            })
-            StatementSection("Liabilities", report.liabilities, onAccount = {
-                openJournal(it)
-            })
+            val assets = report.assets.sumOf { it.amountCents }
+            val liabilities = report.liabilities.sumOf { it.amountCents }
+            val equity = report.equity.sumOf { it.amountCents }
+            val liabilitiesAndEquity = liabilities + equity
+            CafeLedgerPanel {
+                Text("Balance Sheet", style = MaterialTheme.typography.titleMedium)
+                FinanceAmountRow("Assets", assets)
+                FinanceAmountRow("Liabilities", liabilities)
+                FinanceAmountRow("Equity", equity)
+            }
+            StatementSection("Assets", report.assets, onAccount = { openJournal(it) })
+            StatementSection("Liabilities", report.liabilities, onAccount = { openJournal(it) })
             StatementSection("Equity and current result", report.equity, onAccount = {
                 openJournal(if (it == "CURRENT_RESULT") null else it)
             })
-            val assets = report.assets.sumOf { it.amountCents }
-            val liabilitiesAndEquity = report.liabilities.sumOf { it.amountCents } +
-                report.equity.sumOf { it.amountCents }
-            StatementTotal("Assets", assets)
-            StatementTotal("Liabilities + equity", liabilitiesAndEquity)
             if (assets != liabilitiesAndEquity) {
                 Text("Balance sheet does not balance: inspect the journal.",
                     color = MaterialTheme.colorScheme.error)
             }
         }
         if (report != null && section == "Cash") {
-            Text("Cash & bank balances", style = MaterialTheme.typography.titleMedium)
+            CafeLedgerPanel {
+                Text("Cash & bank", style = MaterialTheme.typography.titleMedium)
+                FinanceAmountRow("Total available", report.cashMovements.sumOf { it.amountCents })
+            }
             StatementSection("Accounts", report.cashMovements, onAccount = {
                 openJournal(it)
             })
-            StatementTotal("Cash + bank", report.cashMovements.sumOf { it.amountCents })
             HorizontalDivider()
             Text("Payables & liquidity", style = MaterialTheme.typography.titleMedium)
             cashPosition?.let { position ->
@@ -419,17 +403,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         if (section == "Journal") {
             Text("General ledger · newest first", style = MaterialTheme.typography.titleMedium)
-            TextButton(enabled = !busy, onClick = {
-                scope.launch {
-                    busy = true
-                    try {
-                        exportData = auditRepo.exportCsv()
-                        saveAudit.launch("cafe_audit.csv")
-                    } catch (e: Exception) {
-                        error = "Export failed: ${e.message}"
-                    } finally { busy = false }
-                }
-            }) { Text("Export audit CSV") }
             if (accountFilter != null) {
                 TextButton(onClick = { accountFilter = null }) { Text("Clear account $accountFilter") }
             }
@@ -449,8 +422,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(readableJournalTitle(entry.description), style = MaterialTheme.typography.titleSmall)
-                        Text("Day ${entry.day} · ${entry.lines.size} lines",
+                        Text(journalHeading(entry.id, entry.description), style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text("Day ${entry.day}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -590,7 +564,7 @@ private fun ForecastWarnings(forecast: CafeCashForecast) {
             color = MaterialTheme.colorScheme.error)
     }
     forecast.days.firstOrNull { it.cashCents < 0L }?.let {
-        Text("Till shortfall on Day ${it.day} · ${money(-it.cashCents)}",
+        Text("Cash shortfall on Day ${it.day} · ${money(-it.cashCents)}",
             color = MaterialTheme.colorScheme.error)
     }
 }
@@ -603,7 +577,9 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
         "Staff cost today ${money(forecast.staffCostTodayCents)} · Day ${today + 1} ${money(forecast.staffCostTomorrowCents)}",
         style = MaterialTheme.typography.bodySmall
     )
-    FinanceTableRow("Day", listOf("Till", "Bank"), heading = true)
+    Text("Expected balances after payments. Cash is the money in the café. Bills are paid from the bank.",
+        style = MaterialTheme.typography.bodySmall)
+    FinanceTableRow("Day", listOf("Cash", "Bank"), heading = true)
     forecast.days.forEach { day ->
         HorizontalDivider()
         FinanceTableRow(if (day.day == today) "Today" else "${day.day}",
@@ -637,6 +613,13 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
 }
 
 private fun money(cents: Long) = "€%.2f".format(Locale.ROOT, cents / 100.0)
+
+private fun journalHeading(id: String, description: String): String = when {
+    id.startsWith("sale_") -> "Customer sale"
+    id.startsWith("cogs_") -> "Cost of sale"
+    id.startsWith("purchase_") -> description.substringBefore(",")
+    else -> readableJournalTitle(description)
+}
 
 private fun readableJournalTitle(description: String): String = when {
     description.startsWith("Cost of sale ") -> "Inventory consumed · product not recorded"

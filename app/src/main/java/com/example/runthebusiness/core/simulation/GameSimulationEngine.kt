@@ -35,6 +35,7 @@ class GameSimulationEngine(context: Context) {
     private val spoilage = CafeSpoilageRepository(appContext)
     private val autoPurchasing = CafeAutoPurchasingRepository(appContext)
     private val staff = CafeStaffRepository(appContext)
+    private val kitchen = CafeKitchenRepository(appContext)
     private val bills = CafePaymentRegisterRepository(appContext)
     private val arrivals = CafeArrivalRepository(appContext)
     private val alerts = CafeManagementAlertsRepository(appContext)
@@ -95,6 +96,7 @@ class GameSimulationEngine(context: Context) {
                 spoilage.expire(next, sessionId)
                 if (next.day != before.day) {
                     staff.applyNextDay(sessionId)
+                    kitchen.activate(sessionId)
                     autoPurchasing.replenish(next.day, sessionId)
                     bills.settleAutomatic(sessionId)
                 }
@@ -244,7 +246,7 @@ class GameSimulationEngine(context: Context) {
                 CafeMenuRepository(appContext).seedMenu()
                 CafeInventorySetupRepository(appContext).initializeRealStock()
                 CafeExpandedMenuRepository(appContext).install()
-                if (reset) CafeKitchenRepository(appContext).activate()
+                kitchen.activate()
             }
         }
     }
@@ -256,6 +258,7 @@ class GameSimulationEngine(context: Context) {
                 // Recover pending writes from saves created before clock steps were atomic.
                 spoilage.expire(time, sessionId)
                 cafe.processPending(sessionId)
+                kitchen.activate(sessionId)
                 val lastClosed = close.lastClosedDay(sessionId)
                 for (day in (lastClosed + 1) until time.day) close.closeDay(day, sessionId)
             }

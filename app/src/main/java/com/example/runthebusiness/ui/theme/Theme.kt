@@ -1,6 +1,5 @@
 package com.example.runthebusiness.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
@@ -10,51 +9,50 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Espresso = Color(0xFF30251F)
-private val Honey = Color(0xFFB88B50)
-private val Cream = Color(0xFFF5E9D5)
-private val Ink = Color(0xFF30251E)
-private val Sage = Color(0xFF53664C)
+private val Ink = Color(0xFF17243A)
+private val Accent = Color(0xFF234AD1)
 
 private val LightColorScheme = lightColorScheme(
-    primary = Espresso,
+    primary = Accent,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFEEDCCE),
-    onPrimaryContainer = Ink,
-    secondary = Sage,
+    primaryContainer = Color(0xFFDDE5FF),
+    onPrimaryContainer = Color(0xFF132E84),
+    secondary = Color(0xFF005B59),
     onSecondary = Color.White,
-    tertiary = Honey,
-    background = Cream,
+    tertiary = Accent,
+    background = Color(0xFFF4F6FA),
     onBackground = Ink,
-    surface = Color(0xFFF0E1C9),
-    surfaceContainerLowest = Color(0xFFF5E9D5),
-    surfaceContainerLow = Color(0xFFF0E1C9),
-    surfaceContainer = Color(0xFFECDBC1),
-    surfaceContainerHigh = Color(0xFFE7D5B9),
-    surfaceContainerHighest = Color(0xFFE0CCAE),
+    surface = Color(0xFFF4F6FA),
+    surfaceContainerLowest = Color(0xFFF4F6FA),
+    surfaceContainerLow = Color(0xFFE8EDF6),
+    surfaceContainer = Color(0xFFE2E9F3),
+    surfaceContainerHigh = Color(0xFFDDE5F0),
+    surfaceContainerHighest = Color(0xFFD3DDED),
     onSurface = Ink,
-    surfaceVariant = Color(0xFFF0E7DB),
-    onSurfaceVariant = Color(0xFF66584C),
-    outline = Color(0xFF9B897A),
-    outlineVariant = Color(0xFFD8C8B7),
-    error = Color(0xFFA04C38),
+    surfaceVariant = Color(0xFFE2E9F3),
+    onSurfaceVariant = Color(0xFF44536C),
+    outline = Color(0xFF647389),
+    outlineVariant = Color(0xFFC6D1E1),
+    error = Color(0xFFA52C32),
     onError = Color.White,
-    secondaryContainer = Color(0xFFDCE4D3),
-    onSecondaryContainer = Color(0xFF263923)
+    secondaryContainer = Color(0xFFDAF1EE),
+    onSecondaryContainer = Color(0xFF003D3C)
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFE9BB88),
-    onPrimary = Ink,
-    secondary = Color(0xFFB8CDAA),
-    tertiary = Honey,
-    background = Color(0xFF211A16),
-    onBackground = Color(0xFFF6EDE1),
-    surface = Color(0xFF30251E),
-    onSurface = Color(0xFFF6EDE1),
-    surfaceVariant = Color(0xFF49382F),
-    onSurfaceVariant = Color(0xFFDFCEBE),
-    outlineVariant = Color(0xFF665343)
+    primary = Color(0xFFB7C7FF),
+    onPrimary = Color(0xFF11296E),
+    secondary = Color(0xFFA2DDD6),
+    tertiary = Color(0xFFB7C7FF),
+    background = Color(0xFF101827),
+    onBackground = Color(0xFFE7EEF9),
+    surface = Color(0xFF182335),
+    surfaceContainerLow = Color(0xFF1E2B41),
+    surfaceContainer = Color(0xFF253349),
+    onSurface = Color(0xFFE7EEF9),
+    surfaceVariant = Color(0xFF293850),
+    onSurfaceVariant = Color(0xFFBCCAE0),
+    outlineVariant = Color(0xFF3A4D69)
 )
 
 @Composable
