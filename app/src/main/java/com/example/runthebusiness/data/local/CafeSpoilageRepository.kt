@@ -17,7 +17,7 @@ class CafeSpoilageRepository(context: Context) {
             val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
                 ?: return@withContext 0
             val items = db.operationsDao().getInventoryItems(business.id).associateBy { it.id }
-            val batches = db.operationsDao().getInventoryBatches(business.id)
+            val batches = db.operationsDao().getActiveInventoryBatches(business.id)
                 .filter { batch ->
                     batch.quantityRemaining > 0.000001 && batch.expiresDay != null &&
                         GameTime(batch.expiresDay, batch.expiresHour ?: 0,
