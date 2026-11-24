@@ -1,17 +1,20 @@
 package com.example.runthebusiness.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Espresso = Color(0xFF523327)
-private val Honey = Color(0xFFC18A49)
-private val Cream = Color(0xFFFFF8ED)
+private val Espresso = Color(0xFF30251F)
+private val Honey = Color(0xFFB88B50)
+private val Cream = Color(0xFFF5E9D5)
 private val Ink = Color(0xFF30251E)
-private val Sage = Color(0xFF65775B)
+private val Sage = Color(0xFF53664C)
 
 private val LightColorScheme = lightColorScheme(
     primary = Espresso,
@@ -23,11 +26,15 @@ private val LightColorScheme = lightColorScheme(
     tertiary = Honey,
     background = Cream,
     onBackground = Ink,
-    surface = Color(0xFFFFFCF6),
+    surface = Color(0xFFFFF9EE),
     onSurface = Ink,
     surfaceVariant = Color(0xFFF0E7DB),
     onSurfaceVariant = Color(0xFF66584C),
-    outline = Color(0xFF9B897A)
+    outline = Color(0xFF9B897A),
+    error = Color(0xFFA04C38),
+    onError = Color.White,
+    secondaryContainer = Color(0xFFDCE4D3),
+    onSecondaryContainer = Color(0xFF263923)
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -45,13 +52,14 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun RunthebusinessTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography = Typography,
+        shapes = Shapes(extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(6.dp), medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(14.dp), extraLarge = RoundedCornerShape(18.dp)),
         content = content
     )
 }
