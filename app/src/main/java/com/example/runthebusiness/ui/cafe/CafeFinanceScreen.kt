@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
 import com.example.runthebusiness.data.local.CafeAuditExportRepository
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
@@ -48,6 +50,14 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     var entries by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
     var statements by remember { mutableStateOf<FinancialStatements?>(null) }
     var cashPosition by remember { mutableStateOf<CashPosition?>(null) }
+    var autoDeposit by remember { mutableStateOf(billsRepo.automaticDepositsEnabled()) }
+    var depositInput by remember { mutableStateOf<String?>(null) }
+    fun openDeposit() {
+        val cash = cashPosition?.cashCents ?: return
+        val gap = forecast?.days?.firstOrNull { it.bankShortfallCents > 0L }?.bankShortfallCents ?: 0L
+        val suggestion = minOf(cash, gap)
+        depositInput = if (suggestion > 0L) java.math.BigDecimal.valueOf(suggestion, 2).toPlainString() else ""
+    }
     var settlementMessage by remember { mutableStateOf<String?>(null) }
     var daily by remember { mutableStateOf<List<DailyProfitLoss>>(emptyList()) }
     var showDaily by remember { mutableStateOf(false) }
@@ -123,6 +133,40 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             catch (e: Exception) { error = e.message; busy = false }
         }
     }
+    depositInput?.let { input ->
+        val amount = input.trim().replace(',', '.').toBigDecimalOrNull()
+            ?.takeIf { it.scale() in 0..2 && it.signum() > 0 }
+            ?.let { runCatching { it.movePointRight(2).longValueExact() }.getOrNull() }
+        val available = cashPosition?.cashCents ?: 0L
+        AlertDialog(
+            onDismissRequest = { depositInput = null },
+            title = { Text("Deposit cash into bank") },
+            text = {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { depositInput = it },
+                    label = { Text("Amount in euros") },
+                    supportingText = { Text("Available cash ${money(available)}") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && amount != null && amount <= available,
+                    onClick = {
+                        val cents = checkNotNull(amount)
+                        depositInput = null
+                        paymentAction {
+                            cashRepo.transferCashToBank(cents)
+                            settlementMessage = "Deposited ${money(cents)} into bank"
+                        }
+                    }
+                ) { Text("Deposit") }
+            },
+            dismissButton = { TextButton(onClick = { depositInput = null }) { Text("Cancel") } }
+        )
+    }
     LaunchedEffect(Unit) { refresh() }
     LaunchedEffect(expandedId) {
         expandedSale = null
@@ -169,7 +213,26 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (section == "Forecast") {
-            forecast?.let { CashForecastSection(it) }
+            forecast?.let { report ->
+                cashPosition?.let { position ->
+                    Text("Available now · Cash ${money(position.cashCents)} · Bank ${money(position.bankCents)}")
+                    OutlinedButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
+                        Text("Deposit cash into bank")
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Automatic deposits for bills", Modifier.weight(1f))
+                    Switch(checked = autoDeposit, enabled = !busy, onCheckedChange = { enabled ->
+                        billsRepo.setAutomaticDeposits(enabled)
+                        autoDeposit = enabled
+                    })
+                }
+                Text("On day change, use cash to cover the bank shortfall for bills with automatic payment enabled.",
+                    style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { section = "Bills" }) { Text("Review bills") }
+                settlementMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                CashForecastSection(report)
+            }
             if (forecast == null && !busy && error == null) Text("Start the café to see its cash forecast.")
         }
         if (section == "Bills") {
@@ -323,48 +386,19 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                         else MaterialTheme.colorScheme.onSurface)
                 Text("Paying a liability reduces Bank and the payable; it does not create a second P&L expense.",
                     style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(
-                    enabled = !busy && position.cashCents >= 10_000L,
-                    onClick = {
-                        scope.launch {
-                            busy = true
-                            error = null
-                            try {
-                                cashRepo.transferCashToBank(10_000L)
-                                settlementMessage = "Deposited €100.00 cash into bank"
-                                forecast = forecastRepo.load()
-                statements = financeRepo.load()
-                                cashPosition = cashRepo.position()
-                                entries = journalRepo.journal().asReversed()
-                            } catch (e: Exception) {
-                                error = e.message ?: e.javaClass.simpleName
-                            } finally { busy = false }
-                        }
-                    }
-                ) { Text("Deposit €100 cash into bank") }
+                OutlinedButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
+                    Text("Deposit cash into bank")
+                }
                 listOf(
                     Triple("2000", "Pay accrued rent", position.rentPayableCents),
                     Triple("2300", "Pay accrued gross salaries", position.salariesPayableCents)
                 ).forEach { (code, label, due) ->
                     Button(
                         enabled = !busy && due > 0L && position.bankCents >= due,
-                        onClick = {
-                            scope.launch {
-                                busy = true
-                                error = null
-                                try {
-                                    val paid = cashRepo.pay(code)
-                                    settlementMessage = "Paid ${money(paid)} by bank"
-                                    forecast = forecastRepo.load()
-                statements = financeRepo.load()
-                                    cashPosition = cashRepo.position()
-                                    daily = financeRepo.dailyProfitLoss()
-                                    entries = journalRepo.journal().asReversed()
-                                } catch (e: Exception) {
-                                    error = e.message ?: e.javaClass.simpleName
-                                } finally { busy = false }
-                            }
-                        }
+                        onClick = { paymentAction {
+                            val paid = cashRepo.pay(code)
+                            settlementMessage = "Paid ${money(paid)} by bank"
+                        } }
                     ) { Text("$label · ${money(due)}") }
                 }
             }
@@ -524,7 +558,7 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
     }
     Text(
         if (forecast.historyDays > 0) {
-            "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading."
+            "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading. Balances are shown before any deposits."
         } else {
             "Sales and stock purchases will be estimated after the first completed day."
         },
@@ -545,7 +579,7 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
     if (forecast.installments.isNotEmpty()) {
         HorizontalDivider()
         Text("Next loan installments", style = MaterialTheme.typography.titleMedium)
-        Text("Scheduled amounts used in the forecast. Loan payments are not posted yet.",
+        Text("Upcoming amounts from the original schedule. Loan payments are not posted yet.",
             style = MaterialTheme.typography.bodySmall)
         forecast.installments.take(3).forEach { installment ->
             Text("Day ${installment.dueDay} · ${money(installment.totalCents)}")

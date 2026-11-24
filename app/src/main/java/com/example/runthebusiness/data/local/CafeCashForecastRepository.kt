@@ -38,7 +38,7 @@ class CafeCashForecastRepository(context: Context) {
                 it.outstandingPrincipalCents, it.annualInterestRate, it.monthlyPaymentCents,
                 it.nextPaymentDay, it.termMonths
             )
-        }.sortedBy { it.dueDay }
+        }.filter { it.dueDay >= today }.sortedBy { it.dueDay }
         val payments = installments.map { ForecastPayment("Loan installment", it.dueDay, it.totalCents) }
             .toMutableList()
         for (bill in bills.snapshot(sessionId)) {

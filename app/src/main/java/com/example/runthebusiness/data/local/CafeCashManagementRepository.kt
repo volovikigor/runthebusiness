@@ -22,17 +22,6 @@ data class CashPosition(
 class CafeCashManagementRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
 
-    private suspend fun balances(sessionId: String): Map<String, Long> {
-        val sums = mutableMapOf<String, Long>()
-        db.journalViewDao().getJournal(sessionId).forEach { entry ->
-            entry.lines.forEach { line ->
-                sums[line.accountCode] = (sums[line.accountCode] ?: 0L) +
-                    line.debitCents - line.creditCents
-            }
-        }
-        return sums
-    }
-
     suspend fun position(sessionId: String = "debug_session_001"): CashPosition =
         withContext(Dispatchers.IO) {
             val dao = db.accountingDao()
@@ -50,7 +39,7 @@ class CafeCashManagementRepository(context: Context) {
             db.withTransaction {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId))
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
-                require((balances(sessionId)["1000"] ?: 0L) >= amountCents) {
+                require(db.accountingDao().accountBalance(sessionId, "1000") >= amountCents) {
                     "Insufficient cash for bank deposit"
                 }
                 val id = UUID.randomUUID().toString()

@@ -1,6 +1,7 @@
 package com.example.runthebusiness.data.local
 
 import android.content.Context
+import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,6 +17,12 @@ class CafePaymentRegisterRepository(context: Context) {
         require(accounts.any { it.first == account })
         prefs.edit().putBoolean(account, enabled).apply()
     }
+    fun automaticDepositsEnabled(): Boolean = prefs.getBoolean("automatic_deposits", false)
+
+    fun setAutomaticDeposits(enabled: Boolean) {
+        prefs.edit().putBoolean("automatic_deposits", enabled).apply()
+    }
+
     fun reset() { prefs.edit().clear().commit() }
     suspend fun snapshot(sessionId: String = "debug_session_001"): List<ScheduledBill> = withContext(Dispatchers.IO) {
         val dao = db.accountingDao()
@@ -29,9 +36,18 @@ class CafePaymentRegisterRepository(context: Context) {
     }
     suspend fun settleAutomatic(sessionId: String = "debug_session_001") {
         if (accounts.none { prefs.getBoolean(it.first, false) }) return
-        for (bill in snapshot(sessionId)) {
-            if (!bill.automatic || bill.due <= 0L) continue
-            if (cash.position(sessionId).bankCents >= bill.due) cash.pay(bill.account, sessionId, bill.due)
+        db.withTransaction {
+            val autoDeposit = automaticDepositsEnabled()
+            for (bill in snapshot(sessionId)) {
+                if (!bill.automatic || bill.due <= 0L) continue
+                val position = cash.position(sessionId)
+                val shortfall = (bill.due - position.bankCents).coerceAtLeast(0L)
+                if (shortfall > 0L) {
+                    if (!autoDeposit || position.cashCents < shortfall) continue
+                    cash.transferCashToBank(shortfall, sessionId)
+                }
+                cash.pay(bill.account, sessionId, bill.due)
+            }
         }
     }
 }
