@@ -2,6 +2,7 @@ package com.example.runthebusiness.core.simulation
 
 import android.content.Context
 import androidx.room.withTransaction
+import com.example.runthebusiness.data.local.CafeStaffRepository
 import com.example.runthebusiness.data.local.CafeServiceRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
@@ -33,6 +34,7 @@ class GameSimulationEngine(context: Context) {
     private val close = CafeDailyCloseRepository(appContext)
     private val spoilage = CafeSpoilageRepository(appContext)
     private val autoPurchasing = CafeAutoPurchasingRepository(appContext)
+    private val staff = CafeStaffRepository(appContext)
     private val bills = CafePaymentRegisterRepository(appContext)
     private val arrivals = CafeArrivalRepository(appContext)
     private val alerts = CafeManagementAlertsRepository(appContext)
@@ -92,6 +94,7 @@ class GameSimulationEngine(context: Context) {
                 if (next.day != before.day) close.closeDay(before.day, sessionId)
                 spoilage.expire(next, sessionId)
                 if (next.day != before.day) {
+                    staff.applyNextDay(sessionId)
                     autoPurchasing.replenish(next.day, sessionId)
                     bills.settleAutomatic(sessionId)
                 }

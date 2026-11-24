@@ -7,5 +7,6 @@ import androidx.room.*
 data class EmployeeEntity(
     @PrimaryKey val id: String, val locationId: String, val name: String, val role: String,
     val monthlyGrossSalaryCents: Long, val weeklyWorkingHours: Double,
-    val contractType: String, val payrollProfileId: String, val productivity: Double, val isActive: Boolean
+    val contractType: String, val payrollProfileId: String, val productivity: Double, val isActive: Boolean,
+    val activeNextDay: Boolean? = null
 )

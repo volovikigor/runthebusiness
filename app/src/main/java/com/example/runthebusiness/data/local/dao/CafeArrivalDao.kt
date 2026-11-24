@@ -25,4 +25,7 @@ interface CafeArrivalDao {
 
     @Query("SELECT COUNT(*) FROM cafe_arrivals WHERE locationId = :locationId AND gameDay = :day")
     suspend fun countForDay(locationId: String, day: Int): Int
+
+    @Query("SELECT COUNT(*) FROM cafe_arrivals WHERE locationId = :locationId AND gameDay = :day AND status = 'STAFF_CAPACITY'")
+    suspend fun capacityLossesForDay(locationId: String, day: Int): Int
 }
