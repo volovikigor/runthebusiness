@@ -318,14 +318,12 @@ fun CafeHomeScreen(
                 }
             }
             cashPosition?.let { position ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
+                CafeLedgerPanel {
                         Text("Payments · ${euro(bills.sumOf { it.due } + supplierDueCents)} due")
                         Text("Bank · ${euro(position.bankCents)}")
                         if (paymentStatus?.staffDisruption == true || paymentStatus?.rentShutdown == true)
                             Text("Overdue bills affecting service", color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = onOpenFinance, enabled = !loading) { Text("Manage payments") }
-                    }
                 }
             }
             Text("Management decisions", style = MaterialTheme.typography.titleMedium)
@@ -334,8 +332,7 @@ fun CafeHomeScreen(
                     style = MaterialTheme.typography.bodySmall)
             } else {
                 alerts.forEach { alert ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CafeLedgerPanel {
                             Text(alert.title, style = MaterialTheme.typography.titleSmall,
                                 color = if (alert.priority == 0) MaterialTheme.colorScheme.error
                                     else MaterialTheme.colorScheme.onSurface)
@@ -344,7 +341,6 @@ fun CafeHomeScreen(
                                 if (alert.destination == "operations") onOpenOperations(alert.section)
                                 else onOpenFinance()
                             }) { Text(if (alert.destination == "operations") "Open purchasing" else "Open finance") }
-                        }
                     }
                 }
             }
@@ -516,9 +512,9 @@ fun CafeHomeScreen(
                 Text("No sales yet. Start the clock during opening hours.")
             } else {
                 recent.forEach { order ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(12.dp),
+                    HorizontalDivider()
+                    Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -530,7 +526,6 @@ fun CafeHomeScreen(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                             Text(euro(order.grossCents), fontWeight = FontWeight.Bold)
-                        }
                     }
                 }
             }
@@ -543,11 +538,9 @@ fun CafeHomeScreen(
 
 @Composable
 private fun SummaryTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(value, style = MaterialTheme.typography.titleLarge)
-        }
+    CafeLedgerPanel(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        Text(value, style = MaterialTheme.typography.titleLarge)
     }
 }
 
