@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
                             clockRevision = clockRevision,
                             clockError = clockError,
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
-                            onOpenFinance = { financeTarget = "Cash"; navigateTab(2) }
+                            onOpenFinance = { financeTarget = "Bills"; navigateTab(2) }
                         )
                         1 -> CafeDashboardScreen(modifier = Modifier.padding(padding), requestedSection = operationsSection)
                         2 -> CafeFinanceScreen(modifier = Modifier.padding(padding), requestedSection = financeTarget)
