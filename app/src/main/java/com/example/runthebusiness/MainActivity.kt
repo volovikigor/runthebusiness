@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                 var selectedTab by remember { mutableIntStateOf(0) }
                 val tabHistory = remember { mutableStateListOf<Int>() }
                 var operationsSection by remember { mutableIntStateOf(0) }
-                var financeTarget by remember { mutableStateOf("P&L") }
+                var financeTarget by remember { mutableStateOf("Forecast") }
                 var clockError by remember { mutableStateOf<String?>(null) }
                 val context = LocalContext.current.applicationContext
                 val game = remember(context) { GameRepository(context) }
