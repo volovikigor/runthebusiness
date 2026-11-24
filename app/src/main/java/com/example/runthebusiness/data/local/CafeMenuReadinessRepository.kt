@@ -25,6 +25,21 @@ data class MissingSupply(
     val supplierPackCents: Long?
 )
 
+internal data class MenuStockShortage(val supply: MissingSupply, val dishes: List<MenuReadiness>)
+
+internal fun List<MenuReadiness>.stockShortages(): List<MenuStockShortage> =
+    filterNot { it.ready || it.unsupported }
+        .flatMap { dish -> dish.missing.map { supply -> supply to dish } }
+        .groupBy { (supply, _) -> supply.itemId }
+        .values.map { matches ->
+            MenuStockShortage(
+                supply = matches.first().first,
+                dishes = matches.map { it.second }.distinctBy { it.productId }.sortedBy { it.name }
+            )
+        }
+        .sortedWith(compareByDescending<MenuStockShortage> { it.dishes.size }
+            .thenBy { it.supply.name }.thenBy { it.supply.itemId })
+
 /** Actual recipe-based servings, not the menu's isAvailable flag. */
 class CafeMenuReadinessRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)

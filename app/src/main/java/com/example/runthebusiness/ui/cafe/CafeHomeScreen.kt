@@ -30,6 +30,7 @@ import com.example.runthebusiness.data.local.CafeMenuRepository
 import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.CafeMenuReadinessRepository
 import com.example.runthebusiness.data.local.MenuReadiness
+import com.example.runthebusiness.data.local.stockShortages
 import com.example.runthebusiness.data.local.CafePurchasingRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
@@ -67,7 +68,7 @@ private fun CafeShiftSummary(
             if (shift.pendingGroups > 0) Text("Awaiting service: ${shift.pendingGroups}")
             Text("Net sales ${euro(shift.netSalesCents)} · Gross margin ${euro(shift.grossMarginCents)}")
             if (shift.noStock > 0) {
-                Text("Out of stock · ${shift.noStock}")
+                Text("Groups lost to stock shortages · ${shift.noStock}")
                 TextButton(onClick = { onOpenOperations(1) }) { Text("Go to purchasing") }
             }
             if (shift.declinedPrice > 0) {
@@ -151,8 +152,9 @@ fun CafeHomeScreen(
         customerFlow = if (state != null) flowRepo.lastCompletedDays() else null
     }
     fun run(action: suspend () -> Unit) {
+        if (loading) return
+        loading = true
         scope.launch {
-            loading = true
             error = null
             try {
                 action()
@@ -245,39 +247,70 @@ fun CafeHomeScreen(
                     onOpenFinance = onOpenFinance
                 )
             }
+            val shortages = remember(menuReadiness) { menuReadiness.stockShortages() }
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val ready = menuReadiness.count { it.ready }
                     Text("Menu readiness · $ready / ${menuReadiness.size} dishes",
                         style = MaterialTheme.typography.titleMedium)
-                    Text("Availability is based on real recipe ingredients and current stock.",
-                        style = MaterialTheme.typography.bodySmall)
+                    val recentStockLosses = dailyPerformance
+                        .filter { it.day in (cafe.time.day - 7) until cafe.time.day }
+                        .sumOf { it.noStock }
+                    if (recentStockLosses > 0) {
+                        Text("Groups lost to stock shortages in the last 7 completed days · $recentStockLosses",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (shortages.isNotEmpty()) {
+                        Text("Ingredients blocking the menu", style = MaterialTheme.typography.titleSmall)
+                        val visible = if (showMenuReadiness) shortages else shortages.take(3)
+                        visible.forEach { shortage ->
+                            val supply = shortage.supply
+                            HorizontalDivider()
+                            Text("${supply.name} · ${shortage.dishes.size} affected",
+                                style = MaterialTheme.typography.titleSmall)
+                            Text(shortage.dishes.joinToString { it.name },
+                                style = MaterialTheme.typography.bodySmall)
+                            val cost = supply.supplierPackCents
+                            if (cost != null) {
+                                val affordable = cashPosition?.let {
+                                    it.cashCents >= cost || it.bankCents >= cost
+                                } == true
+                                OutlinedButton(
+                                    enabled = !loading && affordable,
+                                    onClick = { run { purchasingRepo.purchase(supply.itemId) } }
+                                ) {
+                                    Text("Buy ${supply.name} · ${euro(cost)}")
+                                }
+                                if (cashPosition != null && !affordable) {
+                                    Text("Insufficient cash or bank funds for this pack.",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            } else {
+                                Text("No supplier pack available", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                     TextButton(onClick = { showMenuReadiness = !showMenuReadiness }) {
-                        Text(if (showMenuReadiness) "Hide dishes" else "Inspect dishes & restock")
+                        Text(if (showMenuReadiness) "Hide menu details" else "Show menu details")
                     }
                     if (showMenuReadiness) {
                         menuReadiness.forEach { dish ->
                             HorizontalDivider()
-                            Text("${dish.name} · ${if (dish.ready) "${dish.servings} servings" else "OUT OF STOCK"}",
-                                style = MaterialTheme.typography.titleSmall,
+                            val availability = when {
+                                dish.unsupported -> "Recipe unavailable"
+                                dish.ready -> "${dish.servings} servings"
+                                else -> "Out of stock"
+                            }
+                            Text("${dish.name} · $availability", style = MaterialTheme.typography.titleSmall,
                                 color = if (dish.ready) MaterialTheme.colorScheme.onSurface
                                     else MaterialTheme.colorScheme.error)
-                            if (dish.unsupported) Text("No supported recipe configured",
-                                style = MaterialTheme.typography.bodySmall)
                             dish.missing.forEach { missing ->
-                                Text("Missing ${missing.name}: ${missing.available.toInt()} / ${missing.required.toInt()} ${missing.unit}",
-                                    style = MaterialTheme.typography.bodySmall)
-                                if (missing.supplierPackCents != null) {
-                                    OutlinedButton(
-                                        enabled = !loading,
-                                        onClick = { run { purchasingRepo.purchase(missing.itemId) } }
-                                    ) {
-                                        Text("Buy ${missing.name} · ${euro(missing.supplierPackCents)}")
-                                    }
-                                } else {
-                                    Text("No supplier pack available",
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
+                                Text(
+                                    "${missing.name} · %s / %s %s".format(
+                                        Locale.ROOT, missing.available, missing.required, missing.unit
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                         }
                     }
