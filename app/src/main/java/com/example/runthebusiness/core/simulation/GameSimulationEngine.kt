@@ -107,9 +107,27 @@ class GameSimulationEngine(context: Context) {
             JumpMode.NEXT_WEEK -> startMinutes + 7L * 1440L
             else -> Long.MAX_VALUE
         }
+        val calendarJump = mode == JumpMode.NEXT_DAY || mode == JumpMode.NEXT_WEEK
+        val location = if (calendarJump) clock.loadBusinessLocations(sessionId).singleOrNull() else null
         repeat(steps) {
             val advanceStarted = android.os.SystemClock.elapsedRealtime()
-            val step = advance(15L, sessionId)
+            val minuteOfDay = latest.hour * 60L + latest.minute
+            val absolute = (latest.day - 1L) * 1440L + minuteOfDay
+            // Never skip midnight or the first possible arrival slot.
+            // Keep the regular 15-minute path throughout trading hours.
+            val idleUntil = when {
+                location == null -> minuteOfDay
+                !location.isOpen -> 1440L
+                minuteOfDay < location.openingHour * 60L ->
+                    (location.openingHour * 60L - 15L).coerceAtLeast(minuteOfDay)
+                minuteOfDay >= location.closingHour * 60L -> 1440L
+                else -> minuteOfDay
+            }
+            val duration = if (calendarJump)
+                minOf(maxOf(15L, idleUntil - minuteOfDay), targetMinutes - absolute,
+                    1440L - minuteOfDay)
+            else 15L
+            val step = advance(duration, sessionId)
             advanceMs += android.os.SystemClock.elapsedRealtime() - advanceStarted
             stepsRun++
             latest = step.time
