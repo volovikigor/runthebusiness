@@ -20,4 +20,6 @@ interface OperationsDao {
     suspend fun getInventoryItems(businessId: String): List<InventoryItemEntity>
     @Query("SELECT * FROM inventory_batches WHERE locationId IN (SELECT id FROM locations WHERE businessId = :businessId)")
     suspend fun getInventoryBatches(businessId: String): List<InventoryBatchEntity>
+    @Query("SELECT * FROM inventory_batches WHERE quantityRemaining > 0 AND locationId IN (SELECT id FROM locations WHERE businessId = :businessId)")
+    suspend fun getActiveInventoryBatches(businessId: String): List<InventoryBatchEntity>
 }
