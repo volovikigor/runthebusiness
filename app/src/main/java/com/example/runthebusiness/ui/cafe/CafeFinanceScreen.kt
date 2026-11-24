@@ -33,6 +33,10 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     val auditRepo = remember(context) { CafeAuditExportRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
+    val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
+    val consequencesRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentConsequencesRepository(context) }
+    var bills by remember { mutableStateOf<List<com.example.runthebusiness.data.local.ScheduledBill>>(emptyList()) }
+    var paymentStatus by remember { mutableStateOf<com.example.runthebusiness.data.local.PaymentConsequences?>(null) }
     val detailsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<DebugJournal>>(emptyList()) }
@@ -95,11 +99,21 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             try {
                 statements = financeRepo.load()
                 cashPosition = cashRepo.position()
+                bills = billsRepo.snapshot()
+                paymentStatus = consequencesRepo.load()
                 daily = financeRepo.dailyProfitLoss()
                 entries = journalRepo.journal().asReversed()
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
             } finally { busy = false }
+        }
+    }
+    fun paymentAction(action: suspend () -> Unit) {
+        scope.launch {
+            busy = true
+            error = null
+            try { action(); refresh() }
+            catch (e: Exception) { error = e.message; busy = false }
         }
     }
     LaunchedEffect(Unit) { refresh() }
@@ -137,9 +151,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             }
         }) { Text("Export full audit CSV (journal + inventory + visitors)") }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("P&L", "BS", "Cash", "Journal").forEachIndexed { index, tab ->
+            listOf("Bills", "P&L", "BS", "Cash", "Journal").forEachIndexed { index, tab ->
                 SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index, 4),
+                    shape = SegmentedButtonDefaults.itemShape(index, 5),
                     selected = section == tab,
                     onClick = {
                         if (tab == "Journal" && section != "Journal") previousSection = section
@@ -151,6 +165,83 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+        if (section == "Bills") {
+            cashPosition?.let { position ->
+                val payment = paymentStatus
+                val overdue = payment?.rentDaysLate ?: 0
+                val payrollLate = payment?.payrollDaysLate ?: 0
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Payment register", style = MaterialTheme.typography.titleMedium)
+                        bills.forEach { bill ->
+                            HorizontalDivider()
+                            Text(bill.label, style = MaterialTheme.typography.titleSmall)
+                            Text("Due now: ${money(bill.due)} · Accrued: ${money(bill.accrued)}")
+                            Text("Next cycle: Day ${bill.nextDueDay}", style = MaterialTheme.typography.bodySmall)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Automatic payment", Modifier.weight(1f))
+                                Switch(checked = bill.automatic, enabled = !busy,
+                                    onCheckedChange = { enabled -> paymentAction { billsRepo.setAutomatic(bill.account, enabled) } })
+                            }
+                            if (bill.due > 0L) {
+                                OutlinedButton(enabled = !busy && position.bankCents >= bill.due,
+                                    onClick = { paymentAction { cashRepo.pay(bill.account, amountCents = bill.due) } }) {
+                                    Text("Pay due · ${money(bill.due)}")
+                                }
+                            }
+                        }
+                        HorizontalDivider()
+                        Text("Early settlement & cash deposits", style = MaterialTheme.typography.titleSmall)
+                        Text("Bank: €%.2f · Cash: €%.2f".format(Locale.ROOT,
+                            position.bankCents / 100.0, position.cashCents / 100.0))
+                        Text("Rent payable: €%.2f · %d days late".format(Locale.ROOT,
+                            position.rentPayableCents / 100.0, overdue))
+                        Text("Payroll payable: €%.2f · %d days late".format(Locale.ROOT,
+                            position.salariesPayableCents / 100.0, payrollLate))
+                        if (payment?.rentShutdown == true) {
+                            Text("Trading blocked by overdue rent. Pay rent to reopen.",
+                                color = MaterialTheme.colorScheme.error)
+                        } else if (overdue >= 5) {
+                            Text("Rent shutdown starts after 7 days overdue.",
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                        if (payment?.staffDisruption == true) {
+                            Text("Late payroll is disrupting service.",
+                                color = MaterialTheme.colorScheme.error)
+                        } else if (payrollLate >= 1) {
+                            Text("Payroll disruption starts after 2 days overdue.",
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                        if (position.bankCents < position.totalDueCents &&
+                            position.cashCents > 0L) {
+                            Text("Bank funds are insufficient for all bills. Deposit cash before paying.",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (position.cashCents > 0L && position.totalDueCents > position.bankCents) {
+                            OutlinedButton(enabled = !busy, onClick = { paymentAction {
+                                val transfer = minOf(position.cashCents,
+                                    (position.totalDueCents - position.bankCents).coerceAtLeast(0L))
+                                if (transfer > 0L) cashRepo.transferCashToBank(transfer)
+                            } }) { Text("Deposit cash needed for bills") }
+                        }
+                        if (position.rentPayableCents > 0L) {
+                            Button(enabled = !busy && position.bankCents >= position.rentPayableCents,
+                                onClick = { paymentAction { cashRepo.pay("2000") } }) {
+                                Text("Pay rent · €%.2f".format(Locale.ROOT, position.rentPayableCents / 100.0))
+                            }
+                        }
+                        if (position.salariesPayableCents > 0L) {
+                            Button(enabled = !busy && position.bankCents >= position.salariesPayableCents,
+                                onClick = { paymentAction { cashRepo.pay("2300") } }) {
+                                Text("Pay payroll · €%.2f".format(Locale.ROOT, position.salariesPayableCents / 100.0))
+                            }
+                        }
+                        Text("Bills are accrued in P&L already; settlement only reduces bank and payables.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
         val report = statements
         if (report != null && section == "P&L") {
             Text("Profit & Loss", style = MaterialTheme.typography.titleMedium)
