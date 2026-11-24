@@ -27,7 +27,7 @@ class CafeDailyCloseRepository(context: Context) {
             require(day >= 1)
             db.withTransaction {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId))
-                require(day <= session.currentDay) { "Cannot close a future day" }
+                require(day < session.currentDay) { "Cannot close a day before midnight" }
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
                 val locations = db.businessLocationDao().getLocations(business.id)
                 val employees = db.operationsDao().getEmployees(business.id)

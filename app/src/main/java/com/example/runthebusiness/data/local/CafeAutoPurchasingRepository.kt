@@ -15,12 +15,11 @@ class CafeAutoPurchasingRepository(context: Context) {
     private val purchasing = CafePurchasingRepository(app)
     private val db = GameDatabase.getInstance(app)
 
-    data class Policy(val enabled: Boolean, val dailyBudgetCents: Long, val lastRunDay: Int)
+    data class Policy(val enabled: Boolean, val dailyBudgetCents: Long)
 
     fun policy(): Policy = Policy(
         prefs.getBoolean("enabled", false),
-        prefs.getLong("daily_budget", 20000L),
-        prefs.getInt("last_day", 0)
+        prefs.getLong("daily_budget", 20000L)
     )
 
     fun setEnabled(enabled: Boolean) {
@@ -54,7 +53,7 @@ class CafeAutoPurchasingRepository(context: Context) {
     suspend fun replenish(day: Int, sessionId: String = "debug_session_001"): Int =
         withContext(Dispatchers.IO) {
             val config = policy()
-            if (!config.enabled || day <= config.lastRunDay) return@withContext 0
+            if (!config.enabled) return@withContext 0
             val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
                 ?: return@withContext 0
             val location = db.businessLocationDao().getLocations(business.id).singleOrNull()
@@ -107,16 +106,12 @@ class CafeAutoPurchasingRepository(context: Context) {
                 val affordable = (config.dailyBudgetCents - spent) / supply.unitCostCents
                 val quantity = minOf(needed, affordable.toDouble())
                 if (quantity <= 0.0) continue
-                try {
-                    spent += purchasing.purchase(supply.itemId, sessionId, quantity)
+                val cost = purchasing.purchaseIfAvailable(supply.itemId, sessionId, quantity)
+                if (cost > 0L) {
+                    spent += cost
                     purchased++
-                } catch (_: IllegalArgumentException) {
-                    // Insufficient funds or unavailable supply.
-                } catch (_: IllegalStateException) {
-                    // Changed fulfillment or missing inventory.
                 }
             }
-            prefs.edit().putInt("last_day", day).commit()
             purchased
         }
 }

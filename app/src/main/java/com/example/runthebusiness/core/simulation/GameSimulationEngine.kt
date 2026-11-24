@@ -1,6 +1,7 @@
 package com.example.runthebusiness.core.simulation
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.CafeServiceRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
@@ -13,29 +14,28 @@ import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
 import com.example.runthebusiness.data.local.CafeKitchenRepository
 import com.example.runthebusiness.data.local.CafeSpoilageRepository
 import com.example.runthebusiness.data.local.CafeAutoPurchasingRepository
+import com.example.runthebusiness.data.local.CafePaymentConsequencesRepository
+import com.example.runthebusiness.data.local.CafePaymentRegisterRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import com.example.runthebusiness.engine.model.GameTime
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/**
- * Single entry point for advancing the playable simulation.
- *
- * The clock/arrival write is atomic in GameRepository. Each individual sale
- * and its arrival status are atomic in CafeServiceRepository. These are NOT
- * one global transaction: pending arrivals are durable and retried on resume.
- */
+/** Single entry point for advancing the playable simulation. */
 class GameSimulationEngine(context: Context) {
     private val appContext = context.applicationContext
-    private val clock = GameRepository(context.applicationContext)
-    private val cafe = CafeServiceRepository(context.applicationContext)
-    private val close = CafeDailyCloseRepository(context.applicationContext)
-    private val spoilage = CafeSpoilageRepository(context.applicationContext)
-    private val autoPurchasing = CafeAutoPurchasingRepository(context.applicationContext)
-    private val bills = com.example.runthebusiness.data.local.CafePaymentRegisterRepository(appContext)
-    private val arrivals = CafeArrivalRepository(context.applicationContext)
-    private val alerts = CafeManagementAlertsRepository(context.applicationContext)
+    private val db = GameDatabase.getInstance(appContext)
+    private val clock = GameRepository(appContext)
+    private val cafe = CafeServiceRepository(appContext)
+    private val close = CafeDailyCloseRepository(appContext)
+    private val spoilage = CafeSpoilageRepository(appContext)
+    private val autoPurchasing = CafeAutoPurchasingRepository(appContext)
+    private val bills = CafePaymentRegisterRepository(appContext)
+    private val arrivals = CafeArrivalRepository(appContext)
+    private val alerts = CafeManagementAlertsRepository(appContext)
     // Shared across UI screens so manual jumps and automatic ticks cannot interleave.
     private val mutex get() = simulationMutex
 
@@ -46,29 +46,42 @@ class GameSimulationEngine(context: Context) {
     data class StepResult(val time: GameTime, val groupsServed: Int)
 
     suspend fun advance(minutes: Long, sessionId: String = "debug_session_001"): StepResult =
-        mutex.withLock {
-            require(minutes in 1..1440) { "Advance must be between 1 and 1440 minutes" }
-            // Remove expired stock before fulfilling pending customer orders.
-            val before = clock.loadGameTime(sessionId)
-            if (before != null) spoilage.expire(before, sessionId)
-            cafe.processPending(sessionId)
-            if (before != null && before.day > 1) {
-                // Recover all unposted prior days (e.g. interrupted close or old saves).
-                val lastClosed = close.lastClosedDay(sessionId)
-                for (day in (lastClosed + 1) until before.day) close.closeDay(day, sessionId)
+        mutex.withLock { advanceLocked(minutes, sessionId) }
+
+    private suspend fun advanceLocked(minutes: Long, sessionId: String): StepResult {
+        require(minutes in 1..1440) { "Advance must be between 1 and 1440 minutes" }
+        var time = checkNotNull(clock.loadGameTime(sessionId))
+        var remaining = minutes
+        var served = 0
+        while (remaining > 0) {
+            currentCoroutineContext().ensureActive()
+            val before = time
+            val minuteOfDay = before.hour * 60L + before.minute
+            val step = db.withTransaction {
+                val location = clock.loadBusinessLocations(sessionId).singleOrNull()
+                val opening = location?.openingHour?.times(60L) ?: 0L
+                val closing = location?.closingHour?.times(60L) ?: 0L
+                val untilEvent = when {
+                    location?.isOpen != true || minuteOfDay >= closing -> 1440L - minuteOfDay
+                    minuteOfDay < opening -> opening - minuteOfDay
+                    else -> 15L - minuteOfDay % 15L
+                }
+                val next = clock.advanceGameTime(minOf(remaining, untilEvent), sessionId)
+                if (next.day != before.day) close.closeDay(before.day, sessionId)
+                spoilage.expire(next, sessionId)
+                if (next.day != before.day) {
+                    autoPurchasing.replenish(next.day, sessionId)
+                    bills.settleAutomatic(sessionId)
+                }
+                // Keep the clock, arrivals, sales and midnight accounting in the same commit.
+                StepResult(next, cafe.processPending(sessionId))
             }
-            val next = clock.advanceGameTime(minutes, sessionId)
-            spoilage.expire(next, sessionId)
-            if (before == null || next.day != before.day) {
-                autoPurchasing.replenish(next.day, sessionId)
-            }
-            val served = cafe.processPending(sessionId)
-            if (before != null && next.day > before.day) {
-                for (day in before.day until next.day) close.closeDay(day, sessionId)
-            }
-            if (before == null || next.day != before.day) bills.settleAutomatic(sessionId)
-            StepResult(next, served)
+            time = step.time
+            served += step.groupsServed
+            remaining -= time.totalMinutes - before.totalMinutes
         }
+        return StepResult(time, served)
+    }
 
     enum class JumpMode { NEXT_EVENT, NEXT_DECISION, NEXT_DAY, NEXT_WEEK }
 
@@ -79,7 +92,7 @@ class GameSimulationEngine(context: Context) {
      */
     suspend fun jump(mode: JumpMode, sessionId: String = "debug_session_001",
         onProgress: ((day: Int, daysCompleted: Int, groupsServed: Int) -> Unit)? = null
-    ): NextEventResult {
+    ): NextEventResult = mutex.withLock {
         val startedAt = android.os.SystemClock.elapsedRealtime()
         val initial = checkNotNull(clock.loadGameTime(sessionId))
         val knownAlerts = if (mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_DAY)
@@ -129,7 +142,7 @@ class GameSimulationEngine(context: Context) {
                 minOf(maxOf(15L, idleUntil - minuteOfDay), targetMinutes - absolute,
                     1440L - minuteOfDay)
             else 15L
-            val step = advance(duration, sessionId)
+            val step = advanceLocked(duration, sessionId)
             advanceMs += android.os.SystemClock.elapsedRealtime() - advanceStarted
             stepsRun++
             latest = step.time
@@ -151,7 +164,7 @@ class GameSimulationEngine(context: Context) {
                 alertChecks++
                 if (newDecision != null) {
                     if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT) {
-                        return result(latest, "Management alert · ${newDecision.title}", groups)
+                        return@withLock result(latest, "Management alert · ${newDecision.title}", groups)
                     }
                 }
             }
@@ -160,19 +173,19 @@ class GameSimulationEngine(context: Context) {
                 val newArrival = arrivals.recent(sessionId).firstOrNull { it.id !in previousArrivalIds }
                 arrivalMs += android.os.SystemClock.elapsedRealtime() - arrivalStarted
                 if (newArrival != null) {
-                    return result(latest, "Customer arrival · ${newArrival.guests} guests", groups)
+                    return@withLock result(latest, "Customer arrival · ${newArrival.guests} guests", groups)
                 }
                 previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
                 if (latest.day > initial.day) {
-                    return result(latest, "Day ${initial.day} closed", groups)
+                    return@withLock result(latest, "Day ${initial.day} closed", groups)
                 }
             }
             val absoluteMinutes = (latest.day - 1L) * 1440L + latest.hour * 60L + latest.minute
             if (absoluteMinutes >= targetMinutes) {
-                return result(latest, "Calendar advance completed · ${groups} groups served", groups)
+                return@withLock result(latest, "Calendar advance completed · ${groups} groups served", groups)
             }
         }
-        return result(latest,
+        result(latest,
             if (mode == JumpMode.NEXT_DECISION) "No new management decisions within 14 days"
             else "Time advance limit reached", groups)
     }
@@ -186,27 +199,35 @@ class GameSimulationEngine(context: Context) {
         val groupsServed: Int
     )
 
-    /**
-     * Explicit destructive new-game action. Serialized with clock ticks and jumps.
-     * The current MVP supports a single local save only.
-     */
-    suspend fun startFreshGame() = mutex.withLock {
+    /** The current MVP supports one local save. Reset is an explicit UI action. */
+    suspend fun startGame(reset: Boolean = false) = mutex.withLock {
         withContext(Dispatchers.IO) {
-            GameDatabase.getInstance(appContext).clearAllTables()
-            autoPurchasing.reset()
-            bills.reset()
-            com.example.runthebusiness.data.local.CafePaymentConsequencesRepository.invalidate()
-            GameRepository(appContext).initializeOpeningGame()
-            CafeMenuRepository(appContext).seedMenu()
-            CafeInventorySetupRepository(appContext).initializeRealStock()
-            CafeExpandedMenuRepository(appContext).install()
-            CafeKitchenRepository(appContext).activate()
+            if (reset) {
+                db.clearAllTables()
+                autoPurchasing.reset()
+                bills.reset()
+                CafePaymentConsequencesRepository.invalidate()
+            }
+            db.withTransaction {
+                clock.initializeOpeningGame()
+                CafeMenuRepository(appContext).seedMenu()
+                CafeInventorySetupRepository(appContext).initializeRealStock()
+                CafeExpandedMenuRepository(appContext).install()
+                if (reset) CafeKitchenRepository(appContext).activate()
+            }
         }
     }
 
-    suspend fun resumePending(sessionId: String = "debug_session_001"): Int =
+    suspend fun resumePending(sessionId: String = "debug_session_001") {
         mutex.withLock {
-            clock.loadGameTime(sessionId)?.let { spoilage.expire(it, sessionId) }
-            cafe.processPending(sessionId)
+            val time = clock.loadGameTime(sessionId) ?: return@withLock
+            db.withTransaction {
+                // Recover pending writes from saves created before clock steps were atomic.
+                spoilage.expire(time, sessionId)
+                cafe.processPending(sessionId)
+                val lastClosed = close.lastClosedDay(sessionId)
+                for (day in (lastClosed + 1) until time.day) close.closeDay(day, sessionId)
+            }
         }
+    }
 }

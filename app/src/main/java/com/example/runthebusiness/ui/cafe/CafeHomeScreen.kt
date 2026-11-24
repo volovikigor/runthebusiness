@@ -24,19 +24,16 @@ import com.example.runthebusiness.data.local.CafeDashboardRepository
 import com.example.runthebusiness.data.local.CafeDashboardSnapshot
 import com.example.runthebusiness.data.local.CafeSaleRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
-import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.CafeDiagnosticsRepository
 import com.example.runthebusiness.data.local.CafeDiagnostics
+import com.example.runthebusiness.data.local.CafeMenuRepository
+import com.example.runthebusiness.data.local.CafeInventorySetupRepository
 import com.example.runthebusiness.data.local.CafeMenuReadinessRepository
 import com.example.runthebusiness.data.local.MenuReadiness
 import com.example.runthebusiness.data.local.CafePurchasingRepository
-import com.example.runthebusiness.data.local.CafeMenuRepository
-import com.example.runthebusiness.data.local.CafeInventorySetupRepository
-import com.example.runthebusiness.data.local.CafeExpandedMenuRepository
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
-import com.example.runthebusiness.data.local.CafeAuditExportRepository
 import com.example.runthebusiness.data.local.CafeBreakEvenRepository
 import com.example.runthebusiness.data.local.CafeBreakEven
 import com.example.runthebusiness.data.local.CafeDailyPerformanceRepository
@@ -44,6 +41,8 @@ import com.example.runthebusiness.data.local.CafeDayPerformance
 import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
 import com.example.runthebusiness.data.local.ManagementAlert
 import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
+import com.example.runthebusiness.engine.model.GameTime
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -55,9 +54,8 @@ private val Cream = Color(0xFFFFF2D9)
 fun CafeHomeScreen(
     modifier: Modifier = Modifier,
     speed: Int = 0,
-    onSpeedChange: (Int) -> Unit = {},
-    clockRevision: Int = 0,
-    clockError: String? = null,
+    time: GameTime? = null,
+    onStartGame: (Boolean) -> Unit = {},
     onOpenOperations: (Int) -> Unit = {},
     onOpenFinance: () -> Unit = {}
 ) {
@@ -71,18 +69,15 @@ fun CafeHomeScreen(
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
     val breakEvenRepo = remember(context) { CafeBreakEvenRepository(context) }
-    val auditExport = remember(context) { CafeAuditExportRepository(context) }
     val game = remember(context) { GameRepository(context) }
     val dailyClose = remember(context) { CafeDailyCloseRepository(context) }
     val sales = remember(context) { CafeSaleRepository(context) }
     val arrivals = remember(context) { CafeArrivalRepository(context) }
-    val simulation = remember(context) { GameSimulationEngine(context) }
     val diagnosticsRepo = remember(context) { CafeDiagnosticsRepository(context) }
     val menuSetup = remember(context) { CafeMenuRepository(context) }
+    val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
     val menuReadinessRepo = remember(context) { CafeMenuReadinessRepository(context) }
     val purchasingRepo = remember(context) { CafePurchasingRepository(context) }
-    val stockSetup = remember(context) { CafeInventorySetupRepository(context) }
-    val expandedMenu = remember(context) { CafeExpandedMenuRepository(context) }
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var recent by remember { mutableStateOf<List<CustomerOrderEntity>>(emptyList()) }
@@ -93,10 +88,7 @@ fun CafeHomeScreen(
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var diagnostics by remember { mutableStateOf<CafeDiagnostics?>(null) }
     var loading by remember { mutableStateOf(false) }
-    var weeklyProgress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var weeklyGroups by remember { mutableIntStateOf(0) }
     var lastClosedDay by remember { mutableIntStateOf(0) }
-    var lastEventMessage by remember { mutableStateOf<String?>(null) }
     var alerts by remember { mutableStateOf<List<ManagementAlert>>(emptyList()) }
     var dailyPerformance by remember { mutableStateOf<List<CafeDayPerformance>>(emptyList()) }
     var showPerformance by remember { mutableStateOf(false) }
@@ -130,29 +122,26 @@ fun CafeHomeScreen(
             try {
                 action()
                 reload()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
-            } finally { loading = false; weeklyProgress = null }
+            } finally { loading = false }
         }
     }
-    LaunchedEffect(Unit) { run { simulation.resumePending() } }
-    LaunchedEffect(clockRevision) {
-        if (clockRevision > 0) reload()
+    LaunchedEffect(time) {
+        reload()
     }
 
     if (confirmNewGame) {
         AlertDialog(
             onDismissRequest = { confirmNewGame = false },
             title = { Text("Start a new game?") },
-            text = { Text("This permanently deletes your current café, purchases, stock, sales, journals and game progress. A new café will start at Day 1 with kitchen recipes installed. This cannot be undone.") },
+            text = { Text("This permanently deletes your current café, purchases, stock, sales, journals and game progress. A new café will start at 08:00 on Day 1 with kitchen recipes installed. This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmNewGame = false
-                    onSpeedChange(0)
-                    run {
-                        simulation.startFreshGame()
-                        lastEventMessage = "New game started. Buy kitchen ingredients and enable dishes to test recipes."
-                    }
+                    onStartGame(true)
                 }) { Text("Delete save & start new") }
             },
             dismissButton = {
@@ -171,12 +160,7 @@ fun CafeHomeScreen(
         if (cafe == null) {
             Text("Welcome to Maison Café", style = MaterialTheme.typography.headlineMedium)
             Text("Start your business to create the first café and its opening balance sheet.")
-            Button(onClick = { run {
-                game.initializeOpeningGame()
-                menuSetup.seedMenu()
-                stockSetup.initializeRealStock()
-                expandedMenu.install()
-            } }, enabled = !loading) {
+            Button(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
                 Text("Start café")
             }
         } else {
@@ -185,7 +169,7 @@ fun CafeHomeScreen(
                 day = cafe.time.day,
                 hour = cafe.time.hour,
                 minute = cafe.time.minute,
-                isOpen = cafe.isOpen,
+                isOpen = cafe.isTrading,
                 tables = cafe.tables,
                 seats = cafe.seats,
                 activeGuests = visitors.filter {
@@ -202,13 +186,17 @@ fun CafeHomeScreen(
                     paymentStatus?.staffDisruption == true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Text("Café status: ${if (cafe.isOpen) "OPEN" else "CLOSED"} • Hours %02d:00–%02d:00".format(
+            Text("Café status: ${if (cafe.isTrading) "OPEN" else "CLOSED"} • Hours %02d:00–%02d:00".format(
                 Locale.ROOT, cafe.openingHour, cafe.closingHour
             ), style = MaterialTheme.typography.titleMedium,
-                color = if (cafe.isOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                color = if (cafe.isTrading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
             if (!cafe.isOpen) {
                 Text("The café is closed. No visitors will arrive until you open it.",
                     color = MaterialTheme.colorScheme.error)
+            }
+            if (cafe.isOpen && !cafe.isTrading) {
+                Text("The café opens automatically during business hours.",
+                    style = MaterialTheme.typography.bodySmall)
             }
             OutlinedButton(
                 onClick = { run { game.setCafeOpen(!cafe.isOpen) } },

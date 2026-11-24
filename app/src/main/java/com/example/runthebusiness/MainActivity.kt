@@ -11,6 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
@@ -24,9 +28,22 @@ import com.example.runthebusiness.ui.theme.RunthebusinessTheme
 
 class MainActivity : ComponentActivity() {
     private var appForeground by mutableStateOf(false)
+    private var gameSpeed by mutableIntStateOf(0)
+    private var progressionJob: Job? = null
+    private var jumpMode by mutableStateOf<GameSimulationEngine.JumpMode?>(null)
 
-    override fun onStart() { super.onStart(); appForeground = true }
-    override fun onStop() { appForeground = false; super.onStop() }
+    override fun onResume() {
+        super.onResume()
+        appForeground = true
+    }
+
+    override fun onPause() {
+        appForeground = false
+        progressionJob?.cancel()
+        gameSpeed = 0
+        jumpMode = null
+        super.onPause()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,72 +52,112 @@ class MainActivity : ComponentActivity() {
             RunthebusinessTheme {
                 var selectedTab by remember { mutableIntStateOf(0) }
                 val tabHistory = remember { mutableStateListOf<Int>() }
-                fun navigateTab(tab: Int) {
-                    if (selectedTab != tab) {
-                        tabHistory.add(selectedTab)
-                        selectedTab = tab
-                    }
-                }
-                BackHandler(enabled = tabHistory.isNotEmpty()) {
-                    selectedTab = tabHistory.removeAt(tabHistory.lastIndex)
-                }
                 var operationsSection by remember { mutableIntStateOf(0) }
                 var financeTarget by remember { mutableStateOf("P&L") }
-                var gameSpeed by remember { mutableIntStateOf(0) }
-                LaunchedEffect(selectedTab) { if (selectedTab != 0) gameSpeed = 0 }
-                var clockRevision by remember { mutableIntStateOf(0) }
                 var clockError by remember { mutableStateOf<String?>(null) }
                 val context = LocalContext.current.applicationContext
                 val game = remember(context) { GameRepository(context) }
                 val simulation = remember(context) { GameSimulationEngine(context) }
                 val scope = rememberCoroutineScope()
                 val audit = remember(context) { CafeAuditExportRepository(context) }
-                var time by remember { mutableStateOf<com.example.runthebusiness.engine.model.GameTime?>(null) }
-                var jumping by remember { mutableStateOf(false) }
+                val savedTime = remember(game) { game.observeGameTime() }
+                val time by savedTime.collectAsState(initial = null)
+                var restoring by remember { mutableStateOf(true) }
+                var settingUp by remember { mutableStateOf(false) }
+                val jumping = jumpMode != null
                 var skipMenu by remember { mutableStateOf(false) }
                 var progress by remember { mutableIntStateOf(0) }
                 var groups by remember { mutableIntStateOf(0) }
                 var resultMessage by remember { mutableStateOf<String?>(null) }
-                LaunchedEffect(clockRevision, selectedTab) { time = game.loadGameTime() }
-                fun jump(mode: GameSimulationEngine.JumpMode) {
-                    if (jumping || gameSpeed != 0) return
-                    jumping = true
-                    progress = 0
-                    groups = 0
+
+                fun pauseForNavigation() {
+                    progressionJob?.cancel()
+                    gameSpeed = 0
+                    jumpMode = null
+                    skipMenu = false
+                }
+                fun navigateTab(tab: Int) {
+                    if (selectedTab != tab && !settingUp && !restoring) {
+                        pauseForNavigation()
+                        tabHistory.add(selectedTab)
+                        selectedTab = tab
+                    }
+                }
+                BackHandler(enabled = tabHistory.isNotEmpty() || settingUp || restoring) {
+                    if (!settingUp && !restoring) {
+                        pauseForNavigation()
+                        selectedTab = tabHistory.removeAt(tabHistory.lastIndex)
+                    }
+                }
+                LaunchedEffect(simulation) {
+                    try {
+                        simulation.resumePending()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        clockError = e.message ?: e.javaClass.simpleName
+                    } finally {
+                        restoring = false
+                    }
+                }
+                fun startGame(reset: Boolean) {
+                    if (settingUp || restoring) return
+                    pauseForNavigation()
+                    settingUp = true
+                    clockError = null
                     resultMessage = null
                     scope.launch {
                         try {
+                            simulation.startGame(reset)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            clockError = e.message ?: e.javaClass.simpleName
+                        } finally {
+                            settingUp = false
+                        }
+                    }
+                }
+                LaunchedEffect(appForeground) {
+                    if (!appForeground) skipMenu = false
+                }
+                LaunchedEffect(gameSpeed, jumpMode, appForeground, selectedTab, restoring, settingUp) {
+                    val speed = gameSpeed
+                    val mode = jumpMode
+                    if (!appForeground || selectedTab != 0 || restoring || settingUp ||
+                        (speed == 0 && mode == null)) return@LaunchedEffect
+                    val job = currentCoroutineContext().job
+                    progressionJob = job
+                    try {
+                        if (mode != null) {
                             val result = simulation.jump(mode, onProgress = { _, completed, served ->
                                 progress = completed
                                 groups = served
                             })
                             resultMessage = result.description
                             if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) audit.saveDesktopReport()
-                        } catch (e: Exception) { clockError = e.message ?: e.javaClass.simpleName }
-                        finally { jumping = false; clockRevision++ }
-                    }
-                }
-                LaunchedEffect(appForeground) {
-                    if (!appForeground) gameSpeed = 0
-                }
-                LaunchedEffect(gameSpeed, appForeground) {
-                    if (!appForeground || gameSpeed == 0) return@LaunchedEffect
-                    // Advance 15 game minutes per tick. x1 = 15s; x5 = 3s; x20 = 0.75s.
-                    while (true) {
-                        delay(15_000L / gameSpeed)
-                        try {
-                            if (game.loadGameTime() != null) {
+                        } else {
+                            // Advance 15 game minutes per tick. x1 = 15s, x5 = 3s, x20 = 0.75s.
+                            while (true) {
+                                delay(15_000L / speed)
+                                if (!appForeground || selectedTab != 0 || gameSpeed != speed || settingUp) break
                                 simulation.advance(15L)
-                                clockRevision++
                                 clockError = null
                             }
-                        } catch (e: Exception) {
-                            clockError = e.message ?: e.javaClass.simpleName
-                            gameSpeed = 0
-                            break
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        clockError = e.message ?: e.javaClass.simpleName
+                        gameSpeed = 0
+                    } finally {
+                        if (progressionJob === job) {
+                            progressionJob = null
+                            if (jumpMode == mode) jumpMode = null
                         }
                     }
                 }
+                val canControlTime = appForeground && !jumping && !restoring && !settingUp && time != null
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
@@ -109,22 +166,34 @@ class MainActivity : ComponentActivity() {
                                 Text(time?.let { "Day ${it.day} · %02d:%02d".format(it.hour, it.minute) } ?: "Maison Café",
                                     Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                                 Box {
-                                    TextButton(enabled = !jumping && gameSpeed == 0 && time != null,
+                                    TextButton(enabled = canControlTime && gameSpeed == 0,
                                         onClick = { skipMenu = true }) { Text("Skip ▾") }
                                     DropdownMenu(expanded = skipMenu, onDismissRequest = { skipMenu = false }) {
                                         listOf(GameSimulationEngine.JumpMode.NEXT_EVENT to "Next event",
                                             GameSimulationEngine.JumpMode.NEXT_DECISION to "Next decision",
                                             GameSimulationEngine.JumpMode.NEXT_DAY to "Next day",
                                             GameSimulationEngine.JumpMode.NEXT_WEEK to "Next week").forEach { (mode, label) ->
-                                            DropdownMenuItem(text = { Text(label) }, onClick = { skipMenu = false; jump(mode) })
+                                            DropdownMenuItem(text = { Text(label) }, onClick = {
+                                                skipMenu = false
+                                                clockError = null
+                                                resultMessage = null
+                                                progress = 0
+                                                groups = 0
+                                                jumpMode = mode
+                                            })
                                         }
                                     }
                                 }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 listOf(0 to "Pause", 1 to "×1", 5 to "×5", 20 to "×20").forEach { (value, label) ->
-                                    FilterChip(selected = gameSpeed == value, enabled = !jumping && time != null,
-                                        onClick = { gameSpeed = value }, label = { Text(label) })
+                                    FilterChip(selected = gameSpeed == value, enabled = canControlTime,
+                                        onClick = {
+                                            if (gameSpeed != value) {
+                                                progressionJob?.cancel()
+                                                gameSpeed = value
+                                            }
+                                        }, label = { Text(label) })
                                 }
                             }
                             if (jumping) {
@@ -158,15 +227,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { padding ->
-                    if (jumping) {
-                        Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { Text("Simulating business…") }
+                    if (restoring || settingUp || jumping) {
+                        val message = when {
+                            restoring -> "Loading saved café…"
+                            settingUp -> "Starting café…"
+                            else -> "Simulating business…"
+                        }
+                        Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { Text(message) }
                     } else when (selectedTab) {
                         0 -> CafeHomeScreen(
                             modifier = Modifier.padding(padding),
                             speed = gameSpeed,
-                            onSpeedChange = { gameSpeed = it },
-                            clockRevision = clockRevision,
-                            clockError = clockError,
+                            time = time,
+                            onStartGame = ::startGame,
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
                             onOpenFinance = { financeTarget = "Bills"; navigateTab(2) }
                         )

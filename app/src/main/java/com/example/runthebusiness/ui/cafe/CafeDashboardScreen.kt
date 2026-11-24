@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.runthebusiness.core.simulation.GameSimulationEngine
 import com.example.runthebusiness.data.local.*
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -23,7 +24,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val writeOff = remember(context) { CafeWriteOffRepository(context) }
     val movementsRepo = remember(context) { CafeTransactionDetailRepository(context) }
     val inventorySetup = remember(context) { CafeInventorySetupRepository(context) }
-    val game = remember(context) { GameRepository(context) }
+    val simulation = remember(context) { GameSimulationEngine(context) }
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val scope = rememberCoroutineScope()
     var products by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
@@ -87,10 +88,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         if (!started) {
             Text("Start the café to manage operations.")
             Button(onClick = { run {
-                    game.initializeOpeningGame()
-                    menu.seedMenu()
-                    inventorySetup.initializeRealStock()
-                    expanded.install()
+                    simulation.startGame()
                 } }, enabled = !busy) {
                 Text("Start café")
             }

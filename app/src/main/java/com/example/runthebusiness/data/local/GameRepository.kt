@@ -11,6 +11,8 @@ import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.industries.cafe.usecase.CreateCafeUseCase
 import com.example.runthebusiness.engine.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 /** Persists the opening company, chart of accounts, loan and journal atomically.
@@ -135,7 +137,7 @@ class GameRepository(context: Context) {
         }
     }
 
-    /** Persist game-time advancement; later event processing must share this transaction. */
+    /** Persist game time and the arrivals due in the same interval. */
     suspend fun advanceGameTime(minutes: Long, sessionId: String = "debug_session_001"): GameTime =
         withContext(Dispatchers.IO) {
             db.withTransaction {
@@ -171,6 +173,11 @@ class GameRepository(context: Context) {
                 next
             }
         }
+
+    fun observeGameTime(sessionId: String = "debug_session_001") =
+        accounting.observeSession(sessionId)
+            .map { it?.let { session -> GameTime(session.currentDay, session.currentHour, session.currentMinute) } }
+            .distinctUntilChanged()
 
     suspend fun loadGameTime(sessionId: String = "debug_session_001"): GameTime? =
         withContext(Dispatchers.IO) {

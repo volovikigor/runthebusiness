@@ -3,6 +3,7 @@ package com.example.runthebusiness
 import com.example.runthebusiness.core.business.BusinessStartingConfiguration
 import com.example.runthebusiness.engine.InitialGameFactory
 import com.example.runthebusiness.engine.model.StartingConfiguration
+import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.usecase.CreateCafeUseCase
@@ -21,6 +22,12 @@ class CafeArchitectureTest {
         assertEquals(3, state.locations.single().seatsPerTable)
         assertEquals(6_000_000L, state.loans.single().principalCents)
         assertEquals(6_000_000L, state.journalEntries.first().lines.first().debitCents)
+    }
+
+    @Test fun newCafeStartsAtEightOnDayOne() {
+        val state = CreateCafeUseCase()(CafeStartingConfiguration())
+        assertEquals(GameTime(1, 8, 0), state.currentTime)
+        assertTrue(state.journalEntries.all { it.timestamp == state.currentTime })
     }
 
     @Test fun legacyFactoryRemainsCompatible() {
