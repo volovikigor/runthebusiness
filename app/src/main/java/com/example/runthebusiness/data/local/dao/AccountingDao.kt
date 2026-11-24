@@ -80,6 +80,13 @@ interface AccountingDao {
     """)
     suspend fun accountBalance(sessionId: String, accountCode: String): Long
 
+    @Query("""
+        SELECT COALESCE(SUM(CASE WHEN e.gameDay < :dueDay THEN l.creditCents ELSE 0 END - l.debitCents), 0)
+        FROM journal_lines l JOIN journal_entries e ON e.id = l.entryId
+        WHERE e.sessionId = :sessionId AND l.accountCode = :accountCode
+    """)
+    suspend fun payableDue(sessionId: String, accountCode: String, dueDay: Int): Long
+
     @Transaction
     suspend fun saveAccountingOperation(
         event: BusinessEventEntity,

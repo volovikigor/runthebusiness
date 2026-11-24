@@ -33,6 +33,7 @@ class GameSimulationEngine(context: Context) {
     private val close = CafeDailyCloseRepository(context.applicationContext)
     private val spoilage = CafeSpoilageRepository(context.applicationContext)
     private val autoPurchasing = CafeAutoPurchasingRepository(context.applicationContext)
+    private val bills = com.example.runthebusiness.data.local.CafePaymentRegisterRepository(appContext)
     private val arrivals = CafeArrivalRepository(context.applicationContext)
     private val alerts = CafeManagementAlertsRepository(context.applicationContext)
     // Shared across UI screens so manual jumps and automatic ticks cannot interleave.
@@ -65,6 +66,7 @@ class GameSimulationEngine(context: Context) {
             if (before != null && next.day > before.day) {
                 for (day in before.day until next.day) close.closeDay(day, sessionId)
             }
+            if (before == null || next.day != before.day) bills.settleAutomatic(sessionId)
             StepResult(next, served)
         }
 
@@ -192,6 +194,7 @@ class GameSimulationEngine(context: Context) {
         withContext(Dispatchers.IO) {
             GameDatabase.getInstance(appContext).clearAllTables()
             autoPurchasing.reset()
+            bills.reset()
             GameRepository(appContext).initializeOpeningGame()
             CafeMenuRepository(appContext).seedMenu()
             CafeInventorySetupRepository(appContext).initializeRealStock()

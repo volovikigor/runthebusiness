@@ -65,6 +65,8 @@ fun CafeHomeScreen(
     val dashboard = remember(context) { CafeDashboardRepository(context) }
     val flowRepo = remember(context) { CafeCustomerFlowRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
+    val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
+    var bills by remember { mutableStateOf<List<com.example.runthebusiness.data.local.ScheduledBill>>(emptyList()) }
     val consequencesRepo = remember(context) { CafePaymentConsequencesRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
     val performanceRepo = remember(context) { CafeDailyPerformanceRepository(context) }
@@ -108,6 +110,7 @@ fun CafeHomeScreen(
     suspend fun reload() {
         state = dashboard.snapshot()
         cashPosition = if (state != null) cashRepo.position() else null
+        bills = if (state != null) billsRepo.snapshot() else emptyList()
         paymentStatus = if (state != null) consequencesRepo.load() else null
         recent = sales.loadDemoSales().take(6)
         menuReadiness = if (state != null) menuReadinessRepo.snapshot() else emptyList()
@@ -254,7 +257,26 @@ fun CafeHomeScreen(
                 val payrollLate = payment?.payrollDaysLate ?: 0
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Bills & continuity", style = MaterialTheme.typography.titleMedium)
+                        Text("Payment register", style = MaterialTheme.typography.titleMedium)
+                        bills.forEach { bill ->
+                            HorizontalDivider()
+                            Text(bill.label, style = MaterialTheme.typography.titleSmall)
+                            Text("Due now: ${euro(bill.due)} · Accrued: ${euro(bill.accrued)}")
+                            Text("Next cycle: Day ${bill.nextDueDay}", style = MaterialTheme.typography.bodySmall)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Automatic payment", Modifier.weight(1f))
+                                Switch(checked = bill.automatic, enabled = !loading,
+                                    onCheckedChange = { enabled -> run { billsRepo.setAutomatic(bill.account, enabled) } })
+                            }
+                            if (bill.due > 0L) {
+                                OutlinedButton(enabled = !loading && position.bankCents >= bill.due,
+                                    onClick = { run { cashRepo.pay(bill.account, amountCents = bill.due) } }) {
+                                    Text("Pay due · ${euro(bill.due)}")
+                                }
+                            }
+                        }
+                        HorizontalDivider()
+                        Text("Early settlement & cash deposits", style = MaterialTheme.typography.titleSmall)
                         Text("Bank: €%.2f · Cash: €%.2f".format(Locale.ROOT,
                             position.bankCents / 100.0, position.cashCents / 100.0))
                         Text("Rent payable: €%.2f · %d days late".format(Locale.ROOT,

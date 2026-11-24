@@ -86,7 +86,7 @@ class CafeCashManagementRepository(context: Context) {
             }
         }
 
-    suspend fun pay(accountCode: String, sessionId: String = "debug_session_001"): Long =
+    suspend fun pay(accountCode: String, sessionId: String = "debug_session_001", amountCents: Long? = null): Long =
         withContext(Dispatchers.IO) {
             require(accountCode == "2000" || accountCode == "2300") {
                 "Only rent and salary settlements are supported"
@@ -94,10 +94,11 @@ class CafeCashManagementRepository(context: Context) {
             db.withTransaction {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId))
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
-                val b = balances(sessionId)
-                val due = (-(b[accountCode] ?: 0L)).coerceAtLeast(0L)
+                val outstanding = (-db.accountingDao().accountBalance(sessionId, accountCode)).coerceAtLeast(0L)
+                val due = amountCents ?: outstanding
+                require(due <= outstanding)
                 require(due > 0L) { "No outstanding payable on account $accountCode" }
-                val bank = b["1100"] ?: 0L
+                val bank = db.accountingDao().accountBalance(sessionId, "1100")
                 require(bank >= due) {
                     "Insufficient bank balance: due €%.2f, available €%.2f".format(
                         java.util.Locale.ROOT, due / 100.0, bank / 100.0)
