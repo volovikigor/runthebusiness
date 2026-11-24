@@ -72,7 +72,7 @@ class CafeServiceRepository(context: Context) {
                         var offered = false
                         val offset = ((now.totalMinutes + arrival.guests).rem(
                             products.size.coerceAtLeast(1).toLong())).toInt()
-                        val batches = db.operationsDao().getInventoryBatches(business.id)
+                        val batches = db.operationsDao().getActiveInventoryBatches(business.id)
                         val stock = batches.groupBy { it.inventoryItemId }
                             .mapValues { (_, rows) -> rows.sumOf { it.quantityRemaining } }
                             .toMutableMap()

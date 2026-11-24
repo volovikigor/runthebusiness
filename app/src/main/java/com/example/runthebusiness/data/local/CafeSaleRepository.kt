@@ -41,7 +41,7 @@ class CafeSaleRepository(context: Context) {
                 val location = locations.getLocations(business.id).single()
                 val cafe = operations.getLocations(business.id).single()
                 val items = operations.getInventoryItems(business.id)
-                val storedBatches = operations.getInventoryBatches(business.id)
+                val storedBatches = operations.getActiveInventoryBatches(business.id)
                 val currentTime = saleTime ?: GameTime(session.currentDay, session.currentHour, session.currentMinute)
                 val products = productIds.distinct().map { productId -> if (productId == null) {
                     Product(
