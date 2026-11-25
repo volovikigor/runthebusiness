@@ -82,13 +82,18 @@ class CafeCashManagementRepository(context: Context) {
             settle("2010", sessionId, bill.amountCents, invoiceId)
         }
 
-    suspend fun pay(accountCode: String, sessionId: String = "debug_session_001", amountCents: Long? = null): Long {
+    suspend fun pay(
+        accountCode: String,
+        sessionId: String = "debug_session_001",
+        amountCents: Long? = null,
+        automatic: Boolean = false
+    ): Long {
         require(accountCode in setOf("2000", "2200", "2300", "2400", "2600"))
-        return settle(accountCode, sessionId, amountCents)
+        return settle(accountCode, sessionId, amountCents, automatic = automatic)
     }
 
     private suspend fun settle(accountCode: String, sessionId: String, amountCents: Long?,
-        invoiceId: String? = null): Long =
+        invoiceId: String? = null, automatic: Boolean = false): Long =
         withContext(Dispatchers.IO) {
             db.withTransaction {
                 val session = checkNotNull(db.accountingDao().getSession(sessionId))
@@ -117,7 +122,11 @@ class CafeCashManagementRepository(context: Context) {
                     BusinessEventEntity(
                         id = eventId, sessionId = sessionId, businessId = business.id,
                         eventType = if (invoiceId == null) "PAYABLE_SETTLEMENT" else "SUPPLIER_SETTLEMENT",
-                        sourceObjectType = if (invoiceId == null) "LEDGER_ACCOUNT" else "SUPPLIER_INVOICE",
+                        sourceObjectType = when {
+                            automatic -> "AUTOMATIC_LEDGER_ACCOUNT"
+                            invoiceId == null -> "LEDGER_ACCOUNT"
+                            else -> "SUPPLIER_INVOICE"
+                        },
                         sourceObjectId = invoiceId ?: accountCode, gameDay = session.currentDay,
                         gameHour = session.currentHour, gameMinute = session.currentMinute,
                         description = description

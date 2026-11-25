@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -25,25 +24,32 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.R
 import com.example.runthebusiness.engine.model.GameTime
-import com.example.runthebusiness.ui.components.CafeLedgerOptions
+import com.example.runthebusiness.data.local.CafeOrderScene
+import com.example.runthebusiness.data.local.TimedCafeEvent
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
 
-private enum class CafeView(val label: String, @field:DrawableRes val art: Int, val description: String) {
-    ROOM("Room", R.drawable.cafe_scene_room, "Minimalist café dining room with a sage service counter"),
-    COFFEE("Coffee", R.drawable.cafe_scene_coffee, "Espresso machine at the coffee bar"),
-    KITCHEN("Kitchen", R.drawable.cafe_scene_kitchen, "Stainless steel kitchen prep area"),
-    DELIVERY("Delivery", R.drawable.cafe_scene_delivery, "Produce crates at the café delivery entrance")
+private enum class CafeView(@field:DrawableRes val art: Int, val description: String) {
+    ROOM(R.drawable.cafe_scene_room, "Minimalist café dining room with a sage service counter"),
+    COFFEE(R.drawable.cafe_scene_coffee, "Espresso machine at the coffee bar"),
+    KITCHEN(R.drawable.cafe_scene_kitchen, "Stainless steel kitchen prep area"),
+    DELIVERY(R.drawable.cafe_scene_delivery, "Produce crates at the café delivery entrance"),
+    PAYMENT(R.drawable.cafe_scene_payment, "Accounts desk and supplier invoices")
 }
+
+private data class SceneCue(val event: TimedCafeEvent, val views: List<CafeView>)
 
 @Composable
 fun CafeScene(
     name: String,
     time: GameTime,
     playing: Boolean,
-    latestSale: GameTime?,
-    latestDelivery: GameTime?,
+    latestOrder: CafeOrderScene?,
+    latestDelivery: TimedCafeEvent?,
+    latestPayment: TimedCafeEvent?,
     isOpen: Boolean,
     tables: Int,
     seats: Int,
@@ -55,20 +61,47 @@ fun CafeScene(
     hasUrgentBills: Boolean,
     modifier: Modifier = Modifier
 ) {
-    var selected by rememberSaveable { mutableStateOf(CafeView.ROOM.name) }
-    val view = CafeView.valueOf(selected)
-    val recentOrder = isOpen && latestSale != null && time.totalMinutes - latestSale.totalMinutes in 0L..19L
-    val recentDelivery = latestDelivery != null && time.totalMinutes - latestDelivery.totalMinutes in 0L..29L
-    val inMotion = when (view) {
-        CafeView.ROOM -> isOpen && activeGuests > 0
-        CafeView.COFFEE, CafeView.KITCHEN -> recentOrder
-        CafeView.DELIVERY -> recentDelivery
+    var view by remember { mutableStateOf(CafeView.ROOM) }
+    val cues = buildList {
+        if (latestPayment != null && latestPayment.time.day == time.day && latestPayment.time <= time) {
+            add(SceneCue(latestPayment, listOf(CafeView.PAYMENT)))
+        }
+        if (latestDelivery != null && latestDelivery.time.day == time.day && latestDelivery.time <= time) {
+            add(SceneCue(latestDelivery, listOf(CafeView.DELIVERY)))
+        }
+        if (isOpen && latestOrder != null && time.totalMinutes - latestOrder.event.time.totalMinutes in 0L..29L) {
+            val shots = buildList {
+                if (latestOrder.drinks) add(CafeView.COFFEE)
+                if (latestOrder.food) add(CafeView.KITCHEN)
+            }
+            if (shots.isNotEmpty()) add(SceneCue(latestOrder.event, shots))
+        }
+    }
+    val latestCues by rememberUpdatedState(cues)
+    val shownEvents = remember { mutableMapOf<CafeView, String>() }
+    LaunchedEffect(playing) {
+        if (!playing) return@LaunchedEffect
+        if (view != CafeView.ROOM) delay(1_500)
+        view = CafeView.ROOM
+        while (true) {
+            val cue = snapshotFlow {
+                latestCues.firstOrNull { shownEvents[it.views.first()] != it.event.id }
+            }.first { it != null } ?: continue
+            shownEvents[cue.views.first()] = cue.event.id
+            for (shot in cue.views) {
+                view = shot
+                delay(2_600)
+            }
+            view = CafeView.ROOM
+            delay(1_400)
+        }
     }
     val activity = when (view) {
         CafeView.ROOM -> if (isOpen) "$activeGuests guests · $tables tables · $seats seats" else "Dining room closed"
-        CafeView.COFFEE, CafeView.KITCHEN ->
-            if (recentOrder) "Recent order" else if (isOpen) "Between orders" else "Service closed"
-        CafeView.DELIVERY -> if (recentDelivery) "Delivery received" else "No recent delivery"
+        CafeView.COFFEE -> "Coffee order"
+        CafeView.KITCHEN -> "Kitchen order"
+        CafeView.DELIVERY -> "Delivery received"
+        CafeView.PAYMENT -> "Automatic bill payment"
     }
 
     Surface(modifier, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -92,7 +125,8 @@ fun CafeScene(
                     SceneFrame(
                         view = shot,
                         hour = time.hour,
-                        active = inMotion && shot == view,
+                        active = shot == view && (shot != CafeView.ROOM || isOpen && activeGuests > 0),
+                        guestPresent = isOpen && activeGuests > 0,
                         playing = playing
                     )
                 }
@@ -100,9 +134,6 @@ fun CafeScene(
                     .background(Color(0xCC121C22), MaterialTheme.shapes.small)
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                     color = Color.White, style = MaterialTheme.typography.labelMedium)
-            }
-            CafeLedgerOptions(CafeView.entries.map { it.label }, view.label) { label ->
-                selected = CafeView.entries.first { it.label == label }.name
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
@@ -130,7 +161,7 @@ private fun SceneMetric(label: String, value: String, modifier: Modifier) {
 private fun sceneMoney(cents: Long): String = "€%,.0f".format(Locale.ROOT, cents / 100.0)
 
 @Composable
-private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, playing: Boolean) {
+private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, guestPresent: Boolean, playing: Boolean) {
     val moving = active && playing
     val phase = remember { Animatable(0f) }
     LaunchedEffect(active, playing) {
@@ -152,6 +183,9 @@ private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, playing: Bool
                 scaleY = 1.035f
                 translationX = drift * size.width * 0.009f
             })
+        if (view == CafeView.ROOM) {
+            RoomGuest(guestPresent, playing, Modifier.matchParentSize())
+        }
         val shade = when (hour) {
             in 0..6, in 21..23 -> 0.45f
             in 7..8, in 18..20 -> 0.17f
@@ -166,6 +200,7 @@ private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, playing: Bool
                 CafeView.KITCHEN -> SceneLight(phase, Color(0xFFFAECC9), 0.69f, 0.62f, Modifier.matchParentSize())
                 CafeView.DELIVERY -> SceneLight(phase, Color(0xFFFAECC9), 0.47f, 0.31f, Modifier.matchParentSize())
                 CafeView.ROOM -> SceneLight(phase, Color(0xFFFAECC9), 0.20f, 0.68f, Modifier.matchParentSize())
+                CafeView.PAYMENT -> SceneLight(phase, Color(0xFFFAECC9), 0.55f, 0.42f, Modifier.matchParentSize())
             }
         }
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(
@@ -197,5 +232,28 @@ private fun SceneLight(phase: Animatable<Float, *>, tint: Color, x: Float, y: Fl
         val center = Offset(size.width * (x + shift * 0.04f), size.height * y)
         drawRect(Brush.radialGradient(listOf(tint.copy(alpha = 0.07f + 0.02f * shift), Color.Transparent),
             center = center, radius = size.width * 0.28f))
+    }
+}
+
+@Composable
+private fun RoomGuest(present: Boolean, playing: Boolean, modifier: Modifier) {
+    val visibility = remember { Animatable(if (present) 1f else 0f) }
+    LaunchedEffect(present, playing) {
+        if (playing) visibility.animateTo(if (present) 1f else 0f, tween(650))
+    }
+    BoxWithConstraints(modifier) {
+        Image(
+            painterResource(R.drawable.cafe_scene_guest),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .offset(x = maxWidth * 0.08f, y = -maxHeight * 0.08f)
+                .height(maxHeight * 0.56f)
+                .aspectRatio(0.40f, matchHeightConstraintsFirst = true)
+                .graphicsLayer {
+                    alpha = visibility.value
+                    translationX = (1f - visibility.value) * -size.width * 0.28f
+                }
+        )
     }
 }

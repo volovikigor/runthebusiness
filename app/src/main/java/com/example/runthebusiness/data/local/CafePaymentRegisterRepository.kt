@@ -55,7 +55,7 @@ class CafePaymentRegisterRepository(context: Context) {
                     if (!autoDeposit || position.cashCents < shortfall) continue
                     cash.transferCashToBank(shortfall, sessionId)
                 }
-                cash.pay(bill.account, sessionId, bill.due)
+                cash.pay(bill.account, sessionId, bill.due, automatic = true)
             }
         }
     }

@@ -2,8 +2,12 @@ package com.example.runthebusiness.data.local
 
 import android.content.Context
 import com.example.runthebusiness.engine.model.GameTime
+import com.example.runthebusiness.data.local.entity.BusinessEventEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+data class TimedCafeEvent(val id: String, val time: GameTime)
+data class CafeOrderScene(val event: TimedCafeEvent, val drinks: Boolean, val food: Boolean)
 
 data class CafeDashboardSnapshot(
     val time: GameTime,
@@ -20,8 +24,9 @@ data class CafeDashboardSnapshot(
     val cogsCents: Long,
     val stockRemaining: Double,
     val stockOriginal: Double,
-    val latestSale: GameTime? = null,
-    val latestDelivery: GameTime? = null
+    val latestOrder: CafeOrderScene? = null,
+    val latestDelivery: TimedCafeEvent? = null,
+    val latestPayment: TimedCafeEvent? = null
 ) {
     val isTrading: Boolean get() = isOpen && time.hour in openingHour until closingHour
     val grossProfitCents: Long get() = netSalesCents - cogsCents
@@ -43,9 +48,22 @@ class CafeDashboardRepository(context: Context) {
             val cafe = operations.getLocations(business.id).singleOrNull() ?: return@withContext null
             val orders = sales.getOrders(shared.id)
             val batches = operations.getInventoryBatches(business.id)
-            val delivery = accounting.latestSupplierDelivery(sessionId)
+            val time = GameTime(session.currentDay, session.currentHour, session.currentMinute)
+            val latestOrder = orders.firstOrNull()?.let { order ->
+                val orderTime = GameTime(order.gameDay, order.gameHour, order.gameMinute)
+                if (time.totalMinutes - orderTime.totalMinutes !in 0L..29L) null else {
+                    val orderIds = orders.takeWhile {
+                        it.gameDay == order.gameDay && it.gameHour == order.gameHour && it.gameMinute == order.gameMinute
+                    }.map { it.id }
+                    val products = db.cafeMenuDao().getProducts(shared.id).associateBy { it.id }
+                    val ordered = sales.getOrderLinesForOrders(orderIds).mapNotNull { products[it.productId] }
+                    CafeOrderScene(TimedCafeEvent(order.id, orderTime),
+                        drinks = ordered.any { it.type == "DRINK" },
+                        food = ordered.any { it.type == "FOOD" && it.fulfillment == "PREPARED" })
+                }
+            }
             CafeDashboardSnapshot(
-                time = GameTime(session.currentDay, session.currentHour, session.currentMinute),
+                time = time,
                 cafeName = shared.name, tables = cafe.tableCount,
                 seats = cafe.tableCount * cafe.seatsPerTable,
                 isOpen = shared.isOpen,
@@ -58,8 +76,12 @@ class CafeDashboardRepository(context: Context) {
                 cogsCents = orders.sumOf { it.cogsCents },
                 stockRemaining = batches.sumOf { it.quantityRemaining },
                 stockOriginal = batches.sumOf { it.quantityReceived },
-                latestSale = orders.firstOrNull()?.let { GameTime(it.gameDay, it.gameHour, it.gameMinute) },
-                latestDelivery = delivery?.let { GameTime(it.gameDay, it.gameHour, it.gameMinute) }
+                latestOrder = latestOrder,
+                latestDelivery = accounting.latestSupplierDelivery(sessionId)?.timed(),
+                latestPayment = accounting.latestAutomaticPayment(sessionId)?.timed()
             )
         }
 }
+
+private fun BusinessEventEntity.timed(): TimedCafeEvent =
+    TimedCafeEvent(id, GameTime(gameDay, gameHour, gameMinute))

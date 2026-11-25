@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
 import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
 import com.example.runthebusiness.ui.cafe.CafeHomeScreen
+import com.example.runthebusiness.ui.cafe.CafeRunMusic
 import com.example.runthebusiness.ui.components.CafeBottomNavigation
 import com.example.runthebusiness.ui.theme.RunthebusinessTheme
 
@@ -66,6 +67,10 @@ class MainActivity : ComponentActivity() {
                 var restoring by remember { mutableStateOf(true) }
                 var settingUp by remember { mutableStateOf(false) }
                 val jumping = jumpMode != null
+                val audioSettings = remember(context) { context.getSharedPreferences("cafe_audio", MODE_PRIVATE) }
+                var musicEnabled by remember { mutableStateOf(audioSettings.getBoolean("music", true)) }
+                CafeRunMusic(context, musicEnabled && appForeground && selectedTab == 0 &&
+                    !restoring && !settingUp && (gameSpeed > 0 || jumping))
                 var skipMenu by remember { mutableStateOf(false) }
                 var progress by remember { mutableIntStateOf(0) }
                 var groups by remember { mutableIntStateOf(0) }
@@ -179,6 +184,12 @@ class MainActivity : ComponentActivity() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(time?.let { "Day ${it.day} · %02d:%02d".format(it.hour, it.minute) } ?: "Maison Café",
                                     Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                TextButton(onClick = {
+                                    musicEnabled = !musicEnabled
+                                    audioSettings.edit().putBoolean("music", musicEnabled).apply()
+                                }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Text(if (musicEnabled) "Music on" else "Music off")
+                                }
                                 Box {
                                     TextButton(enabled = canControlTime && gameSpeed == 0,
                                         onClick = { skipMenu = true }) { Text("Skip ▾") }

@@ -20,6 +20,9 @@ interface CafeSalesDao {
     @Query("SELECT * FROM customer_order_lines WHERE orderId = :orderId ORDER BY id")
     suspend fun getOrderLines(orderId: String): List<CustomerOrderLineEntity>
 
+    @Query("SELECT * FROM customer_order_lines WHERE orderId IN (:orderIds)")
+    suspend fun getOrderLinesForOrders(orderIds: List<String>): List<CustomerOrderLineEntity>
+
     @Query("SELECT * FROM stock_movements WHERE sourceId = :sourceId ORDER BY id")
     suspend fun getMovementsForSource(sourceId: String): List<StockMovementEntity>
 
