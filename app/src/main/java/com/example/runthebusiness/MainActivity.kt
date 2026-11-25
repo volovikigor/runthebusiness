@@ -155,7 +155,11 @@ class MainActivity : ComponentActivity() {
                             })
                             if (mode == GameSimulationEngine.JumpMode.NEXT_DAY) simulation.skipClosedHours()
                             resultMessage = result.description
-                            if (mode == GameSimulationEngine.JumpMode.NEXT_WEEK) audit.saveDesktopReport()
+                            when (mode) {
+                                GameSimulationEngine.JumpMode.NEXT_MONTH -> audit.saveDesktopReport(completedDays = 30)
+                                GameSimulationEngine.JumpMode.NEXT_WEEK -> audit.saveDesktopReport()
+                                else -> Unit
+                            }
                         } else {
                             simulation.skipClosedHours()
                             // Advance 15 game minutes per tick. x1 = 15s, x5 = 3s, x20 = 0.75s.
@@ -223,7 +227,8 @@ class MainActivity : ComponentActivity() {
                                         listOf(GameSimulationEngine.JumpMode.NEXT_EVENT to "Next event",
                                             GameSimulationEngine.JumpMode.NEXT_DECISION to "Next decision",
                                             GameSimulationEngine.JumpMode.NEXT_DAY to "Next day",
-                                            GameSimulationEngine.JumpMode.NEXT_WEEK to "Next week").forEach { (mode, label) ->
+                                            GameSimulationEngine.JumpMode.NEXT_WEEK to "Next week",
+                                            GameSimulationEngine.JumpMode.NEXT_MONTH to "Run 30 days (diagnostic)").forEach { (mode, label) ->
                                             DropdownMenuItem(text = { Text(label) }, onClick = {
                                                 startJump(mode)
                                             })
