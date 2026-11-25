@@ -1,6 +1,7 @@
 package com.example.runthebusiness.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -108,13 +109,11 @@ private fun CafeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
 
 @Composable
 fun CafeLedgerPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.tertiary)
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            content = content
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
+    Column(
+        modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        content = content
+    )
 }
