@@ -37,7 +37,10 @@ internal fun CafeGuideButton(title: String, @StringRes message: Int) {
             text = {
                 Column {
                     if (topics.size > 1) CafeLedgerOptions(labels, labels[active]) { active = labels.indexOf(it) }
-                    Text(stringResource(topics[active]), Modifier.weight(1f, fill = false).verticalScroll(scroll))
+                    val body = stringResource(topics[active])
+                    val text = if (topics[active] == R.string.guide_cafe)
+                        body + "\n\n" + stringResource(R.string.guide_appearance) else body
+                    Text(text, Modifier.weight(1f, fill = false).verticalScroll(scroll))
                 }
             },
             confirmButton = {

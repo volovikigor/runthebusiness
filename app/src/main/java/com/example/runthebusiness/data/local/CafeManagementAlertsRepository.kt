@@ -1,6 +1,7 @@
 package com.example.runthebusiness.data.local
 
 import android.content.Context
+import com.example.runthebusiness.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -14,7 +15,7 @@ data class ManagementAlert(
 )
 
 /** Derived from durable business state: alerts disappear when the problem is resolved. */
-class CafeManagementAlertsRepository(context: Context) {
+class CafeManagementAlertsRepository(private val context: Context) {
     private val stock = CafePurchasingRepository(context.applicationContext)
     private val cash = CafeCashManagementRepository(context.applicationContext)
     private val game = GameRepository(context.applicationContext)
@@ -58,9 +59,9 @@ class CafeManagementAlertsRepository(context: Context) {
                     alerts += ManagementAlert(
                         id = "stock_${supply.itemId}",
                         priority = if (remaining <= 0.0) 0 else 1,
-                        title = if (remaining <= 0.0) "Out of ${supply.label}" else "Low stock: ${supply.label}",
-                        detail = "%.0f %s left · reorder from Operations".format(
-                            java.util.Locale.ROOT, remaining, supply.unit),
+                        title = context.getString(if (remaining <= 0.0) R.string.alert_no_stock else R.string.alert_low_stock, supply.label),
+                        detail = context.getString(R.string.alert_stock_detail,
+                            "%.0f".format(java.util.Locale.ROOT, remaining), supply.unit),
                         destination = "operations", section = 1
                     )
                 }
@@ -70,39 +71,39 @@ class CafeManagementAlertsRepository(context: Context) {
             if ((rentDue || payrollDue) && position.liquidityGapCents < 0L) {
                 alerts += ManagementAlert(
                     id = "liquidity", priority = 0,
-                    title = "Insufficient liquidity",
-                    detail = "Accrued rent and payroll exceed cash and bank balances",
+                    title = context.getString(R.string.alert_liquidity),
+                    detail = context.getString(R.string.alert_liquidity_detail),
                     destination = "finance"
                 )
             }
             if (rentDue) {
                 alerts += ManagementAlert(
                     id = "rent", priority = if (rentLate()) 0 else 2,
-                    title = if (rentLate()) "Overdue rent" else "Rent payment due",
-                    detail = if (rentLate()) "Rent is more than 2 game days late · settle in Finance > Cash"
-                        else "Rent payment scheduled every 14 game days · Finance > Cash",
+                    title = if (rentLate()) context.getString(R.string.alert_rent_late) else context.getString(R.string.alert_rent_due),
+                    detail = if (rentLate()) context.getString(R.string.alert_rent_late_detail)
+                        else context.getString(R.string.alert_rent_due_detail),
                     destination = "finance"
                 )
             }
             if (payrollDue) {
                 alerts += ManagementAlert(
                     id = "payroll", priority = if (payrollLate()) 0 else 2,
-                    title = if (payrollLate()) "Overdue payroll" else "Payroll payment due",
-                    detail = if (payrollLate()) "Payroll is more than 2 game days late · settle in Finance > Cash"
-                        else "Payroll payment scheduled every 14 game days · Finance > Cash",
+                    title = if (payrollLate()) context.getString(R.string.alert_payroll_late) else context.getString(R.string.alert_payroll_due),
+                    detail = if (payrollLate()) context.getString(R.string.alert_payroll_late_detail)
+                        else context.getString(R.string.alert_payroll_due_detail),
                     destination = "finance"
                 )
             }
             if (impact.staffDisruption) alerts += ManagementAlert(
                 id = "staff_disruption", priority = 0,
-                title = "Staff disruption: customers lost",
-                detail = "Unpaid payroll is reducing service capacity. Settle payroll in Finance > Cash.",
+                title = context.getString(R.string.alert_staff_disruption),
+                detail = context.getString(R.string.alert_staff_detail),
                 destination = "finance"
             )
             if (impact.rentShutdown) alerts += ManagementAlert(
                 id = "rent_shutdown", priority = 0,
-                title = "Trading suspended: rent unpaid",
-                detail = "Rent is more than 7 game days overdue. Settle rent in Finance > Cash to resume sales.",
+                title = context.getString(R.string.alert_rent_shutdown),
+                detail = context.getString(R.string.alert_shutdown_detail),
                 destination = "finance"
             )
             alerts.sortedWith(compareBy<ManagementAlert> { it.priority }.thenBy { it.id })

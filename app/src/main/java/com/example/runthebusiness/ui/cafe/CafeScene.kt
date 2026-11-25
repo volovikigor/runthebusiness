@@ -25,6 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.R
+import com.example.runthebusiness.ui.theme.CafeAppearance
 import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.data.local.CafeOrderScene
 import com.example.runthebusiness.data.local.TimedCafeEvent
@@ -36,12 +37,12 @@ import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
 
-private enum class CafeView(val label: String, @field:DrawableRes val art: Int, val description: String) {
-    ROOM("Room", R.drawable.cafe_scene_room, "Minimalist café dining room with a sage service counter"),
-    COFFEE("Coffee", R.drawable.cafe_scene_coffee, "Espresso machine at the coffee bar"),
-    KITCHEN("Kitchen", R.drawable.cafe_scene_kitchen, "Stainless steel kitchen prep area"),
-    DELIVERY("Delivery", R.drawable.cafe_scene_delivery, "Produce crates at the café delivery entrance"),
-    PAYMENT("Office", R.drawable.cafe_scene_payment, "Accounts desk and supplier invoices")
+private enum class CafeView(val label: String, @field:DrawableRes val art: Int, @field:androidx.annotation.StringRes val description: Int) {
+    ROOM("Room", R.drawable.cafe_scene_room, R.string.scene_room_description),
+    COFFEE("Coffee", R.drawable.cafe_scene_coffee, R.string.scene_coffee_description),
+    KITCHEN("Kitchen", R.drawable.cafe_scene_kitchen, R.string.scene_kitchen_description),
+    DELIVERY("Delivery", R.drawable.cafe_scene_delivery, R.string.scene_delivery_description),
+    PAYMENT("Office", R.drawable.cafe_scene_payment, R.string.scene_office_description)
 }
 
 private data class SceneCue(val event: TimedCafeEvent, val views: List<CafeView>)
@@ -49,6 +50,7 @@ private data class SceneCue(val event: TimedCafeEvent, val views: List<CafeView>
 @Composable
 fun CafeScene(
     name: String,
+    appearance: CafeAppearance,
     time: GameTime,
     speed: Int,
     latestOrder: CafeOrderScene?,
@@ -126,7 +128,7 @@ fun CafeScene(
         }
     }
     val activity = when (view) {
-        CafeView.ROOM -> if (isOpen) "$activeGuests guests · $tables tables · $seats seats" else stringResource(R.string.room_closed)
+        CafeView.ROOM -> if (isOpen) stringResource(R.string.room_guest_counts, activeGuests, tables, seats) else stringResource(R.string.room_closed)
         CafeView.COFFEE -> if (pinnedView == null) stringResource(R.string.coffee_order) else stringResource(R.string.coffee_bar)
         CafeView.KITCHEN -> if (pinnedView == null) stringResource(R.string.kitchen_order) else cafeLabel("Kitchen")
         CafeView.DELIVERY -> if (pinnedView == null) stringResource(R.string.delivery_received) else stringResource(R.string.receiving_entrance)
@@ -155,7 +157,16 @@ fun CafeScene(
                         view = shot,
                         hour = time.hour,
                         active = shot == view && if (shot == CafeView.ROOM) isOpen else pinnedView == null,
-                        roomArt = when {
+                        sceneArt = if (appearance == CafeAppearance.ART_DECO) {
+                            when (shot) {
+                                CafeView.ROOM -> if (isOpen && activeGuests >= 4) R.drawable.cafe_deco_busy
+                                    else R.drawable.cafe_deco_room
+                                CafeView.COFFEE -> R.drawable.cafe_deco_coffee
+                                CafeView.KITCHEN -> R.drawable.cafe_deco_kitchen
+                                CafeView.DELIVERY -> R.drawable.cafe_deco_delivery
+                                CafeView.PAYMENT -> R.drawable.cafe_deco_office
+                            }
+                        } else if (shot != CafeView.ROOM) shot.art else when {
                             !isOpen -> R.drawable.cafe_scene_room
                             activeGuests >= maxOf(5, seats / 2) -> R.drawable.cafe_scene_room_busy
                             activeGuests >= 3 -> R.drawable.cafe_scene_room_steady
@@ -225,7 +236,7 @@ private fun SceneMetric(label: String, value: String, modifier: Modifier) {
 private fun sceneMoney(cents: Long): String = "€%,.0f".format(Locale.ROOT, cents / 100.0)
 
 @Composable
-private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, @DrawableRes roomArt: Int, playing: Boolean) {
+private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, @DrawableRes sceneArt: Int, playing: Boolean) {
     val moving = active && playing
     val phase = remember { Animatable(0f) }
     LaunchedEffect(active, playing) {
@@ -240,10 +251,9 @@ private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, @DrawableRes 
         }
     }
     Box(Modifier.fillMaxSize()) {
-        val art = if (view == CafeView.ROOM) roomArt else view.art
-        Crossfade(targetState = art, animationSpec = tween(720), label = "Dining room occupancy",
+        Crossfade(targetState = sceneArt, animationSpec = tween(720), label = "Dining room occupancy",
             modifier = Modifier.fillMaxSize()) { frame ->
-            Image(painterResource(frame), contentDescription = view.description,
+            Image(painterResource(frame), contentDescription = stringResource(view.description),
                 contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer {
                     val drift = sin(phase.value * (2 * PI)).toFloat()
                     scaleX = 1.035f
