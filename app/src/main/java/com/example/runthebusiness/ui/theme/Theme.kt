@@ -10,16 +10,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val Ink = Color(0xFF17243A)
-private val Accent = Color(0xFF234AD1)
+private val Pine = Color(0xFF285737)
 
 private val LightColorScheme = lightColorScheme(
-    primary = Accent,
+    primary = Pine,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFDDE5FF),
-    onPrimaryContainer = Color(0xFF132E84),
+    primaryContainer = Color(0xFFCDEDBD),
+    onPrimaryContainer = Color(0xFF16351F),
     secondary = Color(0xFF005B59),
     onSecondary = Color.White,
-    tertiary = Accent,
+    tertiary = Color(0xFF6F5C13),
+    tertiaryContainer = Color(0xFFF6E9A8),
+    onTertiaryContainer = Color(0xFF443805),
     background = Color(0xFFF4F6FA),
     onBackground = Ink,
     surface = Color(0xFFF4F6FA),
@@ -40,10 +42,14 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFB7C7FF),
-    onPrimary = Color(0xFF11296E),
+    primary = Color(0xFFAFE1A3),
+    primaryContainer = Color(0xFFCDEDBD),
+    onPrimaryContainer = Color(0xFF16351F),
+    onPrimary = Color(0xFF16351F),
     secondary = Color(0xFFA2DDD6),
-    tertiary = Color(0xFFB7C7FF),
+    tertiary = Color(0xFFF7E697),
+    tertiaryContainer = Color(0xFFF6E9A8),
+    onTertiaryContainer = Color(0xFF443805),
     background = Color(0xFF101827),
     onBackground = Color(0xFFE7EEF9),
     surface = Color(0xFF182335),

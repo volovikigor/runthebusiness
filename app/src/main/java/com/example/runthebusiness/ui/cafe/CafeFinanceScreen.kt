@@ -21,11 +21,12 @@ import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.FinancialLine
 import com.example.runthebusiness.data.local.FinancialStatements
-import com.example.runthebusiness.data.local.DailyProfitLoss
+import com.example.runthebusiness.data.local.CashFlowLine
 import com.example.runthebusiness.data.local.CafeTransactionDetailRepository
 import com.example.runthebusiness.data.local.SaleDetail
 import com.example.runthebusiness.data.local.entity.StockMovementEntity
 import com.example.runthebusiness.ui.components.CafeSectionScreen
+import com.example.runthebusiness.ui.components.CafeActionButton
 import com.example.runthebusiness.ui.components.CafeLedgerPanel
 import com.example.runthebusiness.ui.components.CafeLedgerOptions
 import kotlinx.coroutines.launch
@@ -62,8 +63,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         depositInput = if (suggestion > 0L) java.math.BigDecimal.valueOf(suggestion, 2).toPlainString() else ""
     }
     var settlementMessage by remember { mutableStateOf<String?>(null) }
-    var daily by remember { mutableStateOf<List<DailyProfitLoss>>(emptyList()) }
-    var showDaily by remember { mutableStateOf(false) }
     var section by remember { mutableStateOf(requestedSection) }
     LaunchedEffect(requestedSection) { section = requestedSection }
     var previousSection by remember { mutableStateOf("Forecast") }
@@ -106,7 +105,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 bills = billsRepo.snapshot()
                 supplierBills = billsRepo.supplierBills()
                 paymentStatus = consequencesRepo.load()
-                daily = financeRepo.dailyProfitLoss()
                 entries = journalRepo.journal().asReversed()
             } catch (e: Exception) {
                 error = e.message ?: e.javaClass.simpleName
@@ -174,7 +172,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     }
 
     CafeSectionScreen(
-        modifier, "Finance", listOf("Forecast", "Bills", "P&L", "BS", "Cash", "Journal"), section,
+        modifier, "Finance", listOf("Forecast", "Bills", "P&L", "BS", "Cash Flow", "Journal"), section,
         onSelect = { tab ->
             if (tab == "Journal" && section != "Journal") previousSection = section
             section = tab
@@ -192,7 +190,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                         FinanceAmountRow("Cash on hand", position.cashCents)
                         FinanceAmountRow("Bank balance", position.bankCents)
                         ForecastWarnings(report)
-                        Button(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
+                        CafeActionButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
                             Text("Deposit cash into bank")
                         }
                     }
@@ -297,13 +295,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                         } }) { Text("Deposit for rent and payroll") }
                     }
                     if (position.rentPayableCents > 0L) {
-                        Button(enabled = !busy && position.bankCents >= position.rentPayableCents,
+                        CafeActionButton(enabled = !busy && position.bankCents >= position.rentPayableCents,
                             onClick = { paymentAction { cashRepo.pay("2000") } }) {
                             Text("Pay rent · €%.2f".format(Locale.ROOT, position.rentPayableCents / 100.0))
                         }
                     }
                     if (position.salariesPayableCents > 0L) {
-                        Button(enabled = !busy && position.bankCents >= position.salariesPayableCents,
+                        CafeActionButton(enabled = !busy && position.bankCents >= position.salariesPayableCents,
                             onClick = { paymentAction { cashRepo.pay("2300") } }) {
                             Text("Pay payroll · €%.2f".format(Locale.ROOT, position.salariesPayableCents / 100.0))
                         }
@@ -312,94 +310,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             }
         }
         val report = statements
-        if (report != null && section == "P&L") {
-            CafeLedgerPanel {
-                Text("Profit & Loss", style = MaterialTheme.typography.titleMedium)
-                FinanceAmountRow("Net result", report.netIncomeCents)
-                Text("After recorded expenses and tax", style = MaterialTheme.typography.bodySmall)
-            }
-            CafeLedgerOptions(listOf("Cumulative", "By day"), if (showDaily) "By day" else "Cumulative") {
-                showDaily = it == "By day"
-            }
-            if (showDaily) {
-                Text("Rent, gross salaries and depreciation are accrued when a day ends. The current day is provisional. Accruals do not reduce cash until paid.",
-                    style = MaterialTheme.typography.bodySmall)
-                if (daily.isEmpty()) Text("No journal activity yet")
-                FinanceTableRow("Day", listOf("Revenue", "Expenses", "Net"), heading = true)
-                daily.forEach { day ->
-                    HorizontalDivider()
-                    FinanceTableRow("${day.day}", listOf(money(day.revenueCents), money(day.expenseCents), money(day.profitCents)))
-                }
-            } else {
-                StatementSection("Revenue", report.revenue, onAccount = {
-                    openJournal(it)
-                })
-                StatementSection("Expenses", report.expenses, onAccount = {
-                    openJournal(it)
-                })
-            }
-        }
-        if (report != null && section == "BS") {
-            val assets = report.assets.sumOf { it.amountCents }
-            val liabilities = report.liabilities.sumOf { it.amountCents }
-            val equity = report.equity.sumOf { it.amountCents }
-            val liabilitiesAndEquity = liabilities + equity
-            CafeLedgerPanel {
-                Text("Balance Sheet", style = MaterialTheme.typography.titleMedium)
-                FinanceAmountRow("Assets", assets)
-                FinanceAmountRow("Liabilities", liabilities)
-                FinanceAmountRow("Equity", equity)
-            }
-            StatementSection("Assets", report.assets, onAccount = { openJournal(it) })
-            StatementSection("Liabilities", report.liabilities, onAccount = { openJournal(it) })
-            StatementSection("Equity and current result", report.equity, onAccount = {
-                openJournal(if (it == "CURRENT_RESULT") null else it)
-            })
-            if (assets != liabilitiesAndEquity) {
-                Text("Balance sheet does not balance: inspect the journal.",
-                    color = MaterialTheme.colorScheme.error)
-            }
-        }
-        if (report != null && section == "Cash") {
-            CafeLedgerPanel {
-                Text("Cash & bank", style = MaterialTheme.typography.titleMedium)
-                FinanceAmountRow("Total available", report.cashMovements.sumOf { it.amountCents })
-            }
-            StatementSection("Accounts", report.cashMovements, onAccount = {
-                openJournal(it)
-            })
-            HorizontalDivider()
-            Text("Payables & liquidity", style = MaterialTheme.typography.titleMedium)
-            cashPosition?.let { position ->
-                Text("Cash: ${money(position.cashCents)} · Bank: ${money(position.bankCents)}")
-                Text("Accrued rent payable: ${money(position.rentPayableCents)}")
-                Text("Accrued salaries payable: ${money(position.salariesPayableCents)}")
-                Text("Available after these payables: ${money(position.liquidityGapCents)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (position.liquidityGapCents < 0L) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurface)
-                Text("Paying a liability reduces Bank and the payable; it does not create a second P&L expense.",
-                    style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
-                    Text("Deposit cash into bank")
-                }
-                listOf(
-                    Triple("2000", "Pay accrued rent", position.rentPayableCents),
-                    Triple("2300", "Pay accrued salaries", position.salariesPayableCents)
-                ).forEach { (code, label, due) ->
-                    Button(
-                        enabled = !busy && due > 0L && position.bankCents >= due,
-                        onClick = { paymentAction {
-                            val paid = cashRepo.pay(code)
-                            settlementMessage = "Paid ${money(paid)} by bank"
-                        } }
-                    ) { Text("$label · ${money(due)}") }
-                }
-            }
-            if (settlementMessage != null) Text(settlementMessage!!,
-                color = MaterialTheme.colorScheme.primary)
-            Text("This is a cash/bank balance view, NOT a full cash-flow statement. Operating, investing and financing cash flows will be classified in a later milestone.",
-                style = MaterialTheme.typography.bodySmall)
+        if (report != null && section in setOf("P&L", "BS", "Cash Flow")) {
+            ComparativeReport(section, report, onAccount = { openJournal(it) })
         }
         if (section == "Journal") {
             Text("General ledger · newest first", style = MaterialTheme.typography.titleMedium)
@@ -506,24 +418,163 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     }
 }
 
+private data class ComparisonRow(
+    val name: String,
+    val current: Long?,
+    val previous: Long?,
+    val account: String? = null
+)
+
 @Composable
-private fun StatementSection(title: String, lines: List<FinancialLine>, onAccount: (String) -> Unit) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
-    if (lines.isEmpty()) Text("No transactions", style = MaterialTheme.typography.bodySmall)
-    lines.forEach { line ->
-        HorizontalDivider()
-        FinanceAmountRow(line.name, line.amountCents, Modifier.clickable(
-            role = Role.Button, onClickLabel = "Open account in journal"
-        ) { onAccount(line.code) }.heightIn(min = 48.dp))
+private fun ComparativeReport(
+    section: String,
+    report: FinancialStatements,
+    onAccount: (String) -> Unit
+) {
+    var showDaily by remember { mutableStateOf(false) }
+    val current = report.current
+    val previous = report.previous
+    fun accounts(now: List<FinancialLine>, before: List<FinancialLine>?): List<ComparisonRow> =
+        (now + before.orEmpty()).distinctBy { it.code }.map { line ->
+            ComparisonRow(line.name, now.firstOrNull { it.code == line.code }?.amountCents ?: 0L,
+                before?.let { rows -> rows.firstOrNull { it.code == line.code }?.amountCents ?: 0L },
+                line.code.takeUnless { it == "RESULT" })
+        }
+    val monthly = section != "BS"
+    val heading = when (section) {
+        "P&L" -> "Profit & Loss"
+        "BS" -> "Balance Sheet"
+        else -> "Cash Flow"
     }
-    StatementTotal("Total $title", lines.sumOf { it.amountCents })
+    Text(heading, style = MaterialTheme.typography.titleLarge)
+    val currentLabel = if (monthly) "Day ${current.days.first}–${current.days.last}" else "Day ${current.days.last}"
+    val previousLabel = if (monthly) previous?.days?.let { "Day ${it.first}–${it.last}" }
+        else previous?.days?.last?.let { "Day $it" }
+    Text(
+        if (previousLabel == null) "Current: $currentLabel · comparison starts on Day 31"
+        else "Current: $currentLabel  ·  Previous: $previousLabel",
+        style = MaterialTheme.typography.bodySmall
+    )
+    if (monthly && previous != null && current.days.count() < 30) {
+        Text("Current month to date vs. the full previous month.", style = MaterialTheme.typography.bodySmall)
+    }
+    when (section) {
+        "P&L" -> {
+            ComparisonTable("Results", listOf(
+                ComparisonRow("Revenue", current.revenueCents, previous?.revenueCents),
+                ComparisonRow("Expenses", current.expenseCents, previous?.expenseCents),
+                ComparisonRow("Net profit", current.profitCents, previous?.profitCents)
+            ), emphasis = "Net profit")
+            ComparisonTable("Expense breakdown", accounts(current.expenses, previous?.expenses), onAccount = onAccount)
+            ComparisonTable("Sales breakdown", accounts(current.revenue, previous?.revenue), onAccount = onAccount)
+            val nowServed = current.performance.sumOf { it.servedGroups }.toLong()
+            val beforeServed = previous?.performance?.sumOf { it.servedGroups }?.toLong()
+            ComparisonTable("Customer activity", listOf(
+                ComparisonRow("Guests arrived", current.performance.sumOf { it.arrivingGuests }.toLong(),
+                    previous?.performance?.sumOf { it.arrivingGuests }?.toLong()),
+                ComparisonRow("Groups served", nowServed, beforeServed),
+                ComparisonRow("Groups lost", current.performance.sumOf { it.lostGroups }.toLong(),
+                    previous?.performance?.sumOf { it.lostGroups }?.toLong())
+            ), format = { it.toString() })
+            val nowAverage = nowServed.takeIf { it > 0L }?.let { current.revenueCents / it }
+            val beforeAverage = previous?.let { period ->
+                beforeServed?.takeIf { it > 0L }?.let { period.revenueCents / it }
+            }
+            if (nowAverage != null || beforeAverage != null) {
+                ComparisonTable("Sales per served group", listOf(
+                    ComparisonRow("Excluding VAT", nowAverage, beforeAverage)
+                ))
+            }
+            OutlinedButton(onClick = { showDaily = !showDaily }) {
+                Text(if (showDaily) "Hide daily results" else "Show daily results")
+            }
+            if (showDaily) {
+                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+                        FinanceTableRow("Day", listOf("Revenue", "Expenses", "Net"), heading = true)
+                        current.dailyResults.forEach { day ->
+                            FinanceTableRow(day.day.toString(), listOf(money(day.revenueCents),
+                                money(day.expenseCents), money(day.revenueCents - day.expenseCents)))
+                        }
+                    }
+                }
+            }
+        }
+        "BS" -> {
+            val sections = listOf(
+                Triple("Assets", current.assets, previous?.assets),
+                Triple("Liabilities", current.liabilities, previous?.liabilities),
+                Triple("Equity", current.equity, previous?.equity)
+            )
+            sections.forEach { (label, now, before) ->
+                ComparisonTable(label, accounts(now, before) + ComparisonRow(
+                    "Total $label", now.sumOf { it.amountCents }, before?.sumOf { it.amountCents }
+                ), emphasis = "Total $label", onAccount = onAccount)
+            }
+            if (current.assets.sumOf { it.amountCents } !=
+                current.liabilities.sumOf { it.amountCents } + current.equity.sumOf { it.amountCents }
+            ) {
+                Text("Balance sheet does not balance. Inspect the journal.", color = MaterialTheme.colorScheme.error)
+            }
+        }
+        else -> {
+            ComparisonTable("Cash and bank combined", listOf(
+                ComparisonRow("Opening balance", current.openingCashCents, previous?.openingCashCents),
+                ComparisonRow("Net cash flow", current.closingCashCents - current.openingCashCents,
+                    previous?.let { it.closingCashCents - it.openingCashCents }),
+                ComparisonRow("Closing balance", current.closingCashCents, previous?.closingCashCents)
+            ), emphasis = "Net cash flow")
+            CashFlowLine.entries.groupBy { it.section }.forEach { (label, lines) ->
+                val movements = lines.mapNotNull { line ->
+                    val now = current.cashFlows[line] ?: 0L
+                    val before = previous?.let { it.cashFlows[line] ?: 0L }
+                    if (now == 0L && (before ?: 0L) == 0L) null else ComparisonRow(line.label, now, before)
+                }
+                if (movements.isNotEmpty()) {
+                    ComparisonTable(label, movements + ComparisonRow("Net $label", movements.sumOf { it.current ?: 0L },
+                        previous?.let { movements.sumOf { it.previous ?: 0L } }),
+                        emphasis = "Net $label")
+                }
+            }
+            Text("Cash deposits and other transfers between cash and bank are internal.",
+                style = MaterialTheme.typography.bodySmall)
+        }
+    }
 }
 
 @Composable
-private fun StatementTotal(label: String, cents: Long) {
-    HorizontalDivider(color = MaterialTheme.colorScheme.tertiary)
-    FinanceAmountRow(label, cents, Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)
-        .padding(horizontal = 8.dp, vertical = 4.dp))
+private fun ComparisonTable(
+    title: String,
+    rows: List<ComparisonRow>,
+    emphasis: String? = null,
+    format: (Long) -> String = ::money,
+    onAccount: (String) -> Unit = {}
+) {
+    if (rows.isEmpty()) return
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column {
+            Text(title, Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp),
+                style = MaterialTheme.typography.titleSmall)
+            FinanceTableRow("", listOf("Current", "Previous", "Change"), heading = true,
+                modifier = Modifier.padding(horizontal = 10.dp), labelWeight = 1.6f)
+            rows.forEach { row ->
+                val change = row.current?.let { now -> row.previous?.let { now - it } }
+                val interaction = if (row.account != null) Modifier.clickable(
+                    role = Role.Button, onClickLabel = "Open account in journal"
+                ) { onAccount(row.account) }.heightIn(min = 40.dp) else Modifier
+                FinanceTableRow(
+                    row.name, listOf(row.current?.let(format) ?: "—", row.previous?.let(format) ?: "—",
+                        change?.let { (if (it > 0L) "+" else "") + format(it) } ?: "—"),
+                    modifier = interaction.then(
+                        if (row.name == emphasis) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
+                        else Modifier
+                    ).padding(horizontal = 10.dp),
+                    labelWeight = 1.6f
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+    }
 }
 
 @Composable
@@ -548,10 +599,16 @@ private fun LedgerAmount(
 }
 
 @Composable
-private fun FinanceTableRow(label: String, values: List<String>, heading: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+private fun FinanceTableRow(
+    label: String,
+    values: List<String>,
+    heading: Boolean = false,
+    modifier: Modifier = Modifier,
+    labelWeight: Float = if (values.size == 3) 0.65f else 1.2f
+) {
+    Row(modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, Modifier.weight(if (values.size == 3) 0.65f else 1.2f),
+        Text(label, Modifier.weight(labelWeight),
             style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall)
         values.forEach { LedgerAmount(it, Modifier.weight(1f)) }
     }
