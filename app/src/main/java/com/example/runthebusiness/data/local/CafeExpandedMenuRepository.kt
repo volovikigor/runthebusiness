@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.CafeProductEntity
 import com.example.runthebusiness.data.local.entity.InventoryItemEntity
-import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.referencePriceCents
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.openingPriceCents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -26,17 +26,17 @@ class CafeExpandedMenuRepository(context: Context) {
 
     companion object {
         val offerings = listOf(
-            Offering("americano_001", "Americano", "DRINK", referencePriceCents("americano_001"), 80, 30.0, 7, 3),
-            Offering("latte_001", "Latte", "DRINK", referencePriceCents("latte_001"), 140, 30.0, 7, 4),
-            Offering("pain_chocolat_001", "Pain au chocolat", "PASTRY", referencePriceCents("pain_chocolat_001"), 150, 30.0, 3, 2),
-            Offering("muffin_001", "Blueberry muffin", "PASTRY", referencePriceCents("muffin_001"), 160, 30.0, 3, 2),
-            Offering("cheesecake_001", "Cheesecake slice", "DESSERT", referencePriceCents("cheesecake_001"), 220, 20.0, 4, 2),
-            Offering("carrot_cake_001", "Carrot cake slice", "DESSERT", referencePriceCents("carrot_cake_001"), 190, 20.0, 4, 2),
-            Offering("brownie_001", "Brownie", "DESSERT", referencePriceCents("brownie_001"), 150, 24.0, 5, 2),
-            Offering("ham_cheese_001", "Ham & cheese sandwich", "FOOD", referencePriceCents("ham_cheese_001"), 280, 20.0, 2, 5),
-            Offering("chicken_sandwich_001", "Chicken sandwich", "FOOD", referencePriceCents("chicken_sandwich_001"), 360, 20.0, 2, 6),
-            Offering("caesar_salad_001", "Caesar salad", "FOOD", referencePriceCents("caesar_salad_001"), 440, 15.0, 2, 8),
-            Offering("med_salad_001", "Mediterranean salad", "FOOD", referencePriceCents("med_salad_001"), 380, 15.0, 2, 7)
+            Offering("americano_001", "Americano", "DRINK", openingPriceCents("americano_001"), 80, 30.0, 7, 3),
+            Offering("latte_001", "Latte", "DRINK", openingPriceCents("latte_001"), 140, 30.0, 7, 4),
+            Offering("pain_chocolat_001", "Pain au chocolat", "PASTRY", openingPriceCents("pain_chocolat_001"), 150, 30.0, 3, 2),
+            Offering("muffin_001", "Blueberry muffin", "PASTRY", openingPriceCents("muffin_001"), 160, 30.0, 3, 2),
+            Offering("cheesecake_001", "Cheesecake slice", "DESSERT", openingPriceCents("cheesecake_001"), 220, 20.0, 4, 2),
+            Offering("carrot_cake_001", "Carrot cake slice", "DESSERT", openingPriceCents("carrot_cake_001"), 190, 20.0, 4, 2),
+            Offering("brownie_001", "Brownie", "DESSERT", openingPriceCents("brownie_001"), 150, 24.0, 5, 2),
+            Offering("ham_cheese_001", "Ham & cheese sandwich", "FOOD", openingPriceCents("ham_cheese_001"), 280, 20.0, 2, 5),
+            Offering("chicken_sandwich_001", "Chicken sandwich", "FOOD", openingPriceCents("chicken_sandwich_001"), 360, 20.0, 2, 6),
+            Offering("caesar_salad_001", "Caesar salad", "FOOD", openingPriceCents("caesar_salad_001"), 440, 15.0, 2, 8),
+            Offering("med_salad_001", "Mediterranean salad", "FOOD", openingPriceCents("med_salad_001"), 380, 15.0, 2, 7)
         )
     }
 

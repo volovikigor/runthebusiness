@@ -1,6 +1,6 @@
 package com.example.runthebusiness.industries.cafe.simulation
 
-/** Deterministic MVP demand. Prices are compared with each product's opening price,
+/** Deterministic MVP demand. Prices are compared with each product's market reference,
  * not a universal €3 reference (which unfairly penalized salads and sandwiches).
  * This is a gameplay heuristic, not an empirical demand model.
  */
@@ -14,6 +14,15 @@ object CafePriceDemandRules {
         "ham_cheese_001" to 695L, "chicken_sandwich_001" to 880L,
         "caesar_salad_001" to 1060L, "med_salad_001" to 1000L
     )
+
+    fun openingPriceCents(productId: String): Long = when (productId) {
+        "espresso_001" -> 225L
+        "cappuccino_001" -> 375L
+        "americano_001" -> 295L
+        "latte_001" -> 420L
+        "cheesecake_001" -> 500L
+        else -> referencePriceCents(productId)
+    }
 
     fun referencePriceCents(productId: String): Long = referencePrices[productId] ?: 300L
 

@@ -5,7 +5,7 @@ import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.CafeProductEntity
 import com.example.runthebusiness.data.local.entity.CafeRecipeItemEntity
 import com.example.runthebusiness.engine.model.ProductType
-import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.referencePriceCents
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.openingPriceCents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -39,11 +39,11 @@ class CafeMenuRepository(context: Context) {
                 ?: error("Opening inventory must exist")
             val products = listOf(
                 CafeProductEntity("espresso_001", location.id, "Espresso",
-                    ProductType.DRINK.name, referencePriceCents("espresso_001"), "ES_HOSPITALITY", 2, true),
+                    ProductType.DRINK.name, openingPriceCents("espresso_001"), "ES_HOSPITALITY", 2, true),
                 CafeProductEntity("cappuccino_001", location.id, "Cappuccino",
-                    ProductType.DRINK.name, referencePriceCents("cappuccino_001"), "ES_HOSPITALITY", 4, true),
+                    ProductType.DRINK.name, openingPriceCents("cappuccino_001"), "ES_HOSPITALITY", 4, true),
                 CafeProductEntity("croissant_001", location.id, "Croissant",
-                    ProductType.PASTRY.name, referencePriceCents("croissant_001"), "ES_HOSPITALITY", 2, true)
+                    ProductType.PASTRY.name, openingPriceCents("croissant_001"), "ES_HOSPITALITY", 2, true)
             )
             menu.insertProducts(products)
             menu.insertRecipes(listOf(

@@ -485,14 +485,18 @@ private fun ComparativeReport(
         "P&L" -> {
             ComparisonTable("Results", listOf(
                 ComparisonRow("Revenue", current.revenueCents, previous?.revenueCents),
-                ComparisonRow("Expenses before income tax", current.expenseCents - current.incomeTaxCents,
-                    previous?.let { it.expenseCents - it.incomeTaxCents }),
+                ComparisonRow("Cost of goods sold", current.costOfSalesCents, previous?.costOfSalesCents, "5000"),
+                ComparisonRow("Gross profit", current.grossProfitCents, previous?.grossProfitCents),
+                ComparisonRow("Operating expenses", current.operatingExpenseCents, previous?.operatingExpenseCents),
+                ComparisonRow("Operating profit", current.operatingProfitCents, previous?.operatingProfitCents),
+                ComparisonRow("Interest expense", current.interestCents, previous?.interestCents, "5700"),
                 ComparisonRow("Profit before income tax", current.profitCents + current.incomeTaxCents,
                     previous?.let { it.profitCents + it.incomeTaxCents }),
                 ComparisonRow("Income tax", current.incomeTaxCents, previous?.incomeTaxCents),
                 ComparisonRow("Net profit", current.profitCents, previous?.profitCents)
-            ), emphasis = "Net profit")
-            ComparisonTable("Expense breakdown", accounts(current.expenses, previous?.expenses), onAccount = onAccount)
+            ), emphasis = "Net profit", onAccount = onAccount)
+            ComparisonTable("Operating expense breakdown",
+                accounts(current.operatingExpenses, previous?.operatingExpenses), onAccount = onAccount)
             ComparisonTable("Sales breakdown", accounts(current.revenue, previous?.revenue), onAccount = onAccount)
             val nowServed = current.performance.sumOf { it.servedGroups }.toLong()
             val beforeServed = previous?.performance?.sumOf { it.servedGroups }?.toLong()

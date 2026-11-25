@@ -26,7 +26,16 @@ data class FinancialPeriod(
     val revenueCents get() = revenue.sumOf { it.amountCents }
     val expenseCents get() = expenses.sumOf { it.amountCents }
     val profitCents get() = revenueCents - expenseCents
-    val incomeTaxCents get() = expenses.firstOrNull { it.code == "5800" }?.amountCents ?: 0L
+    val costOfSalesCents get() = expenseAmount("5000")
+    val grossProfitCents get() = revenueCents - costOfSalesCents
+    val interestCents get() = expenseAmount("5700")
+    val incomeTaxCents get() = expenseAmount("5800")
+    val operatingExpenses get() = expenses.filterNot { it.code in setOf("5000", "5700", "5800") }
+    val operatingExpenseCents get() = expenseCents - costOfSalesCents - interestCents - incomeTaxCents
+    val operatingProfitCents get() = grossProfitCents - operatingExpenseCents
+
+    private fun expenseAmount(code: String): Long =
+        expenses.firstOrNull { it.code == code }?.amountCents ?: 0L
 }
 
 data class FinancialComparison(val current: FinancialPeriod, val previous: FinancialPeriod?)
