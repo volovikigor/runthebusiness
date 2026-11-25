@@ -89,6 +89,13 @@ interface AccountingDao {
     """)
     suspend fun dailyNetProfit(sessionId: String, beforeDay: Int): List<CafeDailyNetProfit>
 
+    @Query("""
+        SELECT COALESCE(SUM(l.debitCents - l.creditCents), 0)
+        FROM journal_lines l JOIN journal_entries j ON j.id = l.entryId
+        WHERE j.sessionId = :sessionId AND l.accountCode = :account AND j.gameDay <= :throughDay
+    """)
+    suspend fun accountBalanceThroughDay(sessionId: String, account: String, throughDay: Int): Long
+
     @Query("SELECT MAX(gameDay) FROM journal_entries WHERE sessionId = :sessionId AND id LIKE 'daily_close_%'")
     suspend fun latestCloseDayCandidate(sessionId: String): Int?
 

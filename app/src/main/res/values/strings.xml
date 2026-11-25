@@ -350,4 +350,15 @@
     <string name="purchase_bank_now">Stock arrives immediately. The full amount is paid from the bank account.</string>
     <string name="loan_due">Starter loan due · %1$s</string>
     <string name="loan_pay">Pay loan installment</string>
+    <string name="credit_line_title">Credit line</string>
+    <string name="credit_terms">Limit %1$s · %2$d%% annual interest. Interest accrues daily on the amount used.</string>
+    <string name="credit_available">Available to draw · %1$s</string>
+    <string name="credit_owing">Principal %1$s · Interest %2$s</string>
+    <string name="credit_draw">Draw credit</string>
+    <string name="credit_repay">Repay credit</string>
+    <string name="credit_max">Maximum · %1$s</string>
+    <string name="credit_line_principal">Credit line principal</string>
+    <string name="credit_line_interest">Credit line interest payable</string>
+    <string name="credit_line_draws">Credit line draws</string>
+    <string name="credit_line_repaid">Credit line principal repaid</string>
 </resources>

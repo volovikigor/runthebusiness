@@ -246,6 +246,28 @@ class SimulationLifecycleTest {
     }
 
     @Test
+    fun creditLineDrawsIntoBankAndRepaymentClearsInterestFirst() = runBlocking {
+        val simulation = GameSimulationEngine(context)
+        simulation.startGame()
+        val session = "debug_session_001"
+        val dao = GameDatabase.getInstance(context).accountingDao()
+        val credit = com.example.runthebusiness.data.local.CafeCreditLineRepository(context)
+        val bankBefore = dao.accountBalance(session, "1100")
+        credit.draw(300_000L)
+        assertEquals(bankBefore + 300_000L, dao.accountBalance(session, "1100"))
+        assertEquals(200_000L, credit.position().availableCents)
+        assertTrue(runCatching { credit.draw(200_001L) }.isFailure)
+
+        dao.updateGameTime(session, 1, 23, 45, System.currentTimeMillis())
+        simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
+        assertEquals(100L, credit.position().interestCents)
+        credit.repay(10_100L)
+        assertEquals(290_000L, credit.position().principalCents)
+        assertEquals(0L, credit.position().interestCents)
+        assertEquals(bankBefore + 289_900L, dao.accountBalance(session, "1100"))
+    }
+
+    @Test
     fun automaticDepositCoversOnlyTheDueRentShortfall() = runBlocking {
         val simulation = GameSimulationEngine(context)
         simulation.startGame()

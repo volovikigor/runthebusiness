@@ -99,6 +99,10 @@ class CafeDailyCloseRepository(context: Context) {
                         )
                     )
                 }
+                val revolvingPrincipal = (-db.accountingDao()
+                    .accountBalanceThroughDay(sessionId, CREDIT_LINE_PRINCIPAL, day)).coerceAtLeast(0L)
+                accruals += Accrual("credit_line_interest", "", "Daily credit line interest",
+                    "5700", CREDIT_LINE_INTEREST, CafeCreditLine.dailyInterestCents(revolvingPrincipal))
                 accruals.forEach { post(it) }
                 if (day % CafeTaxPolicy.taxPeriodDays == 0) {
                     val setup = db.gameSetupDao()

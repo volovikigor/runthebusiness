@@ -62,6 +62,8 @@ enum class CashFlowLine(val label: String, val section: String) {
     TAX("Taxes and social contributions", "Operations"),
     OTHER("Other operating movements", "Operations"),
     EQUIPMENT("Equipment", "Investing"),
+    CREDIT_DRAW("Credit line draws", "Financing"),
+    CREDIT_REPAYMENT("Credit line principal repaid", "Financing"),
     BORROWING("Loan proceeds", "Financing"),
     PRINCIPAL("Loan principal repaid", "Financing"),
     INTEREST("Loan interest", "Financing"),
@@ -164,7 +166,8 @@ internal fun cashMovement(entry: JournalWithLines): Map<CashFlowLine, Long> {
             "2200", "2400", "2500", "2600", "5300", "5800" -> CashFlowLine.TAX
             "1500" -> CashFlowLine.EQUIPMENT
             "2100" -> if (line.creditCents > 0L) CashFlowLine.BORROWING else CashFlowLine.PRINCIPAL
-            "5700", "2110" -> CashFlowLine.INTEREST
+            CREDIT_LINE_PRINCIPAL -> if (line.creditCents > 0L) CashFlowLine.CREDIT_DRAW else CashFlowLine.CREDIT_REPAYMENT
+            "5700", "2110", CREDIT_LINE_INTEREST -> CashFlowLine.INTEREST
             "3000" -> CashFlowLine.CAPITAL
             else -> CashFlowLine.OTHER
         }
