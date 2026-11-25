@@ -1,0 +1,8 @@
+<resources>
+    <string name="kpi_no_days">Aún no hay días completos.</string>
+    <string name="kpi_days_range">Días completados %1$d–%2$d</string>
+    <string name="menu_ready_count">La cifra indica los platos con existencias para al menos una ración.</string>
+    <string name="menu_servings_explain">Los números junto a los platos indican las raciones que permiten las existencias actuales. Consulta las ventas en Operaciones → Precios.</string>
+    <string name="finance_journal_hint">Toca una fila de cuenta para abrir sus asientos.</string>
+    <string name="home_tab_summary">Operaciones: menú, existencias y personal. Finanzas: pagos e informes.</string>
+</resources>

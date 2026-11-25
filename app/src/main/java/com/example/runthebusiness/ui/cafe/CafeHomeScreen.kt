@@ -91,7 +91,7 @@ private fun CafeShiftSummary(
 
 @Composable
 private fun CafeKpiPanel(
-    completedDays: Int,
+    window: IntRange,
     profitCents: Long,
     bankAfterBills: Long?,
     days: List<CafeDayPerformance>,
@@ -99,6 +99,7 @@ private fun CafeKpiPanel(
     reachedTarget: Boolean,
     onOpenFinance: () -> Unit
 ) {
+    val completedDays = window.count()
     val arrivals = days.sumOf { it.arrivingGroups }
     val served = days.sumOf { it.servedGroups }
     val losses = listOf(
@@ -112,9 +113,17 @@ private fun CafeKpiPanel(
     val totalLosses = rankedLosses.sumOf { it.second }
     val colors = MaterialTheme.colorScheme
     CafeLedgerPanel {
-        Text(stringResource(R.string.cafe_overview), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.kpi_completed_window, completedDays),
-            style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.cafe_overview), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            CafeGuideButton(stringResource(R.string.guide_button), R.string.guide_cafe)
+        }
+        Text(
+            if (window.isEmpty()) stringResource(R.string.kpi_no_days)
+            else stringResource(R.string.kpi_days_range, window.first, window.last),
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(stringResource(R.string.home_tab_summary), style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
@@ -328,7 +337,7 @@ fun CafeHomeScreen(
                 val monthProfits = profits.filter { it.day <= (cafe.time.day - 1) / 30 * 30 }
                     .groupBy { (it.day - 1) / 30 }.values.map { month -> month.sumOf { it.cents } }
                 CafeKpiPanel(
-                    completedDays = window.count(),
+                    window = window,
                     profitCents = profits.filter { it.day in window }.sumOf { it.cents },
                     bankAfterBills = cashPosition?.let { it.bankCents - bills.sumOf { bill -> bill.due } - supplierDueCents },
                     days = completed,
@@ -353,6 +362,7 @@ fun CafeHomeScreen(
                 val ready = menuReadiness.count { it.ready }
                 Text(stringResource(R.string.menu_readiness, ready, menuReadiness.size),
                     style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.menu_ready_count), style = MaterialTheme.typography.bodySmall)
                 if (shortages.isEmpty()) {
                     Text(stringResource(if (ready == menuReadiness.size && ready > 0)
                         R.string.home_no_shortages else R.string.home_check_menu),
@@ -401,6 +411,7 @@ fun CafeHomeScreen(
                     Text(stringResource(if (showMenuReadiness) R.string.hide_menu_details else R.string.show_menu_details))
                 }
                 if (showMenuReadiness) {
+                    Text(stringResource(R.string.menu_servings_explain), style = MaterialTheme.typography.bodySmall)
                     menuReadiness.forEach { dish ->
                         HorizontalDivider()
                         val availability = when {
@@ -453,7 +464,6 @@ fun CafeHomeScreen(
                 }
             }
             if (homeSection == 3) CafeLedgerPanel {
-                CafeGuideButton(stringResource(R.string.cafe_overview), R.string.guide_cafe)
                 Text(stringResource(R.string.save_game), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.new_game_warning), style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { confirmNewGame = true }, enabled = !loading && speed == 0) {
