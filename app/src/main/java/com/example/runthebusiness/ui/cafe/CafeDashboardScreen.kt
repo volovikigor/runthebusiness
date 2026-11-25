@@ -121,6 +121,15 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     OutlinedButton(enabled = !busy, onClick = {
                         run { expanded.setEnabled(product.id, !product.enabled) }
                     }) { Text(if (product.enabled) "Remove from menu" else "Add to menu") }
+                    val openingPrice = CafePriceDemandRules.openingPriceCents(product.id)
+                    if (product.enabled && product.priceCents > openingPrice) {
+                        Text("Above the opening price. Guests order this item less often, and some skip the visit.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (product.enabled && CafePriceDemandRules.discountTrafficWeight(product.id, product.priceCents) > 0) {
+                        Text("This discount attracts extra groups for this item. Check stock and staff capacity.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     if (packs.isNotEmpty()) MenuPurchasingDetails(product, packs)
                 }
             },
@@ -195,12 +204,6 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         expanded.install()
                         message = "11 new menu items added. Enable and stock the ones you want to sell."
                     } }, enabled = !busy) { Text("Expand menu: cakes, sandwiches & salads") }
-                }
-                if (products.any { lowerOpeningPrice(it.id, it.priceCents) != null }) {
-                    CafeActionButton(enabled = !busy, onClick = { run {
-                        val changed = menu.applyLowerOpeningPrices()
-                        message = "Updated $changed prices still at their former defaults."
-                    } }) { Text("Apply lower starting prices") }
                 }
                 products.forEach { product ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

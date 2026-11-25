@@ -97,6 +97,11 @@ class CafeAuditExportRepository(context: Context) {
             WHERE o.gameDay $days
             GROUP BY o.gameDay, l.productId, l.productName
             ORDER BY o.gameDay, l.productName""")
+        writeSection("promotion_outcomes", """
+            SELECT preferredProductId AS productId, status, COUNT(*) AS groups, SUM(guests) AS guests
+            FROM cafe_arrivals WHERE gameDay $days AND preferredProductId IS NOT NULL
+            GROUP BY preferredProductId, status ORDER BY preferredProductId, status
+        """)
         writeSection("group_size_conversion", """SELECT guests, status,
             COUNT(*) AS groups FROM cafe_arrivals WHERE gameDay $days
             GROUP BY guests, status ORDER BY guests, status""")
@@ -225,7 +230,7 @@ internal fun dailyEconomicsSql(fromDay: Int, throughDay: Int): String = """
             SUM(CASE WHEN l.accountCode = '1100' THEN l.debitCents - l.creditCents ELSE 0 END) AS bankDelta,
             SUM(CASE WHEN l.accountCode = '1400' THEN l.debitCents - l.creditCents ELSE 0 END) AS inventoryDelta,
             SUM(CASE WHEN l.accountCode = '2010' THEN l.creditCents - l.debitCents ELSE 0 END) AS supplierDelta,
-            SUM(CASE WHEN a.type = 'LIABILITY' AND l.accountCode != '2100'
+            SUM(CASE WHEN a.type = 'LIABILITY' AND l.accountCode NOT IN ('2100', '2110')
                 THEN l.creditCents - l.debitCents ELSE 0 END) AS payableDelta
         FROM journal_entries e JOIN journal_lines l ON l.entryId = e.id
         LEFT JOIN ledger_accounts a ON a.sessionId = e.sessionId AND a.businessId = e.businessId

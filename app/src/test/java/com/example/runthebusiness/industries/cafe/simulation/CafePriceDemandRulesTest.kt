@@ -5,8 +5,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CafePriceDemandRulesTest {
-    @Test fun referencePriceAlwaysConverts() {
-        assertTrue(CafePriceDemandRules.accepts("arrival_1", "espresso_001", 260L))
+    @Test fun openingPriceAlwaysConverts() {
+        assertTrue(CafePriceDemandRules.accepts("arrival_1", "espresso_001", 225L))
     }
 
     @Test fun sameArrivalAndPriceAlwaysHaveSameOutcome() {
