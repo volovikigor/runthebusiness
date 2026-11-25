@@ -25,7 +25,8 @@ data class CafeStaffSnapshot(
     val currentCostCents: Long,
     val plannedCostCents: Long,
     val peakWorkload: Int,
-    val capacityLosses: Int
+    val capacityLosses: Int,
+    val recentCapacityLosses: Int
 )
 
 class CafeStaffRepository(context: Context) {
@@ -46,7 +47,8 @@ class CafeStaffRepository(context: Context) {
             CafeStaffCapacityRules.slotCapacity(planned.map { it.productivity }),
             current.staffCostCents(today), planned.staffCostCents(today + 1),
             operations.peakStaffWorkload(location.id, today - 1),
-            db.cafeArrivalDao().capacityLossesForDay(location.id, today - 1)
+            db.cafeArrivalDao().capacityLossesForDay(location.id, today - 1),
+            db.cafeArrivalDao().capacityLosses(location.id, (today - 30).coerceAtLeast(1), today - 1)
         )
     }
 

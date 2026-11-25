@@ -11,6 +11,15 @@ interface CafeMenuDao {
     @Query("SELECT * FROM cafe_products WHERE locationId = :locationId ORDER BY name")
     suspend fun getProducts(locationId: String): List<CafeProductEntity>
 
+    @Query("SELECT * FROM cafe_products WHERE id = :productId AND locationId = :locationId")
+    suspend fun getProduct(locationId: String, productId: String): CafeProductEntity?
+
+    @Query("SELECT * FROM cafe_price_changes WHERE productId = :productId ORDER BY gameDay DESC LIMIT 2")
+    suspend fun latestPriceChanges(productId: String): List<CafePriceChangeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun savePriceChange(change: CafePriceChangeEntity)
+
     @Query("SELECT * FROM cafe_recipe_items WHERE productId = :productId ORDER BY ingredientId")
     suspend fun getRecipe(productId: String): List<CafeRecipeItemEntity>
 

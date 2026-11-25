@@ -95,6 +95,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         }
         LaunchedEffect(Unit) { run { } }
     products.firstOrNull { it.id == openMenuProduct }?.let { product ->
+        var insights by remember(product.id) { mutableStateOf<MenuPriceInsights?>(null) }
+        LaunchedEffect(product.id, product.priceCents, currentGameDay) {
+            insights = menu.priceInsights(product.id)
+        }
         val itemIds = listOfNotNull(product.finishedStockItemId).ifEmpty {
             product.ingredients.map { it.first }
         }
@@ -130,6 +134,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         Text("This discount attracts extra groups for this item. Check stock and staff capacity.",
                             style = MaterialTheme.typography.bodySmall)
                     }
+                    insights?.let { MenuPriceAnalytics(it) }
                     if (packs.isNotEmpty()) MenuPurchasingDetails(product, packs)
                 }
             },
@@ -348,6 +353,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 if (team.today > 1) {
                     Text("Day ${team.today - 1} · peak workload ${team.peakWorkload} work minutes per slot")
                     Text("Groups lost to staff capacity · ${team.capacityLosses}")
+                    Text("Last 30 completed days · ${team.recentCapacityLosses} groups lost to staff capacity")
                 }
             }
             else -> inventory?.let { report ->
@@ -448,3 +454,65 @@ private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchas
 }
 
 private fun menuPackMoney(cents: Long): String = "€%.2f".format(Locale.ROOT, cents / 100.0)
+
+@Composable
+private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
+    CafeLedgerPanel {
+        Text("Price & demand", style = MaterialTheme.typography.titleSmall)
+        val recent = insights.recent
+        if (recent != null) {
+            Text("Days ${recent.days.first}–${recent.days.last} · ${recent.sales.units} sold",
+                style = MaterialTheme.typography.bodySmall)
+            val low = recent.sales.minPriceCents
+            val high = recent.sales.maxPriceCents
+            if (low != null && high != null) {
+                val price = if (low == high) menuPackMoney(low) else "${menuPackMoney(low)}–${menuPackMoney(high)}"
+                Text("Recorded sale price · $price", style = MaterialTheme.typography.bodySmall)
+            }
+            Text("Café traffic · ${recent.traffic.groups} groups · ${recent.traffic.guests} guests",
+                style = MaterialTheme.typography.bodySmall)
+            if (recent.traffic.promotionGroups > 0) {
+                Text("Promotion · ${recent.traffic.promotionGroups} groups · ${recent.traffic.promotionStockLosses} lost to stock · ${recent.traffic.promotionStaffLosses} lost to staffing",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        val change = insights.change
+        when {
+            change == null -> Text("A new price change starts a before-and-after comparison.",
+                style = MaterialTheme.typography.bodySmall)
+            change.previousCents == change.currentCents -> Text("Day ${change.gameDay} ended at the previous price.",
+                style = MaterialTheme.typography.bodySmall)
+            else -> {
+                Text("Day ${change.gameDay}: ${menuPackMoney(change.previousCents)} → ${menuPackMoney(change.currentCents)}",
+                    style = MaterialTheme.typography.bodySmall)
+                val before = insights.before
+                val after = insights.after
+                if (before != null && after != null) {
+                    PriceComparisonRow("Completed days",
+                        "${before.days.first}–${before.days.last}", "${after.days.first}–${after.days.last}")
+                    PriceComparisonRow("Units sold", before.sales.units.toString(), after.sales.units.toString())
+                    PriceComparisonRow("Sales incl. VAT", menuPackMoney(before.sales.grossCents),
+                        menuPackMoney(after.sales.grossCents))
+                    PriceComparisonRow("Café groups", before.traffic.groups.toString(), after.traffic.groups.toString())
+                    PriceComparisonRow("Café guests", before.traffic.guests.toString(), after.traffic.guests.toString())
+                    PriceComparisonRow("Groups lost to staffing", before.traffic.staffLosses.toString(),
+                        after.traffic.staffLosses.toString())
+                    Text("Before → after. Equal-length periods exclude the day you changed the price.",
+                        style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Text("The comparison needs a completed day on each side of the price change.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PriceComparisonRow(label: String, before: String, after: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        val style = MaterialTheme.typography.bodySmall
+        Text(label, Modifier.weight(1f), style = style)
+        Text("$before → $after", style = style, textAlign = TextAlign.End)
+    }
+}

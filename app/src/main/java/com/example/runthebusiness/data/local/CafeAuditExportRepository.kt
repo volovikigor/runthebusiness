@@ -97,6 +97,18 @@ class CafeAuditExportRepository(context: Context) {
             WHERE o.gameDay $days
             GROUP BY o.gameDay, l.productId, l.productName
             ORDER BY o.gameDay, l.productName""")
+        writeSection("price_changes", "SELECT * FROM cafe_price_changes WHERE gameDay $days ORDER BY gameDay, productId")
+        writeSection("daily_sales_by_price", """
+            SELECT o.gameDay, l.productId, l.unitPriceCents, SUM(l.quantity) AS units
+            FROM customer_order_lines l JOIN customer_orders o ON o.id = l.orderId
+            WHERE o.gameDay $days GROUP BY o.gameDay, l.productId, l.unitPriceCents
+            ORDER BY o.gameDay, l.productId, l.unitPriceCents
+        """)
+        writeSection("daily_cafe_traffic", """
+            SELECT gameDay, status, COUNT(*) AS "groups", SUM(guests) AS guests
+            FROM cafe_arrivals WHERE gameDay $days
+            GROUP BY gameDay, status ORDER BY gameDay, status
+        """)
         writeSection("promotion_outcomes", """
             SELECT preferredProductId AS productId, status, COUNT(*) AS groups, SUM(guests) AS guests
             FROM cafe_arrivals WHERE gameDay $days AND preferredProductId IS NOT NULL
