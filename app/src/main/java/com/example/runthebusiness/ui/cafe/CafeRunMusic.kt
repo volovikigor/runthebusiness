@@ -14,7 +14,9 @@ import com.example.runthebusiness.R
 internal enum class CafeMusicTrack(val title: String, val resource: Int) {
     AFTER_OPENING("After Opening", R.raw.cafe_ambient),
     MORNING_GROOVE("Morning Groove", R.raw.cafe_morning_groove),
-    STEADY_SERVICE("Steady Service", R.raw.cafe_steady_service)
+    STEADY_SERVICE("Steady Service", R.raw.cafe_steady_service),
+    WINDOW_SEAT("Window Seat", R.raw.cafe_window_seat),
+    AFTER_HOURS("After Hours", R.raw.cafe_after_hours)
 }
 
 private class PlaylistPosition(var track: Int = 0, var milliseconds: Int = 0)
