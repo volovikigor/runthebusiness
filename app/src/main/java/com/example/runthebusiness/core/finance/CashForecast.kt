@@ -16,6 +16,9 @@ data class ForecastDay(
     val payments: List<ForecastPayment>
 )
 
+internal fun monthlyLoanInterestCents(outstandingCents: Long, annualInterestRate: Double): Long =
+    (outstandingCents * annualInterestRate / 12.0).roundToLong()
+
 object CashForecast {
     fun loanSchedule(
         outstandingCents: Long,
@@ -29,7 +32,7 @@ object CashForecast {
         return buildList {
             repeat(termMonths) { month ->
                 if (balance == 0L) return@buildList
-                val interest = (balance * annualInterestRate / 12.0).roundToLong()
+                val interest = monthlyLoanInterestCents(balance, annualInterestRate)
                 val principal = if (month == termMonths - 1) balance
                 else (monthlyPaymentCents - interest).coerceIn(0L, balance)
                 add(LoanInstallment(firstDueDay + month * 30, principal, interest))

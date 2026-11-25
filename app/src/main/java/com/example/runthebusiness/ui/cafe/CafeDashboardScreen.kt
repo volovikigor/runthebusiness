@@ -196,12 +196,6 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         message = "11 new menu items added. Enable and stock the ones you want to sell."
                     } }, enabled = !busy) { Text("Expand menu: cakes, sandwiches & salads") }
                 }
-                if (products.any { lowerOpeningPrice(it.id, it.priceCents) != null }) {
-                    CafeActionButton(enabled = !busy, onClick = { run {
-                        val changed = menu.applyLowerOpeningPrices()
-                        message = "Updated $changed prices still at their former defaults."
-                    } }) { Text("Apply lower starting prices") }
-                }
                 products.forEach { product ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

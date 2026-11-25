@@ -485,7 +485,7 @@ private fun ComparativeReport(
     when (section) {
         "P&L" -> {
             ComparisonTable("Results", listOf(
-                ComparisonRow("Revenue", current.revenueCents, previous?.revenueCents),
+                ComparisonRow("Revenue", current.revenueCents, previous?.revenueCents, "4000"),
                 ComparisonRow("Cost of goods sold", current.costOfSalesCents, previous?.costOfSalesCents, "5000"),
                 ComparisonRow("Gross profit", current.grossProfitCents, previous?.grossProfitCents),
                 ComparisonRow("Operating expenses", current.operatingExpenseCents, previous?.operatingExpenseCents),
@@ -734,7 +734,7 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
                 ), modifier = inset, labelWeight = 1.2f, ruled = true)
             }
         }
-        Text("Projected from the original loan schedule.", style = MaterialTheme.typography.bodySmall)
+        Text("Projected loan payments. Monthly interest is accrued in P&L.", style = MaterialTheme.typography.bodySmall)
     }
 }
 

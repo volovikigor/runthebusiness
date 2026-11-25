@@ -164,7 +164,7 @@ internal fun cashMovement(entry: JournalWithLines): Map<CashFlowLine, Long> {
             "2200", "2400", "2500", "2600", "5300", "5800" -> CashFlowLine.TAX
             "1500" -> CashFlowLine.EQUIPMENT
             "2100" -> if (line.creditCents > 0L) CashFlowLine.BORROWING else CashFlowLine.PRINCIPAL
-            "5700" -> CashFlowLine.INTEREST
+            "5700", "2110" -> CashFlowLine.INTEREST
             "3000" -> CashFlowLine.CAPITAL
             else -> CashFlowLine.OTHER
         }

@@ -49,7 +49,7 @@ internal object CafeStartingFactory {
             openingHour = 8,
             closingHour = 17,
             isOpen = true,
-            monthlyRentCents = 150_000L
+            monthlyRentCents = 180_000L
         )
 
         val roles = listOf(
@@ -123,6 +123,7 @@ internal object CafeStartingFactory {
             LedgerAccount("2000", "Rent payable", AccountType.LIABILITY),
             LedgerAccount("2010", "Supplier invoices payable", AccountType.LIABILITY),
             LedgerAccount("2100", "Loan payable", AccountType.LIABILITY),
+            LedgerAccount("2110", "Interest payable", AccountType.LIABILITY),
             LedgerAccount("2200", "Output VAT", AccountType.LIABILITY),
             LedgerAccount("2300", "Salaries payable", AccountType.LIABILITY),
             LedgerAccount("2400", "Social security payable", AccountType.LIABILITY),

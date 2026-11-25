@@ -3,6 +3,7 @@ package com.example.runthebusiness.data.local
 import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.core.finance.dailyMonthlyAccrual
+import com.example.runthebusiness.core.finance.monthlyLoanInterestCents
 import com.example.runthebusiness.core.finance.CafeTaxPolicy
 import com.example.runthebusiness.data.local.entity.*
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +13,7 @@ import kotlinx.coroutines.withContext
  * Simplified 30-day game month. Accruals are non-cash and idempotent per day.
  * Rent: Dr 5400 / Cr 2000; wages: Dr 5200 / Cr 2300;
  * depreciation: Dr 5600 / Cr 1590.
- * Social contributions accrue daily; corporate income tax accrues at period close.
+ * Social contributions accrue daily. Interest and corporate income tax accrue at month close.
  */
 class CafeDailyCloseRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
@@ -100,6 +101,19 @@ class CafeDailyCloseRepository(context: Context) {
                 }
                 accruals.forEach { post(it) }
                 if (day % CafeTaxPolicy.taxPeriodDays == 0) {
+                    val setup = db.gameSetupDao()
+                    val interest = setup.getLoans(sessionId)
+                        .filter { it.isActive && day >= it.nextPaymentDay - 1 }
+                        .sumOf { monthlyLoanInterestCents(it.outstandingPrincipalCents, it.annualInterestRate) }
+                    if (interest > 0L) {
+                        if (setup.getAccounts(sessionId).none { it.businessId == business.id && it.code == "2110" }) {
+                            setup.insertAccounts(listOf(
+                                LedgerAccountEntity(sessionId, business.id, "2110", "Interest payable", "LIABILITY")
+                            ))
+                        }
+                        post(Accrual("loan_interest", "", "Loan interest for period ending Day $day",
+                            "5700", "2110", interest))
+                    }
                     val profit = db.accountingDao().periodProfitBeforeTax(
                         sessionId, day - CafeTaxPolicy.taxPeriodDays + 1, day
                     )
