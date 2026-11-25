@@ -81,16 +81,31 @@ class CafeMenuRepository(context: Context) {
                 val business = setup.getBusinesses(sessionId).singleOrNull()
                     ?: error("Start café first")
                 val location = locations.getLocations(business.id).single()
-                val oldPrice = checkNotNull(menu.getProduct(location.id, productId)).sellingPriceCents
-                if (oldPrice == priceCents) return@withTransaction
+                val product = checkNotNull(menu.getProduct(location.id, productId)) { "Menu product not found" }
                 val day = checkNotNull(db.accountingDao().getSession(sessionId)).currentDay
-                val sameDay = menu.latestPriceChanges(productId).firstOrNull()?.takeIf { it.gameDay == day }
-                menu.savePriceChange(CafePriceChangeEntity(productId, day, sameDay?.previousCents ?: oldPrice, priceCents))
-                check(menu.updatePrice(productId, location.id, priceCents) == 1) {
-                    "Menu product not found"
-                }
+                recordPrice(product, priceCents, day)
+                Unit
             }
         }
+
+    suspend fun resetPrices(sessionId: String = "debug_session_001"): Int = db.withTransaction {
+        val business = setup.getBusinesses(sessionId).single()
+        val location = locations.getLocations(business.id).single()
+        val day = checkNotNull(db.accountingDao().getSession(sessionId)).currentDay
+        menu.getProducts(location.id).count { product ->
+            recordPrice(product, openingPriceCents(product.id), day)
+        }
+    }
+
+    private suspend fun recordPrice(product: CafeProductEntity, priceCents: Long, day: Int): Boolean {
+        if (product.sellingPriceCents == priceCents) return false
+        val sameDay = menu.latestPriceChanges(product.id).firstOrNull()?.takeIf { it.gameDay == day }
+        menu.savePriceChange(CafePriceChangeEntity(
+            product.id, day, sameDay?.previousCents ?: product.sellingPriceCents, priceCents
+        ))
+        check(menu.updatePrice(product.id, product.locationId, priceCents) == 1) { "Menu product not found" }
+        return true
+    }
 
     suspend fun priceInsights(productId: String, sessionId: String = "debug_session_001"): MenuPriceInsights =
         db.withTransaction {

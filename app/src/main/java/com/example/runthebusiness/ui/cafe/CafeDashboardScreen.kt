@@ -36,6 +36,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val inventoryRepo = remember(context) { CafeInventorySummaryRepository(context) }
     var inventory by remember { mutableStateOf<CafeInventorySummary?>(null) }
     var openIngredient by remember { mutableStateOf<String?>(null) }
+    var confirmPriceReset by remember { mutableStateOf(false) }
     var openMenuProduct by remember { mutableStateOf<String?>(null) }
     var selectedPack by remember { mutableStateOf<CafePurchasingRepository.Supply?>(null) }
     var deferredPayment by remember { mutableStateOf(false) }
@@ -94,6 +95,24 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             }
         }
         LaunchedEffect(Unit) { run { } }
+    if (confirmPriceReset) {
+        AlertDialog(
+            onDismissRequest = { confirmPriceReset = false },
+            title = { Text("Reset menu prices?") },
+            text = { Text("All menu items will return to their starting prices.") },
+            confirmButton = {
+                CafeActionButton(enabled = !busy, onClick = {
+                    confirmPriceReset = false
+                    run {
+                        val count = menu.resetPrices()
+                        message = "Prices reset for $count menu items."
+                    }
+                }) { Text("Reset prices") }
+            },
+            dismissButton = { TextButton(onClick = { confirmPriceReset = false }) { Text("Cancel") } }
+        )
+    }
+
     products.firstOrNull { it.id == openMenuProduct }?.let { product ->
         var insights by remember(product.id) { mutableStateOf<MenuPriceInsights?>(null) }
         LaunchedEffect(product.id, product.priceCents, currentGameDay) {
@@ -198,6 +217,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 Text("Menu & pricing", style = MaterialTheme.typography.titleLarge)
                 WeeklyDemandCard(currentGameDay)
                 Text("Sales cover up to seven completed days.", style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(
+                    enabled = !busy && products.any { it.priceCents != CafePriceDemandRules.openingPriceCents(it.id) },
+                    onClick = { confirmPriceReset = true }
+                ) { Text("Reset to starting prices") }
                 if (products.isEmpty()) {
                     Text("Create the starter menu first.")
                     CafeActionButton(onClick = { run { menu.seedMenu() } }, enabled = !busy) {
