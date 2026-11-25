@@ -16,7 +16,8 @@ object CafeArrivalPlanner {
     }
 
     fun plan(from: GameTime, to: GameTime, openingHour: Int, closingHour: Int,
-             seats: Int, promotions: List<Promotion> = emptyList()): List<Arrival> {
+             seats: Int, promotions: List<Promotion> = emptyList(),
+             priceResistance: Map<String, Double> = emptyMap()): List<Arrival> {
         require(to >= from && seats >= 0)
         require(openingHour in 0..23 && closingHour in 1..24 && openingHour < closingHour)
         require(to.totalMinutes - from.totalMinutes <= 1440) { "Advance at most one day at a time" }
@@ -48,7 +49,11 @@ object CafeArrivalPlanner {
                 val guests = if (busy) {
                     if (cycle % 3 == 0) 3 else 4
                 } else if (cycle == 1) 0 else 3
-                if (guests > 0) result += Arrival(day, hour, slot, minOf(guests, seats))
+                if (guests > 0) {
+                    val missedVisit = CafePriceDemandRules.missedVisitPercent(priceResistance, hour)
+                    val draw = Math.floorMod("price_visit:${tick / 15}".hashCode(), 100)
+                    if (draw >= missedVisit) result += Arrival(day, hour, slot, minOf(guests, seats))
+                }
                 promotedProduct(tick)?.let { productId ->
                     val groupSize = if (busy) 3 else 2
                     result += Arrival(day, hour, slot, minOf(groupSize, seats), productId)

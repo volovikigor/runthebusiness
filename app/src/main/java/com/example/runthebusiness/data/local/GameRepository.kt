@@ -154,15 +154,18 @@ class GameRepository(context: Context) {
                     val cafe = operations.getLocations(business.id).singleOrNull()
                     if (shared != null && cafe != null && shared.isOpen) {
                         val seats = cafe.tableCount * cafe.seatsPerTable
-                        val promotions = db.cafeMenuDao().getProducts(shared.id)
+                        val activeMenu = db.cafeMenuDao().getProducts(shared.id)
                             .filter { it.isAvailable && it.fulfillment != "BATCH_PRODUCED" }
-                            .mapNotNull {
-                                val weight = CafePriceDemandRules.discountTrafficWeight(it.id, it.sellingPriceCents)
-                                if (weight > 0) CafeArrivalPlanner.Promotion(it.id, weight) else null
-                            }
+                        val promotions = activeMenu.mapNotNull {
+                            val weight = CafePriceDemandRules.discountTrafficWeight(it.id, it.sellingPriceCents)
+                            if (weight > 0) CafeArrivalPlanner.Promotion(it.id, weight) else null
+                        }
+                        val priceResistance = CafePriceDemandRules.categoryPriceResistance(activeMenu.map {
+                            CafePriceDemandRules.MenuPrice(it.id, it.type, it.sellingPriceCents)
+                        })
                         val arrivals = CafeArrivalPlanner.plan(
                             GameTime(session.currentDay, session.currentHour, session.currentMinute),
-                            next, shared.openingHour, shared.closingHour, seats, promotions
+                            next, shared.openingHour, shared.closingHour, seats, promotions, priceResistance
                         )
                         db.cafeArrivalDao().insertArrivals(arrivals.map {
                             CafeArrivalEntity(

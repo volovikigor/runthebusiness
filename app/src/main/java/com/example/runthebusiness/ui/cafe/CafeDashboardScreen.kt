@@ -121,6 +121,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     OutlinedButton(enabled = !busy, onClick = {
                         run { expanded.setEnabled(product.id, !product.enabled) }
                     }) { Text(if (product.enabled) "Remove from menu" else "Add to menu") }
+                    val openingPrice = CafePriceDemandRules.openingPriceCents(product.id)
+                    if (product.enabled && product.priceCents > openingPrice) {
+                        Text("Above the opening price. Guests order this item less often, and some skip the visit.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     if (product.enabled && CafePriceDemandRules.discountTrafficWeight(product.id, product.priceCents) > 0) {
                         Text("This discount attracts extra groups for this item. Check stock and staff capacity.",
                             style = MaterialTheme.typography.bodySmall)

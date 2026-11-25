@@ -1,6 +1,6 @@
 package com.example.runthebusiness.industries.cafe.simulation
 
-/** Deterministic MVP demand. Prices are compared with each product's market reference,
+/** Deterministic MVP demand. Prices are compared with each product's opening price,
  * not a universal €3 reference (which unfairly penalized salads and sandwiches).
  * This is a gameplay heuristic, not an empirical demand model.
  */
@@ -31,13 +31,30 @@ object CafePriceDemandRules {
         return ((opening - priceCents).coerceAtLeast(0L) * 300 / opening).coerceAtMost(100L).toInt()
     }
 
-    fun accepts(arrivalId: String, productId: String, priceCents: Long): Boolean {
+    data class MenuPrice(val productId: String, val category: String, val cents: Long)
+
+    private fun acceptancePercent(productId: String, priceCents: Long): Int {
         require(priceCents > 0L)
-        val reference = referencePriceCents(productId)
-        // Purchase acceptance within a basket is separate from discount-driven arrivals.
-        val probabilityPercent = (reference * 100L / priceCents).coerceIn(10L, 100L)
+        return (openingPriceCents(productId) * 100L / priceCents).coerceIn(10L, 100L).toInt()
+    }
+
+    fun accepts(arrivalId: String, productId: String, priceCents: Long): Boolean {
         val bucket = Math.floorMod("$arrivalId:$productId".hashCode(), 100)
-        return bucket < probabilityPercent
+        return bucket < acceptancePercent(productId, priceCents)
+    }
+
+    fun categoryPriceResistance(menu: List<MenuPrice>): Map<String, Double> =
+        menu.groupBy { it.category }.mapValues { (_, options) ->
+            options.map { 100 - acceptancePercent(it.productId, it.cents) }.average()
+        }
+
+    fun missedVisitPercent(resistance: Map<String, Double>, hour: Int): Int {
+        val lunch = hour in 11..14
+        val score = (resistance["DRINK"] ?: 0.0) * 0.65 +
+            (resistance["FOOD"] ?: 0.0) * (if (lunch) 0.45 else 0.15) +
+            (resistance["DESSERT"] ?: 0.0) * (if (hour >= 15) 0.30 else 0.15) +
+            (resistance["PASTRY"] ?: 0.0) * (if (hour < 11) 0.30 else 0.15)
+        return score.toInt().coerceAtMost(45)
     }
 
     fun isWeekend(day: Int): Boolean = (day - 1) % 7 >= 5

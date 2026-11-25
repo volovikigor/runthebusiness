@@ -58,6 +58,23 @@ class CafeArrivalPlannerRegressionTest {
             CafeArrivalPlanner.plan(middle, to, 8, 17, 24, promoted(280L)))
     }
 
+    @Test fun higherPricesReduceRegularTrafficAndAlternativesSoftenTheDrop() {
+        val from = GameTime(1, 7, 45)
+        val to = GameTime(1, 17, 0)
+        val regular = CafeArrivalPlanner.plan(from, to, 8, 17, 24)
+        fun visits(vararg menu: CafePriceDemandRules.MenuPrice) = CafeArrivalPlanner.plan(
+            from, to, 8, 17, 24, priceResistance = CafePriceDemandRules.categoryPriceResistance(menu.toList())
+        )
+        val espresso = CafePriceDemandRules.MenuPrice("espresso_001", "DRINK", 225L)
+        assertEquals(regular, visits(espresso))
+        val expensive = espresso.copy(cents = 900L)
+        val fewer = visits(expensive)
+        assertTrue(fewer.size < regular.size)
+        assertTrue(regular.containsAll(fewer))
+        val alternative = CafePriceDemandRules.MenuPrice("latte_001", "DRINK", 420L)
+        assertTrue(visits(expensive, alternative).size > fewer.size)
+    }
+
     @Test fun zeroSeatsPreventsArrivals() {
         assertTrue(CafeArrivalPlanner.plan(GameTime(1, 8, 0), GameTime(1, 9, 0), 8, 17, 0).isEmpty())
     }
