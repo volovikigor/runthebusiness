@@ -204,17 +204,17 @@ class SimulationLifecycleTest {
         val report = checkNotNull(CafeCashForecastRepository(context).load())
         assertEquals(6, report.historyDays)
         assertEquals(7, report.days.first().day)
-        assertEquals(3_500_000L, report.days.first().bankCents)
+        assertEquals(500_000L, report.days.first().bankCents)
         val due = report.days.last()
         assertEquals(14, due.day)
         val bills = due.payments.associate { it.label to it.amountCents }
         assertEquals(mapOf("Rent" to 65_000L, "Payroll" to 219_960L), bills)
-        assertEquals(3_215_040L, due.bankCents)
+        assertEquals(215_040L, due.bankCents)
         val loan = report.installments.first()
         assertEquals(31, loan.dueDay)
-        assertEquals(25_000L, loan.interestCents)
-        assertEquals(96_664L, loan.totalCents)
-        assertEquals(3_500_000L, GameDatabase.getInstance(context).accountingDao()
+        assertEquals(10_000L, loan.interestCents)
+        assertEquals(38_666L, loan.totalCents)
+        assertEquals(500_000L, GameDatabase.getInstance(context).accountingDao()
             .accountBalance("debug_session_001", "1100"))
 
         GameDatabase.getInstance(context).accountingDao()
@@ -235,14 +235,14 @@ class SimulationLifecycleTest {
         dao.updateGameTime(session, 30, 23, 45, System.currentTimeMillis())
 
         simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
-        assertEquals(bank - 96_664L, dao.accountBalance(session, "1100"))
-        assertEquals(-4_928_336L, dao.accountBalance(session, "2100"))
+        assertEquals(bank - 38_666L, dao.accountBalance(session, "1100"))
+        assertEquals(-1_971_334L, dao.accountBalance(session, "2100"))
         assertEquals(0L, dao.accountBalance(session, "2110"))
-        assertEquals(25_000L, dao.accountBalance(session, "5700"))
+        assertEquals(10_000L, dao.accountBalance(session, "5700"))
         assertEquals(61, db.gameSetupDao().getLoans(session).single().nextPaymentDay)
         val payments = com.example.runthebusiness.data.local.CafeLoanPaymentRepository(context)
         assertEquals(0L, payments.settleDue(automatic = false))
-        assertEquals(bank - 96_664L, dao.accountBalance(session, "1100"))
+        assertEquals(bank - 38_666L, dao.accountBalance(session, "1100"))
     }
 
     @Test
@@ -276,7 +276,7 @@ class SimulationLifecycleTest {
         val db = GameDatabase.getInstance(context)
         val businessId = db.gameSetupDao().getBusinesses(sessionId).single().id
         val dao = db.accountingDao()
-        val cashOnHand = 3_480_000L
+        val cashOnHand = 480_000L
         dao.saveAccountingOperation(
             BusinessEventEntity("test_cash", sessionId, businessId, "TEST_TRANSFER", "TEST",
                 "test_cash", 1, 8, 0, "Fund test till"),

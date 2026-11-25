@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.example.runthebusiness.R
-import com.example.runthebusiness.core.business.BusinessStartingConfiguration
+import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.dao.CafeDailyNetProfit
 import androidx.compose.ui.unit.dp
@@ -292,7 +292,7 @@ fun CafeHomeScreen(
         val cafe = state
         if (cafe == null) {
             Text(stringResource(R.string.welcome), style = MaterialTheme.typography.headlineMedium)
-            val opening = remember { BusinessStartingConfiguration() }
+            val opening = remember { CafeStartingConfiguration().business }
             CafeLedgerPanel {
                 Text(stringResource(R.string.guide_intro_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.guide_intro), style = MaterialTheme.typography.bodyMedium)
