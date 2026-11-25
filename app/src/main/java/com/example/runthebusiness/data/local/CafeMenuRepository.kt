@@ -19,6 +19,7 @@ data class CafeMenuItem(
     val priceCents: Long,
     val preparationMinutes: Int,
     val enabled: Boolean,
+    val fulfillment: String,
     val unitsSoldRecently: Long,
     val finishedStockItemId: String?,
     val ingredients: List<Pair<String, Double>>
@@ -139,6 +140,7 @@ class CafeMenuRepository(context: Context) {
                     priceCents = product.sellingPriceCents,
                     preparationMinutes = product.preparationMinutes,
                     enabled = product.isAvailable,
+                    fulfillment = product.fulfillment,
                     unitsSoldRecently = recentSales[product.id] ?: 0L,
                     finishedStockItemId = product.finishedStockItemId,
                     ingredients = menu.getRecipe(product.id).map {

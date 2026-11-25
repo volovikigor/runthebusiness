@@ -15,6 +15,18 @@ object CafeArrivalPlanner {
         val time: GameTime get() = GameTime(day, hour, slot * 15)
     }
 
+    fun planForMenu(
+        from: GameTime, to: GameTime, openingHour: Int, closingHour: Int, seats: Int,
+        menu: List<CafePriceDemandRules.MenuPrice>
+    ): List<Arrival> {
+        val promotions = menu.mapNotNull {
+            val weight = CafePriceDemandRules.discountTrafficWeight(it.productId, it.cents)
+            if (weight > 0) Promotion(it.productId, weight) else null
+        }
+        return plan(from, to, openingHour, closingHour, seats, promotions,
+            CafePriceDemandRules.categoryPriceResistance(menu))
+    }
+
     fun plan(from: GameTime, to: GameTime, openingHour: Int, closingHour: Int,
              seats: Int, promotions: List<Promotion> = emptyList(),
              priceResistance: Map<String, Double> = emptyMap()): List<Arrival> {

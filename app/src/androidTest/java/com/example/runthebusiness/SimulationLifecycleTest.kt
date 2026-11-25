@@ -49,6 +49,20 @@ class SimulationLifecycleTest {
     }).around(activity)
 
     @Test
+    fun bulkPurchaseReceivesAllPacksAndCreatesOneSupplierInvoice() {
+        startCafe()
+        runBlocking {
+            val purchasing = CafePurchasingRepository(context)
+            val item = CafePurchasingRepository.supplies.first { it.itemId == "stock_brownie_001" }
+            val before = purchasing.stock()[item.itemId] ?: 0.0
+            val total = purchasing.purchasePacks(item.itemId, 3, onCredit = true)
+            assertEquals(item.costCents * 3, total)
+            assertEquals(before + item.quantity * 3, purchasing.stock().getValue(item.itemId), 0.0)
+            assertEquals(total, CafePaymentRegisterRepository(context).supplierBills().single().amountCents)
+        }
+    }
+
+    @Test
     fun clockStartsAtEightAndStaysPausedOnNavigationAndRecreation() {
         startCafe()
         assertVisible("Day 1 · 08:00")

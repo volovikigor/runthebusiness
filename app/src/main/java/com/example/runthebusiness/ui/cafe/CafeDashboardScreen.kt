@@ -5,6 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.example.runthebusiness.engine.model.GameTime
+import com.example.runthebusiness.industries.cafe.simulation.CafeArrivalPlanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,9 +42,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var openIngredient by remember { mutableStateOf<String?>(null) }
     var confirmPriceReset by remember { mutableStateOf(false) }
     var openMenuProduct by remember { mutableStateOf<String?>(null) }
+    var packCountInput by remember { mutableStateOf("1") }
     var selectedPack by remember { mutableStateOf<CafePurchasingRepository.Supply?>(null) }
     var deferredPayment by remember { mutableStateOf(false) }
     fun selectPack(supply: CafePurchasingRepository.Supply, defer: Boolean) {
+        packCountInput = "1"
         deferredPayment = defer
         selectedPack = supply
     }
@@ -55,6 +61,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var supplierCreditBlocked by remember { mutableStateOf(false) }
     var currentGameDay by remember { mutableIntStateOf(1) }
+    var cafeSnapshot by remember { mutableStateOf<CafeDashboardSnapshot?>(null) }
     var started by remember { mutableStateOf(false) }
     var autoPolicy by remember { mutableStateOf(autoPurchasing.policy()) }
     var autoSelected by remember { mutableStateOf(emptySet<String>()) }
@@ -68,7 +75,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun reload() {
-        val currentDay = dashboard.snapshot()?.time?.day
+        cafeSnapshot = dashboard.snapshot()
+        val currentDay = cafeSnapshot?.time?.day
         started = currentDay != null
         currentGameDay = currentDay ?: 1
         staff = staffRepo.snapshot()
@@ -162,12 +170,24 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     }
 
     selectedPack?.let { supply ->
+        val packs = packCountInput.toIntOrNull()?.takeIf { it in 1..99 }
         AlertDialog(
             onDismissRequest = { selectedPack = null },
             title = { Text("Order ${supply.label}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("%.0f %s · €%.2f".format(Locale.ROOT, supply.quantity, supply.unit, supply.costCents / 100.0))
+                    OutlinedTextField(
+                        value = packCountInput,
+                        onValueChange = { if (it.length <= 2 && it.all { digit -> digit in '0'..'9' }) packCountInput = it },
+                        label = { Text("Packs (1–99)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        isError = packs == null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (packs != null) {
+                        Text("${stockQuantity(supply.quantity * packs)} ${supply.unit} total · ${menuPackMoney(supply.costCents * packs)}")
+                    }
                     Text(if (deferredPayment) {
                         "Stock arrives now. Pay the supplier invoice in Finance → Bills on Day ${currentGameDay + supply.creditDays}."
                     } else "Stock arrives immediately and payment is taken now.")
@@ -175,12 +195,13 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             },
             confirmButton = {
                 CafeActionButton(
-                    enabled = !busy && (!deferredPayment || !supplierCreditBlocked),
+                    enabled = !busy && packs != null && (!deferredPayment || !supplierCreditBlocked),
                     onClick = {
+                        val count = checkNotNull(packs)
                         val invoice = deferredPayment
                         selectedPack = null
                         run {
-                            purchasing.purchase(supply.itemId, onCredit = invoice)
+                            purchasing.purchasePacks(supply.itemId, count, onCredit = invoice)
                             message = if (invoice) "${supply.label} ordered · invoice in Bills"
                                 else "${supply.label} purchased"
                         }
@@ -215,7 +236,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         } else when (section) {
             0 -> {
                 Text("Menu & pricing", style = MaterialTheme.typography.titleLarge)
-                WeeklyDemandCard(currentGameDay)
+                cafeSnapshot?.let { WeeklyDemandCard(it, products) }
                 Text("Sales cover up to seven completed days.", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(
                     enabled = !busy && products.any { it.priceCents != CafePriceDemandRules.openingPriceCents(it.id) },
@@ -250,7 +271,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             }
             1 -> {
                 Text("Purchasing", style = MaterialTheme.typography.titleLarge)
-                WeeklyDemandCard(currentGameDay)
+                cafeSnapshot?.let { WeeklyDemandCard(it, products) }
                 if (!realIngredients && products.isNotEmpty()) {
                     Text("Legacy placeholder inventory is still in use. Convert it to beans, milk and croissants before assessing margins.",
                         color = MaterialTheme.colorScheme.error)
@@ -443,15 +464,25 @@ private fun StockTableRow(label: String, values: List<String>, modifier: Modifie
 }
 
 @Composable
-private fun WeeklyDemandCard(today: Int) {
+private fun WeeklyDemandCard(cafe: CafeDashboardSnapshot, products: List<CafeMenuItem>) {
+    val today = cafe.time.day
+    val weekdayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    val menu = products.filter { it.enabled && it.fulfillment != "BATCH_PRODUCED" }.map {
+        CafePriceDemandRules.MenuPrice(it.id, it.type, it.priceCents)
+    }
     CafeLedgerPanel {
         Text("Demand outlook", style = MaterialTheme.typography.titleSmall)
-        Text("Day 1 is Monday. Weekday lunches favor meals. Weekends pick up later, with more coffee and desserts.",
+        Text("Full-day traffic at current prices. Weekday lunch favors meals. Weekend traffic peaks later.",
             style = MaterialTheme.typography.bodySmall)
         for (day in today..today + 2) {
-            val pattern = if (CafePriceDemandRules.isWeekend(day)) "Late morning and afternoon"
-                else "Morning and lunch"
-            Text("Day $day · $pattern", style = MaterialTheme.typography.bodySmall)
+            val visits = if (cafe.isOpen) CafeArrivalPlanner.planForMenu(
+                GameTime(day - 1, 23, 59), GameTime(day, 23, 59),
+                cafe.openingHour, cafe.closingHour, cafe.seats, menu
+            ) else emptyList()
+            val promo = visits.count { it.preferredProductId != null }
+            val suffix = if (promo > 0) " · $promo promo groups" else ""
+            Text("${weekdayNames[(day - 1) % 7]} · Day $day · ${visits.sumOf { it.guests }} guests$suffix",
+                style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -232,32 +232,36 @@ fun CafeHomeScreen(
                         style = MaterialTheme.typography.bodySmall)
                 }
                 if (shortages.isNotEmpty()) {
-                    Text("Ingredients blocking the menu", style = MaterialTheme.typography.titleSmall)
-                    val visible = if (showMenuReadiness) shortages else shortages.take(3)
-                    visible.forEach { shortage ->
-                        val supply = shortage.supply
-                        HorizontalDivider()
-                        Text("${supply.name} · ${shortage.dishes.size} affected",
-                            style = MaterialTheme.typography.titleSmall)
-                        Text(shortage.dishes.joinToString { it.name },
-                            style = MaterialTheme.typography.bodySmall)
-                        val cost = supply.supplierPackCents
-                        if (cost != null) {
-                            val affordable = cashPosition?.let {
-                                it.cashCents >= cost || it.bankCents >= cost
-                            } == true
-                            OutlinedButton(
-                                enabled = !loading && affordable,
-                                onClick = { run { purchasingRepo.purchase(supply.itemId) } }
-                            ) {
-                                Text("Buy ${supply.name} · ${euro(cost)}")
-                            }
-                            if (cashPosition != null && !affordable) {
-                                Text("Insufficient cash or bank funds for this pack.",
+                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.32f)) {
+                        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("Ingredients blocking the menu", style = MaterialTheme.typography.titleSmall)
+                            val visible = if (showMenuReadiness) shortages else shortages.take(3)
+                            visible.forEach { shortage ->
+                                val supply = shortage.supply
+                                HorizontalDivider()
+                                Text("${supply.name} · ${shortage.dishes.size} affected",
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text(shortage.dishes.joinToString { it.name },
                                     style = MaterialTheme.typography.bodySmall)
+                                val cost = supply.supplierPackCents
+                                if (cost != null) {
+                                    val affordable = cashPosition?.let {
+                                        it.cashCents >= cost || it.bankCents >= cost
+                                    } == true
+                                    OutlinedButton(
+                                        enabled = !loading && affordable,
+                                        onClick = { run { purchasingRepo.purchase(supply.itemId) } }
+                                    ) {
+                                        Text("Buy ${supply.name} · ${euro(cost)}")
+                                    }
+                                    if (cashPosition != null && !affordable) {
+                                        Text("Insufficient cash or bank funds for this pack.",
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                } else {
+                                    Text("No supplier pack available", style = MaterialTheme.typography.bodySmall)
+                                }
                             }
-                        } else {
-                            Text("No supplier pack available", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
