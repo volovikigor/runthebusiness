@@ -103,41 +103,55 @@ class CafeServiceRepository(context: Context) {
                             basket.add(product.id)
                             return true
                         }
-                        repeat(arrival.guests) { guest ->
-                            if (drinks.isNotEmpty()) {
-                                val shift = (offset + guest) % drinks.size
-                                val rotated = drinks.drop(shift) + drinks.take(shift)
-                                for (drink in rotated) if (tryAdd(drink)) break
+                        val preferred = arrival.preferredProductId
+                        if (preferred != null) {
+                            val product = products.firstOrNull { it.id == preferred }
+                            val recipe = recipeByProduct[preferred].orEmpty()
+                            if (product != null && recipe.isNotEmpty() && recipe.all { (ingredient, amount) ->
+                                    (stock[ingredient] ?: 0.0) + 1e-8 >= amount * arrival.guests
+                                }) {
+                                offered = true
+                                if (CafePriceDemandRules.accepts(arrival.id, preferred, product.sellingPriceCents)) {
+                                    repeat(arrival.guests) { basket.add(preferred) }
+                                }
                             }
-                        }
-                        // Each guest independently chooses a pastry and/or one food/dessert.
-                        // A group may therefore buy multiple extras. Keep demand stable
-                        // across restarts by deriving all decisions from arrival ID + guest.
-                        repeat(arrival.guests) { guest ->
-                            val guestKey = "${arrival.id}_guest_$guest"
-                            if (pastries.isNotEmpty() &&
-                                CafePriceDemandRules.wantsCategory(guestKey, now.hour, "PASTRY", now.day)) {
-                                val shift = (offset + guest) % pastries.size
-                                val rotated = pastries.drop(shift) + pastries.take(shift)
-                                for (pastry in rotated) if (tryAdd(pastry)) break
+                        } else {
+                            repeat(arrival.guests) { guest ->
+                                if (drinks.isNotEmpty()) {
+                                    val shift = (offset + guest) % drinks.size
+                                    val rotated = drinks.drop(shift) + drinks.take(shift)
+                                    for (drink in rotated) if (tryAdd(drink)) break
+                                }
                             }
-                            val foodIntent = CafePriceDemandRules.wantsCategory(
-                                guestKey, now.hour, "FOOD", now.day)
-                            val dessertIntent = CafePriceDemandRules.wantsCategory(
-                                guestKey, now.hour, "DESSERT", now.day)
-                            val category = when {
-                                foodIntent && dessertIntent ->
-                                    if (now.hour in 11..14) "FOOD" else "DESSERT"
-                                foodIntent -> "FOOD"
-                                dessertIntent -> "DESSERT"
-                                else -> null
-                            }
-                            if (category != null) {
-                                val extras = products.filter { it.type == category }
-                                if (extras.isNotEmpty()) {
-                                    val shift = (offset + guest) % extras.size
-                                    val rotated = extras.drop(shift) + extras.take(shift)
-                                    for (extra in rotated) if (tryAdd(extra)) break
+                            // Each guest independently chooses a pastry and/or one food/dessert.
+                            // A group may therefore buy multiple extras. Keep demand stable
+                            // across restarts by deriving all decisions from arrival ID + guest.
+                            repeat(arrival.guests) { guest ->
+                                val guestKey = "${arrival.id}_guest_$guest"
+                                if (pastries.isNotEmpty() &&
+                                    CafePriceDemandRules.wantsCategory(guestKey, now.hour, "PASTRY", now.day)) {
+                                    val shift = (offset + guest) % pastries.size
+                                    val rotated = pastries.drop(shift) + pastries.take(shift)
+                                    for (pastry in rotated) if (tryAdd(pastry)) break
+                                }
+                                val foodIntent = CafePriceDemandRules.wantsCategory(
+                                    guestKey, now.hour, "FOOD", now.day)
+                                val dessertIntent = CafePriceDemandRules.wantsCategory(
+                                    guestKey, now.hour, "DESSERT", now.day)
+                                val category = when {
+                                    foodIntent && dessertIntent ->
+                                        if (now.hour in 11..14) "FOOD" else "DESSERT"
+                                    foodIntent -> "FOOD"
+                                    dessertIntent -> "DESSERT"
+                                    else -> null
+                                }
+                                if (category != null) {
+                                    val extras = products.filter { it.type == category }
+                                    if (extras.isNotEmpty()) {
+                                        val shift = (offset + guest) % extras.size
+                                        val rotated = extras.drop(shift) + extras.take(shift)
+                                        for (extra in rotated) if (tryAdd(extra)) break
+                                    }
                                 }
                             }
                         }

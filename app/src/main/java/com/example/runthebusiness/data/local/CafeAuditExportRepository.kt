@@ -97,6 +97,11 @@ class CafeAuditExportRepository(context: Context) {
             WHERE o.gameDay $days
             GROUP BY o.gameDay, l.productId, l.productName
             ORDER BY o.gameDay, l.productName""")
+        writeSection("promotion_outcomes", """
+            SELECT preferredProductId AS productId, status, COUNT(*) AS groups, SUM(guests) AS guests
+            FROM cafe_arrivals WHERE gameDay $days AND preferredProductId IS NOT NULL
+            GROUP BY preferredProductId, status ORDER BY preferredProductId, status
+        """)
         writeSection("group_size_conversion", """SELECT guests, status,
             COUNT(*) AS groups FROM cafe_arrivals WHERE gameDay $days
             GROUP BY guests, status ORDER BY guests, status""")

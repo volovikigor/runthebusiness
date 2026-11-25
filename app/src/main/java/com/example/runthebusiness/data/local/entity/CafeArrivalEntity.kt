@@ -13,5 +13,6 @@ data class CafeArrivalEntity(
     val gameHour: Int,
     val gameMinute: Int,
     val guests: Int,
-    val status: String
+    val status: String,
+    val preferredProductId: String? = null
 )

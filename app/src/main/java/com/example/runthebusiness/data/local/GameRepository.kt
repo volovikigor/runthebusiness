@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.*
 import com.example.runthebusiness.core.simulation.GameClock
 import com.example.runthebusiness.industries.cafe.simulation.CafeArrivalPlanner
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules
 import com.example.runthebusiness.core.business.BusinessLocation
 import com.example.runthebusiness.industries.cafe.toBusinessLocation
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
@@ -153,16 +154,22 @@ class GameRepository(context: Context) {
                     val cafe = operations.getLocations(business.id).singleOrNull()
                     if (shared != null && cafe != null && shared.isOpen) {
                         val seats = cafe.tableCount * cafe.seatsPerTable
+                        val promotions = db.cafeMenuDao().getProducts(shared.id)
+                            .filter { it.isAvailable && it.fulfillment != "BATCH_PRODUCED" }
+                            .mapNotNull {
+                                val weight = CafePriceDemandRules.discountTrafficWeight(it.id, it.sellingPriceCents)
+                                if (weight > 0) CafeArrivalPlanner.Promotion(it.id, weight) else null
+                            }
                         val arrivals = CafeArrivalPlanner.plan(
                             GameTime(session.currentDay, session.currentHour, session.currentMinute),
-                            next, shared.openingHour, shared.closingHour, seats
+                            next, shared.openingHour, shared.closingHour, seats, promotions
                         )
                         db.cafeArrivalDao().insertArrivals(arrivals.map {
                             CafeArrivalEntity(
                                 id = "${sessionId}_${shared.id}_${it.key}",
                                 locationId = shared.id, gameDay = it.day,
                                 gameHour = it.hour, gameMinute = it.slot * 15,
-                                guests = it.guests, status = "ARRIVED"
+                                guests = it.guests, status = "ARRIVED", preferredProductId = it.preferredProductId
                             )
                         })
                     }

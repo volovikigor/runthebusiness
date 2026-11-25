@@ -35,6 +35,29 @@ class CafeArrivalPlannerRegressionTest {
         assertTrue("Do not cap at 117 arrivals", dailyGuests.any { it > 117 })
     }
 
+    @Test fun discountsAddTargetedGroupsWithoutReplacingRegularArrivals() {
+        val from = GameTime(1, 7, 45)
+        val middle = GameTime(1, 12, 0)
+        val to = GameTime(1, 17, 0)
+        val product = "latte_001"
+        val price = CafePriceDemandRules.openingPriceCents(product)
+        assertEquals(0, CafePriceDemandRules.discountTrafficWeight(product, price))
+
+        fun promoted(amount: Long) = listOf(CafeArrivalPlanner.Promotion(
+            product, CafePriceDemandRules.discountTrafficWeight(product, amount)
+        ))
+        val regular = CafeArrivalPlanner.plan(from, to, 8, 17, 24)
+        val light = CafeArrivalPlanner.plan(from, to, 8, 17, 24, promoted(380L))
+        val deep = CafeArrivalPlanner.plan(from, to, 8, 17, 24, promoted(280L))
+        assertEquals(regular, deep.filter { it.preferredProductId == null })
+        assertTrue(light.size > regular.size)
+        assertTrue(deep.size > light.size)
+        assertTrue(deep.filter { it.preferredProductId != null }.all { it.preferredProductId == product })
+        assertEquals(deep.size, deep.map { it.key }.distinct().size)
+        assertEquals(deep, CafeArrivalPlanner.plan(from, middle, 8, 17, 24, promoted(280L)) +
+            CafeArrivalPlanner.plan(middle, to, 8, 17, 24, promoted(280L)))
+    }
+
     @Test fun zeroSeatsPreventsArrivals() {
         assertTrue(CafeArrivalPlanner.plan(GameTime(1, 8, 0), GameTime(1, 9, 0), 8, 17, 0).isEmpty())
     }

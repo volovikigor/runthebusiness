@@ -26,10 +26,15 @@ object CafePriceDemandRules {
 
     fun referencePriceCents(productId: String): Long = referencePrices[productId] ?: 300L
 
+    fun discountTrafficWeight(productId: String, priceCents: Long): Int {
+        val opening = openingPriceCents(productId)
+        return ((opening - priceCents).coerceAtLeast(0L) * 300 / opening).coerceAtMost(100L).toInt()
+    }
+
     fun accepts(arrivalId: String, productId: String, priceCents: Long): Boolean {
         require(priceCents > 0L)
         val reference = referencePriceCents(productId)
-        // Discounting below reference does not generate extra arrivals.
+        // Purchase acceptance within a basket is separate from discount-driven arrivals.
         val probabilityPercent = (reference * 100L / priceCents).coerceIn(10L, 100L)
         val bucket = Math.floorMod("$arrivalId:$productId".hashCode(), 100)
         return bucket < probabilityPercent

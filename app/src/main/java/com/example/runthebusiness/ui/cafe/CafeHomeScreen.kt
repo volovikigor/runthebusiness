@@ -58,7 +58,10 @@ private fun CafeShiftSummary(
             OutlinedButton(onClick = { onOpenOperations(0) }) { Text("Review menu prices") }
         }
         if (shift.noSeats > 0) Text("No seats available · ${shift.noSeats}")
-        if (shift.staffCapacity > 0) Text("Staff at capacity · ${shift.staffCapacity}")
+        if (shift.staffCapacity > 0) {
+            Text("Groups lost to staff capacity · ${shift.staffCapacity}")
+            OutlinedButton(onClick = { onOpenOperations(3) }) { Text("Review staffing") }
+        }
         if (shift.staffDisruption > 0) Text("Overdue payroll disruption · ${shift.staffDisruption}")
         if (shift.rentShutdown > 0) Text("Closed due to overdue rent · ${shift.rentShutdown}")
         if (shift.staffDisruption > 0 || shift.rentShutdown > 0) {
