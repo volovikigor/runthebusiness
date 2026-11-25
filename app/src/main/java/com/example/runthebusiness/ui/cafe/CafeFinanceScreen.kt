@@ -23,6 +23,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
 import com.example.runthebusiness.data.local.CafeLoanPaymentRepository
+import com.example.runthebusiness.data.local.CafeCreditLine
+import com.example.runthebusiness.data.local.CafeCreditLineRepository
 import com.example.runthebusiness.data.local.CashPosition
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
@@ -51,6 +53,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     var forecast by remember { mutableStateOf<CafeCashForecast?>(null) }
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
+    val creditRepo = remember(context) { CafeCreditLineRepository(context) }
+    var credit by remember { mutableStateOf<CafeCreditLine?>(null) }
     val loanRepo = remember(context) { CafeLoanPaymentRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
@@ -111,6 +115,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             error = null
             try {
                 forecast = forecastRepo.load()
+                credit = if (forecast != null) creditRepo.position() else null
                 statements = financeRepo.load()
                 cashPosition = cashRepo.position()
                 bills = billsRepo.snapshot()
@@ -215,6 +220,16 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     }
                 }
                 TextButton(onClick = { section = "Bills" }) { Text(stringResource(R.string.kpi_review_bills)) }
+                credit?.let { line ->
+                    CreditLinePanel(
+                        credit = line,
+                        bankCents = cashPosition?.bankCents ?: 0L,
+                        forecastGap = report.days.firstOrNull { it.bankShortfallCents > 0L }?.bankShortfallCents ?: 0L,
+                        busy = busy,
+                        onDraw = { cents -> paymentAction { creditRepo.draw(cents) } },
+                        onRepay = { cents -> paymentAction { creditRepo.repay(cents) } }
+                    )
+                }
                 CashForecastSection(report)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.deposits), Modifier.weight(1f))
@@ -231,6 +246,21 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         if (section == "Bills") {
             val today = forecast?.days?.firstOrNull()?.day
+            val lastPayment = entries.firstOrNull { it.id.startsWith("loan_payment_") }
+            if (lastPayment != null) {
+                val total = lastPayment.lines.sumOf { line ->
+                    if (line.account.substringBefore(' ') == "1100") line.creditCents else 0L
+                }
+                CafeLedgerPanel {
+                    Text(stringResource(R.string.loan_last_paid, lastPayment.day, money(total)),
+                        style = MaterialTheme.typography.titleSmall)
+                    TextButton(onClick = {
+                        openJournal("2100")
+                        selectedDay = lastPayment.day
+                        expandedId = lastPayment.id
+                    }) { Text(stringResource(R.string.open_account_entries)) }
+                }
+            }
             cashPosition?.let { position ->
                 val loanDue = forecast?.installments?.firstOrNull { today != null && it.dueDay <= today }
                 if (loanDue != null) {
@@ -347,9 +377,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         val report = statements
         if (report != null && section in setOf("P&L", "BS", "Cash Flow")) {
-            if (section == "P&L" || section == "BS") {
-                Text(stringResource(R.string.finance_journal_hint), style = MaterialTheme.typography.bodySmall)
-            }
             ComparativeReport(section, report, onAccount = { openJournal(it) })
         }
         if (section == "Journal") {
@@ -493,27 +520,30 @@ private fun ComparativeReport(
         else -> "Cash Flow"
     }
     Text(cafeLabel(heading), style = MaterialTheme.typography.titleLarge)
+    if (section == "P&L" || section == "BS") {
+        Text(stringResource(R.string.finance_journal_hint), style = MaterialTheme.typography.bodySmall)
+    }
     if (closed != null) {
         CafeLedgerOptions(listOf(liveLabel, closedLabel), if (showClosed) closedLabel else liveLabel) {
             showClosed = it == closedLabel
         }
     }
+    @Composable
     fun periodLabel(days: IntRange): String = when {
-        !monthly || days.first == days.last -> "Day ${days.last}"
-        else -> "Days ${days.first}–${days.last}"
+        !monthly || days.first == days.last -> stringResource(R.string.day_number, days.last)
+        else -> stringResource(R.string.day_bounds, days.first, days.last)
     }
     val currentLabel = periodLabel(current.days)
-    val previousLabel = previous?.days?.let(::periodLabel)
+    val previousLabel = previous?.days?.let { periodLabel(it) }
     Text(
-        if (previousLabel == null) "$currentLabel · No earlier period"
-        else "$currentLabel  ·  Compared with $previousLabel",
+        if (previousLabel == null) stringResource(R.string.no_earlier_period, currentLabel)
+        else stringResource(R.string.compare_periods, currentLabel, previousLabel),
         style = MaterialTheme.typography.bodySmall
     )
     if (!showClosed) {
         val time = "%02d:%02d".format(Locale.ROOT, report.time.hour, report.time.minute)
         Text(
-            if (previous == null) "Through $time"
-            else "Both months through the same day and time ($time).",
+            stringResource(if (previous == null) R.string.report_through_time else R.string.report_same_time, time),
             style = MaterialTheme.typography.bodySmall
         )
     }
@@ -625,7 +655,7 @@ private fun ComparisonTable(
         rows.forEach { row ->
             val change = row.current?.let { now -> row.previous?.let { now - it } }
             val interaction = if (row.account != null) Modifier.clickable(
-                role = Role.Button, onClickLabel = "Open account in journal"
+                role = Role.Button, onClickLabel = stringResource(R.string.open_account_entries)
             ) { onAccount(row.account) } else Modifier
             FinanceTableRow(
                 row.name, listOf(row.current?.let(format) ?: "—", row.previous?.let(format) ?: "—",
@@ -634,7 +664,7 @@ private fun ComparisonTable(
                     if (row.name == emphasis) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
                     else Modifier
                 ).padding(horizontal = 10.dp),
-                labelWeight = 1.6f, ruled = true, bold = row.name == "Gross profit"
+                labelWeight = 1.6f, ruled = true, bold = row.name == "Gross profit", linked = row.account != null
             )
         }
     }
@@ -683,13 +713,15 @@ private fun FinanceTableRow(
     modifier: Modifier = Modifier,
     labelWeight: Float = if (values.size == 3) 0.65f else 1.2f,
     ruled: Boolean = false,
-    bold: Boolean = false
+    bold: Boolean = false,
+    linked: Boolean = false
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(cafeJournalAccount(label), Modifier.weight(labelWeight),
+            Text(cafeJournalAccount(label) + if (linked) " ›" else "", Modifier.weight(labelWeight),
+                color = if (linked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
                 fontWeight = if (bold) FontWeight.SemiBold else null)
             values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold || heading) }
@@ -786,4 +818,64 @@ private fun readableJournalTitle(description: String): String = when {
     description.startsWith("Cost of sale ") -> "Inventory consumed · product not recorded"
     description.startsWith("Sale ") -> "Customer sale · product not recorded"
     else -> description.replace(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}"), "transaction")
+}
+
+
+@Composable
+private fun CreditLinePanel(
+    credit: CafeCreditLine,
+    bankCents: Long,
+    forecastGap: Long,
+    busy: Boolean,
+    onDraw: (Long) -> Unit,
+    onRepay: (Long) -> Unit
+) {
+    var drawing by remember { mutableStateOf<Boolean?>(null) }
+    var input by remember { mutableStateOf("") }
+    val repayLimit = minOf(bankCents, credit.owedCents)
+    CafeLedgerPanel {
+        Text(stringResource(R.string.credit_line_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.credit_terms, money(CafeCreditLine.LIMIT_CENTS), CafeCreditLine.ANNUAL_RATE_PERCENT),
+            style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.credit_available, money(credit.availableCents)))
+        if (credit.owedCents > 0L) {
+            Text(stringResource(R.string.credit_owing, money(credit.principalCents), money(credit.interestCents)))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CafeActionButton(enabled = !busy && credit.availableCents > 0L, onClick = {
+                val suggestion = minOf(forecastGap, credit.availableCents)
+                input = if (suggestion > 0L) java.math.BigDecimal.valueOf(suggestion, 2).toPlainString() else ""
+                drawing = true
+            }) { Text(stringResource(R.string.credit_draw)) }
+            OutlinedButton(enabled = !busy && repayLimit > 0L, onClick = {
+                input = java.math.BigDecimal.valueOf(repayLimit, 2).toPlainString()
+                drawing = false
+            }) { Text(stringResource(R.string.credit_repay)) }
+        }
+    }
+    drawing?.let { draw ->
+        val limit = if (draw) credit.availableCents else repayLimit
+        val amount = input.trim().replace(',', '.').toBigDecimalOrNull()
+            ?.takeIf { it.scale() in 0..2 && it.signum() > 0 }
+            ?.let { runCatching { it.movePointRight(2).longValueExact() }.getOrNull() }
+        val action = if (draw) R.string.credit_draw else R.string.credit_repay
+        AlertDialog(
+            onDismissRequest = { drawing = null },
+            title = { Text(stringResource(action)) },
+            text = {
+                OutlinedTextField(value = input, onValueChange = { input = it },
+                    label = { Text(stringResource(R.string.amount_euros)) },
+                    supportingText = { Text(stringResource(R.string.credit_max, money(limit))) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+            },
+            confirmButton = {
+                TextButton(enabled = !busy && amount != null && amount <= limit, onClick = {
+                    val cents = checkNotNull(amount)
+                    drawing = null
+                    if (draw) onDraw(cents) else onRepay(cents)
+                }) { Text(stringResource(action)) }
+            },
+            dismissButton = { TextButton(onClick = { drawing = null }) { Text(stringResource(R.string.cancel)) } }
+        )
+    }
 }

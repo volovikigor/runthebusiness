@@ -152,6 +152,12 @@ internal fun cafeLabel(key: String): String = when (key) {
     "Lettuce" -> stringResource(R.string.lettuce)
     "Tomato" -> stringResource(R.string.tomato)
     "Salad dressing" -> stringResource(R.string.salad_dressing)
+    "Credit line principal" -> stringResource(R.string.credit_line_principal)
+    "Credit line interest payable" -> stringResource(R.string.credit_line_interest)
+    "Credit line draws" -> stringResource(R.string.credit_line_draws)
+    "Credit line principal repaid" -> stringResource(R.string.credit_line_repaid)
+    "Cash on hand" -> stringResource(R.string.cash_on_hand)
+    "Bank balance" -> stringResource(R.string.bank_balance)
     else -> key
 }
 

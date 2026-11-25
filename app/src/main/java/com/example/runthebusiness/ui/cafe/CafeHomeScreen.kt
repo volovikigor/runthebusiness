@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.example.runthebusiness.R
+import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.dao.CafeDailyNetProfit
 import androidx.compose.ui.unit.dp
@@ -291,10 +292,19 @@ fun CafeHomeScreen(
         val cafe = state
         if (cafe == null) {
             Text(stringResource(R.string.welcome), style = MaterialTheme.typography.headlineMedium)
+            val opening = remember { CafeStartingConfiguration().business }
             CafeLedgerPanel {
                 Text(stringResource(R.string.guide_intro_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.guide_intro), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.opening_loan_brief, euro(opening.startingLoanCents)),
+                    style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.opening_purchase_brief, euro(opening.equipmentBudgetCents),
+                    euro(opening.initialInventoryBudgetCents)), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.opening_bank_brief, euro(opening.startingLoanCents -
+                    opening.equipmentBudgetCents - opening.initialInventoryBudgetCents)),
+                    style = MaterialTheme.typography.bodyMedium)
             }
+            CafeGuideButton(stringResource(R.string.guide_button), R.string.guide_cafe)
             CafeActionButton(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
                 Text(stringResource(R.string.start_cafe))
             }

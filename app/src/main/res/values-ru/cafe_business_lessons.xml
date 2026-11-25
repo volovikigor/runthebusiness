@@ -1,0 +1,18 @@
+<resources>
+    <string name="guide_controls_topic">Управление игрой</string>
+    <string name="guide_cash_topic">Оборотный капитал</string>
+    <string name="guide_accounting_title">Учёт</string>
+    <string name="opening_loan_brief">Стартовый кредит · %1$s</string>
+    <string name="opening_purchase_brief">Стартовые покупки: оборудование %1$s, запасы %2$s</string>
+    <string name="opening_bank_brief">Остаток на счёте после покупок · %1$s</string>
+    <string name="loan_last_paid">Последний платёж по кредиту · день %1$d · %2$s</string>
+    <string name="open_account_entries">Открыть проводки</string>
+    <string name="guide_accounting">Управленческий учёт помогает решить, что изменить. Сопоставляйте цены, потери от нехватки запасов и загрузку команды, чтобы понять, почему изменились продажи или маржа.\n\nБухгалтерский учёт показывает результат. P&amp;L отражает доходы и расходы, баланс — имущество и долги кафе, а денежный поток — поступления и платежи.\n\nПопробуйте купить товар с отсрочкой. В балансе вырастут запасы и долг поставщику. Оплата уменьшит деньги на счёте и долг, а в денежном потоке появится выплата. Ингредиенты использованного в продаже товара станут расходом в P&amp;L. Нажмите на счёт со стрелкой ›, чтобы открыть журнал и увидеть дебет и кредит.</string>
+    <string name="day_bounds">Дни %1$d–%2$d</string>
+    <string name="no_earlier_period">%1$s · Нет предыдущего периода</string>
+    <string name="compare_periods">%1$s · Сравнение с периодом: %2$s</string>
+    <string name="report_through_time">По %1$s</string>
+    <string name="report_same_time">Оба месяца сравниваются по один и тот же день и время (%1$s).</string>
+    <string name="cash_on_hand">Наличные в кассе</string>
+    <string name="bank_balance">Остаток на банковском счёте</string>
+</resources>
