@@ -1,18 +1,13 @@
 package com.example.runthebusiness.ui.cafe
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
 import com.example.runthebusiness.data.local.CafePaymentConsequencesRepository
@@ -38,9 +33,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val EspressoBrown = Color(0xFF3B241A)
-private val Honey = Color(0xFFDDAF72)
-private val Cream = Color(0xFFFFF2D9)
 
 @Composable
 private fun CafeShiftSummary(
@@ -176,10 +168,11 @@ fun CafeHomeScreen(
         } else {
             CafeScene(
                 name = cafe.cafeName,
-                day = cafe.time.day,
-                hour = cafe.time.hour,
-                minute = cafe.time.minute,
-                isOpen = cafe.isTrading,
+                time = cafe.time,
+                playing = speed != 0,
+                latestSale = cafe.latestSale,
+                latestDelivery = cafe.latestDelivery,
+                isOpen = cafe.isTrading && paymentStatus?.rentShutdown != true,
                 tables = cafe.tables,
                 seats = cafe.seats,
                 activeGuests = visitors.filter {

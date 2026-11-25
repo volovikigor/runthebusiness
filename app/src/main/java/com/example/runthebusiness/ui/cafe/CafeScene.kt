@@ -1,38 +1,49 @@
 package com.example.runthebusiness.ui.cafe
 
+import androidx.annotation.DrawableRes
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.runthebusiness.R
+import com.example.runthebusiness.engine.model.GameTime
+import com.example.runthebusiness.ui.components.CafeLedgerOptions
 import java.util.Locale
-import kotlin.math.min
+import kotlin.math.PI
+import kotlin.math.sin
 
-private val wall = Color(0xFFEDD8B9)
-private val floor = Color(0xFFB9805C)
-private val wood = Color(0xFF75462F)
-private val brass = Color(0xFFE4B76C)
-private val leaf = Color(0xFF527C61)
-private val linen = Color(0xFFF8E9D2)
+private enum class CafeView(val label: String, @field:DrawableRes val art: Int, val description: String) {
+    ROOM("Room", R.drawable.cafe_scene_room, "Minimalist café dining room with a sage service counter"),
+    COFFEE("Coffee", R.drawable.cafe_scene_coffee, "Espresso machine at the coffee bar"),
+    KITCHEN("Kitchen", R.drawable.cafe_scene_kitchen, "Stainless steel kitchen prep area"),
+    DELIVERY("Delivery", R.drawable.cafe_scene_delivery, "Produce crates at the café delivery entrance")
+}
 
-/** Lightweight, resolution-independent game scene. No bitmap assets or animation timers.
- * The scene represents the real saved café state; it does not simulate customers.
- */
 @Composable
 fun CafeScene(
     name: String,
-    day: Int,
-    hour: Int,
-    minute: Int,
+    time: GameTime,
+    playing: Boolean,
+    latestSale: GameTime?,
+    latestDelivery: GameTime?,
     isOpen: Boolean,
     tables: Int,
     seats: Int,
@@ -44,105 +55,147 @@ fun CafeScene(
     hasUrgentBills: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier.background(Color(0xFF2F211C), RoundedCornerShape(22.dp))) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("MAISON CAFÉ", color = brass, style = MaterialTheme.typography.labelMedium)
-                Text(name, color = linen, style = MaterialTheme.typography.titleLarge)
+    var selected by rememberSaveable { mutableStateOf(CafeView.ROOM.name) }
+    val view = CafeView.valueOf(selected)
+    val recentOrder = isOpen && latestSale != null && time.totalMinutes - latestSale.totalMinutes in 0L..19L
+    val recentDelivery = latestDelivery != null && time.totalMinutes - latestDelivery.totalMinutes in 0L..29L
+    val inMotion = when (view) {
+        CafeView.ROOM -> isOpen && activeGuests > 0
+        CafeView.COFFEE, CafeView.KITCHEN -> recentOrder
+        CafeView.DELIVERY -> recentDelivery
+    }
+    val activity = when (view) {
+        CafeView.ROOM -> if (isOpen) "$activeGuests guests · $tables tables · $seats seats" else "Dining room closed"
+        CafeView.COFFEE, CafeView.KITCHEN ->
+            if (recentOrder) "Recent order" else if (isOpen) "Between orders" else "Service closed"
+        CafeView.DELIVERY -> if (recentDelivery) "Delivery received" else "No recent delivery"
+    }
+
+    Surface(modifier, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.titleLarge)
+                    Text(if (isOpen) "Open" else "Closed", style = MaterialTheme.typography.labelMedium,
+                        color = if (isOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Day ${time.day}", style = MaterialTheme.typography.labelMedium)
+                    Text("%02d:%02d".format(Locale.ROOT, time.hour, time.minute),
+                        style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
+                }
             }
-            Column {
-                Text("DAY $day", color = brass, style = MaterialTheme.typography.labelMedium)
-                Text("%02d:%02d".format(Locale.ROOT, hour, minute),
-                    color = linen, style = MaterialTheme.typography.titleLarge)
+            Box(Modifier.fillMaxWidth().aspectRatio(1.5f).clipToBounds()) {
+                Crossfade(targetState = view, animationSpec = tween(260), label = "Café view") { shot ->
+                    SceneFrame(
+                        view = shot,
+                        hour = time.hour,
+                        active = inMotion && shot == view,
+                        playing = playing
+                    )
+                }
+                Text(activity, Modifier.align(Alignment.BottomStart).padding(8.dp)
+                    .background(Color(0xCC121C22), MaterialTheme.shapes.small)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    color = Color.White, style = MaterialTheme.typography.labelMedium)
+            }
+            CafeLedgerOptions(CafeView.entries.map { it.label }, view.label) { label ->
+                selected = CafeView.entries.first { it.label == label }.name
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SceneMetric("Menu ready", "$readyDishes / $totalDishes", Modifier.weight(1f))
+                SceneMetric("Bank", sceneMoney(bankCents), Modifier.weight(1f))
+                SceneMetric("Cash", sceneMoney(cashCents), Modifier.weight(1f))
+            }
+            if (hasUrgentBills) {
+                Text("Overdue bills affecting service", Modifier.padding(start = 14.dp, bottom = 10.dp),
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
             }
         }
-        Canvas(Modifier.fillMaxWidth().height(220.dp)) {
-            val sx = size.width / 360f
-            val sy = size.height / 220f
-            fun point(x: Float, y: Float) = Offset(x * sx, y * sy)
-            fun block(color: Color, x: Float, y: Float, w: Float, h: Float, radius: Float = 0f) {
-                drawRoundRect(color, point(x, y), Size(w * sx, h * sy),
-                    androidx.compose.ui.geometry.CornerRadius(radius * min(sx, sy)))
+    }
+}
+
+@Composable
+private fun SceneMetric(label: String, value: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
+    }
+}
+
+private fun sceneMoney(cents: Long): String = "€%,.0f".format(Locale.ROOT, cents / 100.0)
+
+@Composable
+private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, playing: Boolean) {
+    val moving = active && playing
+    val phase = remember { Animatable(0f) }
+    LaunchedEffect(active, playing) {
+        if (!active) phase.snapTo(0f)
+        if (moving) {
+            while (true) {
+                withFrameNanos { }
+                val remainingMillis = ((1f - phase.value) * 7_200).toInt()
+                phase.animateTo(1f, tween(remainingMillis, easing = LinearEasing))
+                phase.snapTo(0f)
             }
-            block(wall, 0f, 0f, 360f, 76f)
-            block(floor, 0f, 76f, 360f, 144f)
-            for (i in 0..8) {
-                drawLine(Color(0x33FFF2DA), point(i * 45f, 76f), point(i * 45f - 35f, 220f), 1.5f)
-            }
-            block(Color(0xFF3C615C), 20f, 9f, 83f, 60f, 5f)
-            block(Color(0xFFA9D3C7), 26f, 15f, 71f, 48f, 3f)
-            block(Color(0xFFFFF1CB), 56f, 15f, 3f, 48f)
-            block(Color(0xFFFFF1CB), 26f, 36f, 71f, 3f)
-            block(wood, 223f, 42f, 127f, 53f, 7f)
-            block(Color(0xFFCF9A6C), 218f, 36f, 137f, 11f, 3f)
-            block(Color(0xFF312B2B), 248f, 14f, 34f, 23f, 3f)
-            block(brass, 254f, 20f, 22f, 3f, 1f)
-            block(brass, 254f, 27f, 14f, 3f, 1f)
-            // Espresso machine, cups and warm pendant lamps.
-            block(Color(0xFF6D6C6A), 293f, 19f, 40f, 20f, 3f)
-            block(linen, 297f, 12f, 10f, 9f, 2f)
-            block(linen, 313f, 12f, 10f, 9f, 2f)
-            for (x in listOf(130f, 185f, 298f)) {
-                drawLine(wood, point(x, 0f), point(x, 19f), 2f)
-                drawCircle(brass, 9f * sx, point(x, 22f))
-                drawCircle(Color(0x66FFF3D1), 17f * sx, point(x, 22f))
-            }
-            val positions = listOf(Offset(74f, 125f), Offset(179f, 124f),
-                Offset(100f, 190f), Offset(222f, 190f), Offset(310f, 156f))
-            repeat(tables.coerceIn(0, positions.size)) { i ->
-                val p = positions[i]
-                val x = p.x
-                val y = p.y
-                block(Color(0x66502F22), x - 27f, y + 13f, 60f, 11f, 5f)
-                block(wood, x - 5f, y + 5f, 10f, 26f, 2f)
-                drawOval(Color(0xFFE9B785), point(x - 28f, y - 10f), Size(56f * sx, 29f * sy))
-                drawOval(wood, point(x - 28f, y - 12f), Size(56f * sx, 29f * sy),
-                    style = Stroke(2f * sx))
-                drawCircle(linen, 5f * sx, point(x + 8f, y + 1f))
-            }
-            // Abstract customers: intentionally simple until the character-art pass.
-            val guestPositions = listOf(
-                Offset(52f, 111f), Offset(93f, 113f), Offset(155f, 108f),
-                Offset(202f, 111f), Offset(81f, 175f), Offset(119f, 174f),
-                Offset(203f, 175f), Offset(242f, 173f), Offset(296f, 141f),
-                Offset(326f, 142f)
-            )
-            repeat(activeGuests.coerceIn(0, guestPositions.size)) { i ->
-                val p = guestPositions[i]
-                val jacket = if (i % 3 == 0) leaf else if (i % 3 == 1)
-                    Color(0xFF9E5950) else Color(0xFF52708A)
-                block(jacket, p.x - 8f, p.y + 10f, 16f, 18f, 6f)
-                drawCircle(Color(0xFFD6A17C), 7f * sx, point(p.x, p.y + 6f))
-                drawArc(wood, 190f, 160f, false,
-                    point(p.x - 7f, p.y - 1f), Size(14f * sx, 13f * sy),
-                    style = Stroke(3f * sx))
-            }
-            if (!isOpen) block(Color(0xAA261A17), 0f, 0f, 360f, 220f)
         }
-        Row(Modifier.fillMaxWidth().padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(if (isOpen) "● OPEN" else "● CLOSED",
-                color = if (isOpen) Color(0xFF94D5A6) else Color(0xFFFFB6A6),
-                style = MaterialTheme.typography.labelLarge)
-            Text("$tables tables · $seats seats · $activeGuests guests",
-                color = linen, style = MaterialTheme.typography.labelMedium)
+    }
+    Box(Modifier.fillMaxSize()) {
+        Image(painterResource(view.art), contentDescription = view.description,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer {
+                val drift = sin(phase.value * (2 * PI)).toFloat()
+                scaleX = 1.035f
+                scaleY = 1.035f
+                translationX = drift * size.width * 0.009f
+            })
+        val shade = when (hour) {
+            in 0..6, in 21..23 -> 0.45f
+            in 7..8, in 18..20 -> 0.17f
+            else -> 0f
         }
-        HorizontalDivider(color = Color(0xFF604438))
-        Row(Modifier.fillMaxWidth().padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("AVAILABLE MENU", color = brass, style = MaterialTheme.typography.labelSmall)
-                Text("$readyDishes / $totalDishes", color = linen,
-                    style = MaterialTheme.typography.titleMedium)
-            }
-            Column {
-                Text("BANK / CASH", color = brass, style = MaterialTheme.typography.labelSmall)
-                Text("€%.0f / €%.0f".format(Locale.ROOT, bankCents / 100.0, cashCents / 100.0),
-                    color = linen, style = MaterialTheme.typography.titleMedium)
-            }
-            if (hasUrgentBills) Text("!", color = Color(0xFFFFA08B),
-                style = MaterialTheme.typography.headlineMedium)
+        if (shade > 0f) {
+            Box(Modifier.matchParentSize().background(Color(0xFF111C35).copy(alpha = shade)))
         }
+        if (active) {
+            when (view) {
+                CafeView.COFFEE -> CoffeeSteam(phase, Modifier.matchParentSize())
+                CafeView.KITCHEN -> SceneLight(phase, Color(0xFFFAECC9), 0.69f, 0.62f, Modifier.matchParentSize())
+                CafeView.DELIVERY -> SceneLight(phase, Color(0xFFFAECC9), 0.47f, 0.31f, Modifier.matchParentSize())
+                CafeView.ROOM -> SceneLight(phase, Color(0xFFFAECC9), 0.20f, 0.68f, Modifier.matchParentSize())
+            }
+        }
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+            0.68f to Color.Transparent, 1f to Color(0x440A151C)
+        )))
+    }
+}
+
+@Composable
+private fun CoffeeSteam(phase: Animatable<Float, *>, modifier: Modifier) {
+    Canvas(modifier) {
+        repeat(3) { index ->
+            val lift = (phase.value * 2f + index / 3f) % 1f
+            val x = size.width * (0.50f + sin(lift * (2 * PI) + index).toFloat() * 0.014f)
+            val y = size.height * (0.55f - 0.12f * lift)
+            val w = size.width * (0.012f + 0.031f * lift)
+            val h = size.height * (0.05f + 0.043f * lift)
+            val opacity = sin(lift * PI).toFloat() * 0.17f
+            drawOval(Brush.radialGradient(listOf(Color.White.copy(alpha = opacity), Color.Transparent),
+                center = Offset(x, y), radius = w), topLeft = Offset(x - w, y - h / 2), size = Size(w * 2, h))
+        }
+    }
+}
+
+@Composable
+private fun SceneLight(phase: Animatable<Float, *>, tint: Color, x: Float, y: Float, modifier: Modifier) {
+    Canvas(modifier) {
+        val shift = sin(phase.value * (2 * PI)).toFloat()
+        val center = Offset(size.width * (x + shift * 0.04f), size.height * y)
+        drawRect(Brush.radialGradient(listOf(tint.copy(alpha = 0.07f + 0.02f * shift), Color.Transparent),
+            center = center, radius = size.width * 0.28f))
     }
 }

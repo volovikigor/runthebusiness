@@ -19,7 +19,9 @@ data class CafeDashboardSnapshot(
     val outputVatCents: Long,
     val cogsCents: Long,
     val stockRemaining: Double,
-    val stockOriginal: Double
+    val stockOriginal: Double,
+    val latestSale: GameTime? = null,
+    val latestDelivery: GameTime? = null
 ) {
     val isTrading: Boolean get() = isOpen && time.hour in openingHour until closingHour
     val grossProfitCents: Long get() = netSalesCents - cogsCents
@@ -41,6 +43,7 @@ class CafeDashboardRepository(context: Context) {
             val cafe = operations.getLocations(business.id).singleOrNull() ?: return@withContext null
             val orders = sales.getOrders(shared.id)
             val batches = operations.getInventoryBatches(business.id)
+            val delivery = accounting.latestSupplierDelivery(sessionId)
             CafeDashboardSnapshot(
                 time = GameTime(session.currentDay, session.currentHour, session.currentMinute),
                 cafeName = shared.name, tables = cafe.tableCount,
@@ -54,7 +57,9 @@ class CafeDashboardRepository(context: Context) {
                 outputVatCents = orders.sumOf { it.vatCents },
                 cogsCents = orders.sumOf { it.cogsCents },
                 stockRemaining = batches.sumOf { it.quantityRemaining },
-                stockOriginal = batches.sumOf { it.quantityReceived }
+                stockOriginal = batches.sumOf { it.quantityReceived },
+                latestSale = orders.firstOrNull()?.let { GameTime(it.gameDay, it.gameHour, it.gameMinute) },
+                latestDelivery = delivery?.let { GameTime(it.gameDay, it.gameHour, it.gameMinute) }
             )
         }
 }
