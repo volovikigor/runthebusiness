@@ -4,7 +4,9 @@ import com.example.runthebusiness.data.local.dao.JournalWithLines
 import com.example.runthebusiness.data.local.entity.JournalEntryEntity
 import com.example.runthebusiness.data.local.entity.JournalLineEntity
 import com.example.runthebusiness.data.local.entity.LedgerAccountEntity
+import com.example.runthebusiness.engine.model.GameTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CafeFinancialStatementsTest {
@@ -46,6 +48,25 @@ class CafeFinancialStatementsTest {
 
         assertEquals(mapOf(CashFlowLine.PRINCIPAL to -90L, CashFlowLine.INTEREST to -10L),
             cashMovement(payment))
+    }
+
+    @Test
+    fun priorMonthUsesTheSameDayAndHourAndExcludesLaterPostings() {
+        assertNull(matchedPriorMonthTime(GameTime(30, 23, 59)))
+        assertEquals(61, financialMonthStart(61))
+        assertEquals(GameTime(31, 0, 0), matchedPriorMonthTime(GameTime(61, 0, 0)))
+        val cutoff = checkNotNull(matchedPriorMonthTime(GameTime(62, 12, 30)))
+        assertEquals(GameTime(32, 12, 30), cutoff)
+        val early = entry(32, "1000" to 500L, "4000" to -500L)
+        val late = early.copy(entry = early.entry.copy(gameHour = 15))
+        val accounts = listOf(
+            LedgerAccountEntity("session", "cafe", "1000", "Cash", "ASSET"),
+            LedgerAccountEntity("session", "cafe", "4000", "Sales", "REVENUE")
+        )
+        val previous = financialPeriod(31..32, listOf(early, late), accounts, emptyList(), cutoff)
+        assertEquals(500L, previous.profitCents)
+        assertEquals(500L, previous.closingCashCents)
+        assertEquals(500L, previous.cashFlows[CashFlowLine.SALES])
     }
 
     private fun entry(day: Int, vararg postings: Pair<String, Long>): JournalWithLines {

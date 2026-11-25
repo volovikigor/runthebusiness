@@ -2,6 +2,7 @@ package com.example.runthebusiness.data.local
 
 import android.content.Context
 import androidx.room.withTransaction
+import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.data.local.dao.JournalWithLines
 import com.example.runthebusiness.data.local.entity.LedgerAccountEntity
 
@@ -25,9 +26,24 @@ data class FinancialPeriod(
     val revenueCents get() = revenue.sumOf { it.amountCents }
     val expenseCents get() = expenses.sumOf { it.amountCents }
     val profitCents get() = revenueCents - expenseCents
+    val incomeTaxCents get() = expenses.firstOrNull { it.code == "5800" }?.amountCents ?: 0L
 }
 
-data class FinancialStatements(val current: FinancialPeriod, val previous: FinancialPeriod?)
+data class FinancialComparison(val current: FinancialPeriod, val previous: FinancialPeriod?)
+
+data class FinancialStatements(
+    val time: GameTime,
+    val monthToDate: FinancialComparison,
+    val closedMonths: FinancialComparison?
+)
+
+internal const val REPORT_MONTH_DAYS = 30
+
+internal fun financialMonthStart(day: Int): Int =
+    (day - 1) / REPORT_MONTH_DAYS * REPORT_MONTH_DAYS + 1
+
+internal fun matchedPriorMonthTime(time: GameTime): GameTime? =
+    if (time.day > REPORT_MONTH_DAYS) time.copy(day = time.day - REPORT_MONTH_DAYS) else null
 
 enum class CashFlowLine(val label: String, val section: String) {
     SALES("Customer receipts", "Operations"),
@@ -48,15 +64,26 @@ class CafeFinancialStatementsRepository(context: Context) {
     private val performance = CafeDailyPerformanceRepository(context.applicationContext)
 
     suspend fun load(sessionId: String = "debug_session_001"): FinancialStatements? = db.withTransaction {
-        val today = db.accountingDao().getSession(sessionId)?.currentDay ?: return@withTransaction null
-        val start = ((today - 1) / 30) * 30 + 1
+        val session = db.accountingDao().getSession(sessionId) ?: return@withTransaction null
+        val now = GameTime(session.currentDay, session.currentHour, session.currentMinute)
+        val start = financialMonthStart(now.day)
+        val priorCutoff = matchedPriorMonthTime(now)
         val journal = db.journalViewDao().getJournal(sessionId)
         val accounts = db.gameSetupDao().getAccounts(sessionId)
-        val activity = performance.recent(sessionId, today - start + 31)
-        FinancialStatements(
-            financialPeriod(start..today, journal, accounts, activity),
-            if (start > 1) financialPeriod((start - 30) until start, journal, accounts, activity) else null
+        val activity = performance.recent(sessionId, now.day - start + 1 + REPORT_MONTH_DAYS * 2)
+        fun period(days: IntRange) = financialPeriod(days, journal, accounts, activity)
+        val priorMonthToDate = priorCutoff?.let { cutoff ->
+            val range = (start - REPORT_MONTH_DAYS)..cutoff.day
+            val priorActivity = activity.filter { it.day < cutoff.day } +
+                performance.recent(sessionId, days = 1, through = cutoff)
+            financialPeriod(range, journal, accounts, priorActivity, cutoff)
+        }
+        val closed = if (priorCutoff == null) null else FinancialComparison(
+            current = period((start - REPORT_MONTH_DAYS) until start),
+            previous = if (start > REPORT_MONTH_DAYS * 2)
+                period((start - REPORT_MONTH_DAYS * 2) until (start - REPORT_MONTH_DAYS)) else null
         )
+        FinancialStatements(now, FinancialComparison(period(start..now.day), priorMonthToDate), closed)
     }
 }
 
@@ -66,10 +93,16 @@ internal fun financialPeriod(
     days: IntRange,
     journal: List<JournalWithLines>,
     accounts: List<LedgerAccountEntity>,
-    activity: List<CafeDayPerformance>
+    activity: List<CafeDayPerformance>,
+    cutoff: GameTime? = null
 ): FinancialPeriod {
-    val entries = journal.filter { it.entry.gameDay in days }
-    val closing = balances(journal.filter { it.entry.gameDay <= days.last })
+    val through = journal.filter { row ->
+        val entry = row.entry
+        entry.gameDay <= days.last && (cutoff == null ||
+            GameTime(entry.gameDay, entry.gameHour, entry.gameMinute) <= cutoff)
+    }
+    val entries = through.filter { it.entry.gameDay in days }
+    val closing = balances(through)
     val opening = balances(journal.filter { it.entry.gameDay < days.first })
     val movement = balances(entries)
     fun lines(type: String, values: Map<String, Long>): List<FinancialLine> =
