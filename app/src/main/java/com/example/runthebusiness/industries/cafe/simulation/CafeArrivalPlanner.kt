@@ -23,17 +23,11 @@ object CafeArrivalPlanner {
             val slot = ((tick % 60L) / 15L).toInt()
             if (hour in openingHour until closingHour) {
                 val busy = hour in 8..10 || hour in 12..14
-                // Calibrated for ~90 arriving guests per 9-hour (08:00–17:00)
-                // day with 24 peak slots and 12 off-peak slots. Actual volume
-                // varies deterministically by day and time; these are arrivals,
-                // not guaranteed orders. Keep one group per 15-minute slot.
-                val cycle = Math.floorMod(day * 31L + hour * 7L + slot * 13L, 7L)
-                val guests = if (busy) (cycle % 3L + 2L).toInt()
-                             else when (cycle.toInt()) {
-                                 0, 1 -> 0
-                                 2, 3 -> 2
-                                 else -> 3
-                             }
+                // Keep one group per 15-minute slot and some quiet off-peak slots.
+                val cycle = Math.floorMod(day * 31L + hour * 7L + slot * 13L, 7L).toInt()
+                val guests = if (busy) {
+                    if (cycle % 3 == 0) 3 else 4
+                } else if (cycle == 1) 0 else 3
                 if (guests > 0) result += Arrival(day, hour, slot, minOf(guests, seats))
             }
             tick += 15L

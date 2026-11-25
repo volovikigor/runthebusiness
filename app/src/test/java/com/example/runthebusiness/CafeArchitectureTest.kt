@@ -39,7 +39,7 @@ class CafeArchitectureTest {
         assertEquals(500_000L, bank)
         assertEquals(38_666L, loan.monthlyPaymentCents)
         assertEquals(GameTime(31, 9, 0), loan.nextPaymentAt)
-        assertEquals(listOf(150_000L, 150_000L, 150_000L), state.employees.map { it.monthlyGrossSalaryCents })
+        assertEquals(listOf(180_000L, 180_000L, 180_000L), state.employees.map { it.monthlyGrossSalaryCents })
     }
 
     @Test fun legacyFactoryRemainsCompatible() {

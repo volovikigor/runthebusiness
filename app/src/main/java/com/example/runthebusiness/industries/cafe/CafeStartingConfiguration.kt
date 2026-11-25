@@ -10,8 +10,7 @@ data class CafeStartingConfiguration(
     val seatsPerTable: Int = 4,
     val targetCustomersPerDay: Int = 90,
     val operatingDaysPerMonth: Int = 26,
-    val averageSpendPerCustomerCents: Long = 850L,
-    val openingGrossSalaryCents: Long = 150_000L
+    val averageSpendPerCustomerCents: Long = 850L
 ) {
     /** Transitional adapter: preserve the existing factory and saved game format. */
     internal fun toLegacy(): StartingConfiguration = StartingConfiguration(
