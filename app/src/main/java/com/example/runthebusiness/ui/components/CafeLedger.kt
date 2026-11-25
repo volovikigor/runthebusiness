@@ -53,7 +53,7 @@ private fun CafeSectionHeader(
     onSelect: (String) -> Unit
 ) {
     Column(Modifier.background(MaterialTheme.colorScheme.background)) {
-        Text(title, Modifier.padding(start = 16.dp, top = 10.dp),
+        Text(cafeLabel(title), Modifier.padding(start = 16.dp, top = 10.dp),
             style = MaterialTheme.typography.headlineMedium)
         CafeLedgerOptions(sections, selected, onSelect)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -89,7 +89,7 @@ fun CafeBottomNavigation(selected: Int, onSelect: (Int) -> Unit) {
                         .padding(horizontal = 4.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(label, style = MaterialTheme.typography.labelLarge,
+                    Text(cafeLabel(label), style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                         color = if (active) colors.onSurface else colors.onSurfaceVariant,
                         maxLines = 1)
@@ -115,7 +115,7 @@ private fun CafeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            label,
+            cafeLabel(label),
             Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,

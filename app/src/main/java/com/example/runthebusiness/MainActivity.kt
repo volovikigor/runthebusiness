@@ -1,5 +1,7 @@
 package com.example.runthebusiness
 
+import com.example.runthebusiness.R
+import androidx.compose.ui.res.stringResource
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
@@ -199,16 +201,16 @@ class MainActivity : ComponentActivity() {
                     topBar = {
                         if (selectedTab == 0) Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(time?.let { "Day ${it.day} · %02d:%02d".format(it.hour, it.minute) } ?: "Maison Café",
+                                Text(time?.let { stringResource(R.string.day_clock, it.day, "%02d:%02d".format(it.hour, it.minute)) } ?: "Maison Café",
                                     Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                                 Box {
                                     TextButton(onClick = { showMusic = true },
                                         contentPadding = PaddingValues(horizontal = 4.dp)) {
-                                        Text(if (musicEnabled) "Music ▾" else "Music off ▾")
+                                        Text(stringResource(if (musicEnabled) R.string.music else R.string.music_off))
                                     }
                                     DropdownMenu(expanded = showMusic, onDismissRequest = { showMusic = false }) {
                                         DropdownMenuItem(text = {
-                                            Text(if (musicEnabled && selectedTrack == null) "✓  Playlist" else "Playlist")
+                                            Text((if (musicEnabled && selectedTrack == null) "✓  " else "") + stringResource(R.string.playlist))
                                         }, onClick = { selectMusic(true, null) })
                                         CafeMusicTrack.entries.forEach { track ->
                                             DropdownMenuItem(text = {
@@ -216,19 +218,19 @@ class MainActivity : ComponentActivity() {
                                             }, onClick = { selectMusic(true, track) })
                                         }
                                         DropdownMenuItem(text = {
-                                            Text(if (musicEnabled) "Off" else "✓  Off")
+                                            Text((if (musicEnabled) "" else "✓  ") + stringResource(R.string.music_off_option))
                                         }, onClick = { selectMusic(false, selectedTrack) })
                                     }
                                 }
                                 Box {
                                     TextButton(enabled = canControlTime && gameSpeed == 0,
-                                        onClick = { skipMenu = true }) { Text("Skip ▾") }
+                                        onClick = { skipMenu = true }) { Text(stringResource(R.string.skip)) }
                                     DropdownMenu(expanded = skipMenu, onDismissRequest = { skipMenu = false }) {
-                                        listOf(GameSimulationEngine.JumpMode.NEXT_EVENT to "Next event",
-                                            GameSimulationEngine.JumpMode.NEXT_DECISION to "Next decision",
-                                            GameSimulationEngine.JumpMode.NEXT_DAY to "Next day",
-                                            GameSimulationEngine.JumpMode.NEXT_WEEK to "Next week",
-                                            GameSimulationEngine.JumpMode.NEXT_MONTH to "Run 30 days (diagnostic)").forEach { (mode, label) ->
+                                        listOf(GameSimulationEngine.JumpMode.NEXT_EVENT to stringResource(R.string.next_event),
+                                            GameSimulationEngine.JumpMode.NEXT_DECISION to stringResource(R.string.next_decision),
+                                            GameSimulationEngine.JumpMode.NEXT_DAY to stringResource(R.string.next_day),
+                                            GameSimulationEngine.JumpMode.NEXT_WEEK to stringResource(R.string.next_week),
+                                            GameSimulationEngine.JumpMode.NEXT_MONTH to stringResource(R.string.diagnostic_month)).forEach { (mode, label) ->
                                             DropdownMenuItem(text = { Text(label) }, onClick = {
                                                 startJump(mode)
                                             })
@@ -237,7 +239,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(0 to "Pause", 1 to "×1", 5 to "×5", 20 to "×20").forEach { (value, label) ->
+                                listOf(0 to stringResource(R.string.pause), 1 to "×1", 5 to "×5", 20 to "×20").forEach { (value, label) ->
                                     FilterChip(selected = gameSpeed == value, enabled = canControlTime,
                                         onClick = {
                                             if (gameSpeed != value) {

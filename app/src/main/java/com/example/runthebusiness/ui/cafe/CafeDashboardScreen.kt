@@ -1,5 +1,8 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.cafeLabel
+import com.example.runthebusiness.ui.components.cafeProductName
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -107,8 +110,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     if (confirmPriceReset) {
         AlertDialog(
             onDismissRequest = { confirmPriceReset = false },
-            title = { Text("Reset menu prices?") },
-            text = { Text("All menu items will return to their starting prices.") },
+            title = { Text(stringResource(R.string.reset_prices_question)) },
+            text = { Text(stringResource(R.string.reset_prices_body)) },
             confirmButton = {
                 CafeActionButton(enabled = !busy, onClick = {
                     confirmPriceReset = false
@@ -116,9 +119,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         val count = menu.resetPrices()
                         message = "Prices reset for $count menu items."
                     }
-                }) { Text("Reset prices") }
+                }) { Text(stringResource(R.string.reset_prices)) }
             },
-            dismissButton = { TextButton(onClick = { confirmPriceReset = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { confirmPriceReset = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 
@@ -133,11 +136,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         val packs = CafePurchasingRepository.supplies.filter { it.itemId in itemIds }
         AlertDialog(
             onDismissRequest = { openMenuProduct = null },
-            title = { Text(product.name) },
+            title = { Text(cafeProductName(product.id, product.name)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Price", Modifier.weight(1f))
+                        Text(stringResource(R.string.loss_price), Modifier.weight(1f))
                         IconButton(
                             modifier = Modifier.semantics { contentDescription = "Decrease price by €0.10" },
                             enabled = !busy && product.priceCents > 50L,
@@ -152,21 +155,21 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     }
                     OutlinedButton(enabled = !busy, onClick = {
                         run { expanded.setEnabled(product.id, !product.enabled) }
-                    }) { Text(if (product.enabled) "Remove from menu" else "Add to menu") }
+                    }) { Text(stringResource(if (product.enabled) R.string.remove_menu else R.string.add_menu)) }
                     val openingPrice = CafePriceDemandRules.openingPriceCents(product.id)
                     if (product.enabled && product.priceCents > openingPrice) {
-                        Text("Above the opening price. Guests order this item less often, and some skip the visit.",
+                        Text(stringResource(R.string.above_opening_price),
                             style = MaterialTheme.typography.bodySmall)
                     }
                     if (product.enabled && CafePriceDemandRules.discountTrafficWeight(product.id, product.priceCents) > 0) {
-                        Text("This discount attracts extra groups for this item. They need one serving per guest before they count toward staff workload.",
+                        Text(stringResource(R.string.promotion_workload),
                             style = MaterialTheme.typography.bodySmall)
                     }
                     insights?.let { MenuPriceAnalytics(it) }
                     if (packs.isNotEmpty()) MenuPurchasingDetails(product, packs)
                 }
             },
-            confirmButton = { TextButton(onClick = { openMenuProduct = null }) { Text("Done") } }
+            confirmButton = { TextButton(onClick = { openMenuProduct = null }) { Text(stringResource(R.string.done)) } }
         )
     }
 
@@ -174,13 +177,13 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         val packs = packCountInput.toIntOrNull()?.takeIf { it in 1..99 }
         AlertDialog(
             onDismissRequest = { selectedPack = null },
-            title = { Text("Order ${supply.label}") },
+            title = { Text(stringResource(R.string.order_item, cafeProductName(supply.itemId, supply.label))) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = packCountInput,
                         onValueChange = { if (it.length <= 2 && it.all { digit -> digit in '0'..'9' }) packCountInput = it },
-                        label = { Text("Packs (1–99)") },
+                        label = { Text(stringResource(R.string.pack_count)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         isError = packs == null,
@@ -207,9 +210,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                                 else "${supply.label} purchased"
                         }
                     }
-                ) { Text(if (deferredPayment) "Order on credit" else "Pay now") }
+                ) { Text(stringResource(if (deferredPayment) R.string.order_credit else R.string.pay_now)) }
             },
-            dismissButton = { TextButton(onClick = { selectedPack = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { selectedPack = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 
@@ -234,41 +237,41 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             style = MaterialTheme.typography.bodySmall)
 
         if (!started) {
-            Text("Start the café to manage operations.")
+            Text(stringResource(R.string.start_for_ops))
             CafeActionButton(onClick = { run {
                     simulation.startGame()
                 } }, enabled = !busy) {
-                Text("Start café")
+                Text(stringResource(R.string.start_cafe))
             }
         } else when (section) {
             0 -> {
-                Text("Menu & pricing", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.menu_pricing), style = MaterialTheme.typography.titleLarge)
                 cafeSnapshot?.let { WeeklyDemandCard(it, products) }
-                Text("Sales cover up to seven completed days.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.sales_window), style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(
                     enabled = !busy && products.any { it.priceCents != CafePriceDemandRules.openingPriceCents(it.id) },
                     onClick = { confirmPriceReset = true }
-                ) { Text("Reset to starting prices") }
+                ) { Text(stringResource(R.string.reset_start_prices)) }
                 if (products.isEmpty()) {
-                    Text("Create the starter menu first.")
+                    Text(stringResource(R.string.create_menu_first))
                     CafeActionButton(onClick = { run { menu.seedMenu() } }, enabled = !busy) {
-                        Text("Create starter menu")
+                        Text(stringResource(R.string.create_menu))
                     }
                 }
                 if (products.none { it.id == "caesar_salad_001" }) {
                     CafeActionButton(onClick = { run {
                         expanded.install()
                         message = "11 new menu items added. Enable and stock the ones you want to sell."
-                    } }, enabled = !busy) { Text("Expand menu: cakes, sandwiches & salads") }
+                    } }, enabled = !busy) { Text(stringResource(R.string.expand_menu)) }
                 }
                 products.forEach { product ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Column(Modifier.weight(1f)) {
-                            Text(product.name, style = MaterialTheme.typography.titleSmall)
-                            val status = if (product.enabled) "On menu" else "Off menu"
-                            Text("${product.unitsSoldRecently} sold · $status", style = MaterialTheme.typography.bodySmall)
+                            Text(cafeProductName(product.id, product.name), style = MaterialTheme.typography.titleSmall)
+                            val status = cafeLabel(if (product.enabled) "On menu" else "Off menu")
+                            Text(stringResource(R.string.items_sold, product.unitsSoldRecently, status), style = MaterialTheme.typography.bodySmall)
                         }
                         OutlinedButton(enabled = !busy, onClick = { openMenuProduct = product.id },
                             modifier = Modifier.semantics { contentDescription = "Edit ${product.name} price and menu options" }
@@ -277,16 +280,16 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 }
             }
             1 -> {
-                Text("Purchasing", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.purchasing), style = MaterialTheme.typography.titleLarge)
                 cafeSnapshot?.let { WeeklyDemandCard(it, products) }
                 if (!realIngredients && products.isNotEmpty()) {
-                    Text("Legacy placeholder inventory is still in use. Convert it to beans, milk and croissants before assessing margins.",
+                    Text(stringResource(R.string.legacy_stock),
                         color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = { run { inventorySetup.initializeRealStock() } },
-                        enabled = !busy) { Text("Set up real ingredients") }
+                        enabled = !busy) { Text(stringResource(R.string.setup_ingredients)) }
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Automatic replenishment", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.replenishment), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     Switch(checked = autoPolicy.enabled, enabled = !busy,
                         onCheckedChange = { checked ->
                             autoPurchasing.setEnabled(checked)
@@ -294,7 +297,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         })
                 }
                 TextButton(onClick = { autoSettings = !autoSettings }) {
-                    Text(if (autoSettings) "Hide auto-order settings" else "Auto-order settings")
+                    Text(stringResource(if (autoSettings) R.string.hide_auto_order else R.string.auto_order_settings))
                 }
                 if (autoSettings) {
                     Text("Daily purchase budget: €%.0f".format(Locale.ROOT, autoPolicy.dailyBudgetCents / 100.0))
@@ -315,17 +318,17 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         autoPurchasing.enabled(it.itemId)
                     }.map { it.itemId }.toSet()
                     message = "Auto purchasing enabled for core ingredients and kitchen supplies. Review individual switches and budget."
-                }) { Text("Enable core ingredients auto-order") }
+                }) { Text(stringResource(R.string.auto_core)) }
                 }
                 if (supplierCreditBlocked) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.tertiaryContainer,
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer) {
-                            Text("Credit paused", Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            Text(stringResource(R.string.credit_paused), Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                                 style = MaterialTheme.typography.labelSmall)
                         }
-                        Text("Pay overdue supplier invoices in Finance → Bills.",
+                        Text(stringResource(R.string.pay_overdue_invoices),
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -341,28 +344,28 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     }
                 }.forEach { supply ->
                     CafeLedgerPanel {
-                        Text(supply.label, style = MaterialTheme.typography.titleMedium)
+                        Text(cafeProductName(supply.itemId, supply.label), style = MaterialTheme.typography.titleMedium)
                         Text("%.0f %s available · %.0f %s per pack".format(Locale.ROOT,
                             stock[supply.itemId] ?: 0.0, supply.unit, supply.quantity, supply.unit),
                             style = MaterialTheme.typography.bodySmall)
                         if (supply.shelfLifeDays > 0) {
-                            Text("Shelf life ${supply.shelfLifeDays} days", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.shelf_days, supply.shelfLifeDays), style = MaterialTheme.typography.bodySmall)
                         }
-                        Text("€%.2f per pack".format(Locale.ROOT, supply.costCents / 100.0),
+                        Text(stringResource(R.string.pack_unit_price, menuPackMoney(supply.costCents)),
                             style = MaterialTheme.typography.titleSmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             CafeActionButton(enabled = !busy, onClick = { selectPack(supply, false) }) {
-                                Text("Pay now")
+                                Text(stringResource(R.string.pay_now))
                             }
                             OutlinedButton(enabled = !busy && !supplierCreditBlocked,
                                 onClick = { selectPack(supply, true) }) {
-                                Text("Pay in ${supply.creditDays} days")
+                                Text(stringResource(R.string.pay_in_days, supply.creditDays))
                             }
                         }
                     }
                     if (autoSettings) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Auto-order", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.auto_order), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                             Switch(
                                 modifier = Modifier.semantics { contentDescription = "Auto-order ${supply.label}" },
                                 checked = supply.itemId in autoSelected,
@@ -377,41 +380,41 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 }
             }
             3 -> staff?.let { team ->
-                Text("Staff", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.loss_staff), style = MaterialTheme.typography.titleLarge)
                 CafeLedgerPanel {
                     Text("Today · ${team.currentCount} employees · €%.2f per day".format(
                         Locale.ROOT, team.currentCostCents / 100.0))
                     Text("Day ${team.today + 1} · ${team.plannedCount} employees · €%.2f per day".format(
                         Locale.ROOT, team.plannedCostCents / 100.0))
-                    Text("Daily cost includes employer social contributions.",
+                    Text(stringResource(R.string.daily_social),
                         style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             enabled = !busy && team.plannedCount > 1,
                             onClick = { run { staffRepo.changePlannedSize(-1) } }
-                        ) { Text("Remove 1") }
+                        ) { Text(stringResource(R.string.remove_one)) }
                         CafeActionButton(enabled = !busy, onClick = { run { staffRepo.changePlannedSize(1) } }) {
-                            Text("Hire 1")
+                            Text(stringResource(R.string.hire_one))
                         }
                     }
                 }
                 HorizontalDivider()
-                Text("Service capacity", style = MaterialTheme.typography.titleMedium)
-                Text("Hiring adds capacity. It can recover orders when the team is overloaded. Customer demand still depends on the café and menu.",
+                Text(stringResource(R.string.service_capacity), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.hiring_help),
                     style = MaterialTheme.typography.bodySmall)
                 Text("Today %.1f · Tomorrow %.1f work minutes per 15-minute slot".format(
                     Locale.ROOT, team.currentCapacity, team.plannedCapacity))
                 if (team.today > 1) {
                     Text("Day ${team.today - 1} · peak workload ${team.peakWorkload} work minutes per slot")
-                    Text("Groups lost to staff capacity · ${team.capacityLosses}")
+                    Text(stringResource(R.string.lost_capacity, team.capacityLosses))
                     Text("Last 30 completed days · ${team.recentCapacityLosses} groups lost to staff capacity")
                 }
             }
             else -> inventory?.let { report ->
-                Text("Stock balance", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.stock_balance), style = MaterialTheme.typography.titleLarge)
                 Text("Day ${report.fromDay}–${report.throughDay} · ending stock as of now",
                     style = MaterialTheme.typography.bodySmall)
-                Text("Write-offs · €%.2f".format(Locale.ROOT, report.items.sumOf { it.total.wasteCents } / 100.0),
+                Text(stringResource(R.string.writeoffs, menuPackMoney(report.items.sumOf { it.total.wasteCents })),
                     style = MaterialTheme.typography.titleSmall)
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -421,7 +424,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                             report.items.forEach { item ->
                                 val expanded = openIngredient == item.id
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                StockTableRow("${if (expanded) "▾" else "▸"} ${item.name} · ${item.unit}",
+                                StockTableRow("${if (expanded) "▾" else "▸"} ${cafeProductName(item.id, item.name)} · ${item.unit}",
                                     item.total.columns(), Modifier.clickable {
                                         openIngredient = if (expanded) null else item.id
                                     }.heightIn(min = 44.dp))
@@ -443,11 +446,11 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         }
                     }
                 }
-                Text("Tap an ingredient for daily movements. Expired stock is written off automatically.",
+                Text(stringResource(R.string.stock_drilldown),
                     style = MaterialTheme.typography.bodySmall)
             }
         }
-        OutlinedButton(onClick = { run { } }, enabled = !busy) { Text("Refresh") }
+        OutlinedButton(onClick = { run { } }, enabled = !busy) { Text(stringResource(R.string.refresh)) }
     }
 }
 
@@ -462,9 +465,9 @@ private fun InventoryPeriod.columns(): List<String> =
 private fun StockTableRow(label: String, values: List<String>, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(2.1f), style = MaterialTheme.typography.labelSmall)
+        Text(cafeLabel(label), Modifier.weight(2.1f), style = MaterialTheme.typography.labelSmall)
         values.forEach { value ->
-            Text(value, Modifier.weight(1f), textAlign = TextAlign.End,
+            Text(cafeLabel(value), Modifier.weight(1f), textAlign = TextAlign.End,
                 style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"))
         }
     }
@@ -478,8 +481,8 @@ private fun WeeklyDemandCard(cafe: CafeDashboardSnapshot, products: List<CafeMen
         CafePriceDemandRules.MenuPrice(it.id, it.type, it.priceCents)
     }
     CafeLedgerPanel {
-        Text("Demand outlook", style = MaterialTheme.typography.titleSmall)
-        Text("Full-day traffic at current prices. Weekday lunch favors meals. Weekend traffic peaks later.",
+        Text(stringResource(R.string.demand_outlook), style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.demand_timing),
             style = MaterialTheme.typography.bodySmall)
         for (day in today..today + 2) {
             val visits = if (cafe.isOpen) CafeArrivalPlanner.planForMenu(
@@ -499,7 +502,7 @@ private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchas
     CafeLedgerPanel {
         packs.forEach { pack ->
             val shelfLife = if (pack.shelfLifeDays > 0) " · ${pack.shelfLifeDays} days shelf life" else ""
-            Text("${pack.label} · ${stockQuantity(pack.quantity)} ${pack.unit} · ${menuPackMoney(pack.costCents)}$shelfLife",
+            Text("${cafeProductName(pack.itemId, pack.label)} · ${stockQuantity(pack.quantity)} ${pack.unit} · ${menuPackMoney(pack.costCents)}$shelfLife",
                 style = MaterialTheme.typography.bodySmall)
         }
         if (product.finishedStockItemId != null) {
@@ -509,7 +512,7 @@ private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchas
             Text("Sell $units to cover the pack before other expenses (sales excluding VAT).",
                 style = MaterialTheme.typography.bodySmall)
         } else {
-            Text("Ingredient packs can be shared with other dishes.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.shared_packs), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -519,7 +522,7 @@ private fun menuPackMoney(cents: Long): String = "€%.2f".format(Locale.ROOT, c
 @Composable
 private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
     CafeLedgerPanel {
-        Text("Price & demand", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.price_demand), style = MaterialTheme.typography.titleSmall)
         val recent = insights.recent
         if (recent != null) {
             Text("Days ${recent.days.first}–${recent.days.last} · ${recent.sales.units} sold",
@@ -539,7 +542,7 @@ private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
         }
         val change = insights.change
         when {
-            change == null -> Text("A new price change starts a before-and-after comparison.",
+            change == null -> Text(stringResource(R.string.price_new_comparison),
                 style = MaterialTheme.typography.bodySmall)
             change.previousCents == change.currentCents -> Text("Day ${change.gameDay} ended at the previous price.",
                 style = MaterialTheme.typography.bodySmall)
@@ -558,10 +561,10 @@ private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
                     PriceComparisonRow("Café guests", before.traffic.guests.toString(), after.traffic.guests.toString())
                     PriceComparisonRow("Groups lost to staffing", before.traffic.staffLosses.toString(),
                         after.traffic.staffLosses.toString())
-                    Text("Before → after. Equal-length periods exclude the day you changed the price.",
+                    Text(stringResource(R.string.matching_windows),
                         style = MaterialTheme.typography.bodySmall)
                 } else {
-                    Text("The comparison needs a completed day on each side of the price change.",
+                    Text(stringResource(R.string.needs_closed_day),
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -573,7 +576,7 @@ private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
 private fun PriceComparisonRow(label: String, before: String, after: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         val style = MaterialTheme.typography.bodySmall
-        Text(label, Modifier.weight(1f), style = style)
+        Text(cafeLabel(label), Modifier.weight(1f), style = style)
         Text("$before → $after", style = style, textAlign = TextAlign.End)
     }
 }

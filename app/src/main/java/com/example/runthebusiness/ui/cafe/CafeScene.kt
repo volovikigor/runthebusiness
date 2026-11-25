@@ -1,5 +1,7 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.cafeLabel
+import androidx.compose.ui.res.stringResource
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
@@ -124,11 +126,11 @@ fun CafeScene(
         }
     }
     val activity = when (view) {
-        CafeView.ROOM -> if (isOpen) "$activeGuests guests · $tables tables · $seats seats" else "Dining room closed"
-        CafeView.COFFEE -> if (pinnedView == null) "Coffee order" else "Coffee bar"
-        CafeView.KITCHEN -> if (pinnedView == null) "Kitchen order" else "Kitchen"
-        CafeView.DELIVERY -> if (pinnedView == null) "Delivery received" else "Receiving entrance"
-        CafeView.PAYMENT -> if (pinnedView == null) "Automatic bill payment" else "Office"
+        CafeView.ROOM -> if (isOpen) "$activeGuests guests · $tables tables · $seats seats" else stringResource(R.string.room_closed)
+        CafeView.COFFEE -> if (pinnedView == null) stringResource(R.string.coffee_order) else stringResource(R.string.coffee_bar)
+        CafeView.KITCHEN -> if (pinnedView == null) stringResource(R.string.kitchen_order) else cafeLabel("Kitchen")
+        CafeView.DELIVERY -> if (pinnedView == null) stringResource(R.string.delivery_received) else stringResource(R.string.receiving_entrance)
+        CafeView.PAYMENT -> if (pinnedView == null) stringResource(R.string.automatic_bill_payment) else cafeLabel("Office")
     }
 
     Surface(modifier, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -138,11 +140,11 @@ fun CafeScene(
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.titleLarge)
-                    Text(if (isOpen) "Open" else "Closed", style = MaterialTheme.typography.labelMedium,
+                    Text(stringResource(if (isOpen) R.string.open else R.string.closed), style = MaterialTheme.typography.labelMedium,
                         color = if (isOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Day ${time.day}", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.day_number, time.day), style = MaterialTheme.typography.labelMedium)
                     Text("%02d:%02d".format(Locale.ROOT, time.hour, time.minute),
                         style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
                 }
@@ -183,7 +185,7 @@ fun CafeScene(
                 FilterChip(
                     selected = pinnedView == null,
                     onClick = { pinnedView = null },
-                    label = { Text("Auto camera") }
+                    label = { Text(stringResource(R.string.auto_camera)) }
                 )
                 if (destination != null) {
                     TextButton(onClick = {
@@ -194,18 +196,18 @@ fun CafeScene(
                             CafeView.PAYMENT -> onOpenFinance()
                             CafeView.ROOM -> Unit
                         }
-                    }) { Text("Open $destination") }
+                    }) { Text(cafeLabel(destination)) }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SceneMetric("Menu ready", "$readyDishes / $totalDishes", Modifier.weight(1f))
-                SceneMetric("Bank", sceneMoney(bankCents), Modifier.weight(1f))
-                SceneMetric("Cash", sceneMoney(cashCents), Modifier.weight(1f))
+                SceneMetric(stringResource(R.string.menu_ready), "$readyDishes / $totalDishes", Modifier.weight(1f))
+                SceneMetric(stringResource(R.string.bank), sceneMoney(bankCents), Modifier.weight(1f))
+                SceneMetric(stringResource(R.string.cash), sceneMoney(cashCents), Modifier.weight(1f))
             }
             if (hasUrgentBills) {
-                Text("Overdue bills affecting service", Modifier.padding(start = 14.dp, bottom = 10.dp),
+                Text(stringResource(R.string.overdue_service), Modifier.padding(start = 14.dp, bottom = 10.dp),
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
             }
         }
