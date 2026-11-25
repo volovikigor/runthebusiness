@@ -30,6 +30,18 @@ class CafeArchitectureTest {
         assertTrue(state.journalEntries.all { it.timestamp == state.currentTime })
     }
 
+    @Test fun calibratedCafeStartsWithFiveThousandEurosForOperations() {
+        val state = CreateCafeUseCase()(CafeStartingConfiguration())
+        val loan = state.loans.single()
+        val bank = state.journalEntries.flatMap { it.lines }
+            .filter { it.accountCode == "1100" }.sumOf { it.debitCents - it.creditCents }
+        assertEquals(2_000_000L, loan.principalCents)
+        assertEquals(500_000L, bank)
+        assertEquals(38_666L, loan.monthlyPaymentCents)
+        assertEquals(GameTime(31, 9, 0), loan.nextPaymentAt)
+        assertEquals(listOf(180_000L, 180_000L, 180_000L), state.employees.map { it.monthlyGrossSalaryCents })
+    }
+
     @Test fun legacyFactoryRemainsCompatible() {
         val legacy = InitialGameFactory.create(StartingConfiguration(tableCount = 7))
         assertEquals(7, legacy.locations.single().tableCount)

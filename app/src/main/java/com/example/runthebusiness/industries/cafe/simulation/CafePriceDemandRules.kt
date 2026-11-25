@@ -6,13 +6,13 @@ package com.example.runthebusiness.industries.cafe.simulation
  */
 object CafePriceDemandRules {
     private val referencePrices = mapOf(
-        "espresso_001" to 220L, "cappuccino_001" to 350L,
-        "croissant_001" to 290L, "americano_001" to 280L,
-        "latte_001" to 390L, "pain_chocolat_001" to 320L,
-        "muffin_001" to 340L, "cheesecake_001" to 490L,
-        "carrot_cake_001" to 450L, "brownie_001" to 400L,
-        "ham_cheese_001" to 590L, "chicken_sandwich_001" to 750L,
-        "caesar_salad_001" to 900L, "med_salad_001" to 850L
+        "espresso_001" to 260L, "cappuccino_001" to 410L,
+        "croissant_001" to 340L, "americano_001" to 330L,
+        "latte_001" to 460L, "pain_chocolat_001" to 375L,
+        "muffin_001" to 400L, "cheesecake_001" to 575L,
+        "carrot_cake_001" to 530L, "brownie_001" to 470L,
+        "ham_cheese_001" to 695L, "chicken_sandwich_001" to 880L,
+        "caesar_salad_001" to 1060L, "med_salad_001" to 1000L
     )
 
     fun referencePriceCents(productId: String): Long = referencePrices[productId] ?: 300L
@@ -30,20 +30,20 @@ object CafePriceDemandRules {
     fun wantsCategory(arrivalId: String, hour: Int, category: String): Boolean {
         val chance = when (category) {
             "FOOD" -> when (hour) {
-                in 11..14 -> 75
-                in 15..17 -> 35
-                else -> 8
+                in 11..14 -> 82
+                in 15..17 -> 42
+                else -> 10
             }
             "DESSERT" -> when (hour) {
-                in 7..10 -> 12
-                in 11..14 -> 18
-                in 15..18 -> 65
-                else -> 30
+                in 7..10 -> 15
+                in 11..14 -> 22
+                in 15..18 -> 73
+                else -> 34
             }
             "PASTRY" -> when (hour) {
-                in 7..10 -> 65
-                in 11..14 -> 22
-                else -> 38
+                in 7..10 -> 73
+                in 11..14 -> 27
+                else -> 44
             }
             else -> 100
         }

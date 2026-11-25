@@ -22,17 +22,17 @@ class CafeArrivalPlannerRegressionTest {
         assertEquals(first.size, first.map { it.key }.distinct().size)
     }
 
-    @Test fun averageArrivalsNearNinetyGuestsPerFullDay() {
+    @Test fun averageArrivalsNearOneHundredTwentyGuestsPerFullDay() {
         val dailyGuests = (2..101).map { day ->
             CafeArrivalPlanner.plan(
                 GameTime(day, 7, 45), GameTime(day, 17, 0), 8, 17, 24
             ).sumOf { it.guests }
         }
         val average = dailyGuests.average()
-        assertTrue("Average arriving guests/day: $average", average in 85.0..95.0)
+        assertTrue("Average arriving guests/day: $average", average in 113.0..121.0)
         assertTrue("Day-to-day variation required", dailyGuests.toSet().size > 3)
-        assertTrue("Do not guarantee 90 arrivals", dailyGuests.any { it < 90 })
-        assertTrue("Do not cap at 90 arrivals", dailyGuests.any { it > 90 })
+        assertTrue("Do not guarantee 117 arrivals", dailyGuests.any { it < 117 })
+        assertTrue("Do not cap at 117 arrivals", dailyGuests.any { it > 117 })
     }
 
     @Test fun zeroSeatsPreventsArrivals() {

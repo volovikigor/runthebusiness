@@ -4,7 +4,7 @@ import com.example.runthebusiness.core.business.BusinessStartingConfiguration
 import com.example.runthebusiness.engine.model.StartingConfiguration
 
 data class CafeStartingConfiguration(
-    val business: BusinessStartingConfiguration = BusinessStartingConfiguration(),
+    val business: BusinessStartingConfiguration = BusinessStartingConfiguration(startingLoanCents = 2_000_000L),
     val employeeCount: Int = 3,
     val tableCount: Int = 6,
     val seatsPerTable: Int = 4,
