@@ -156,6 +156,8 @@ internal fun cafeLabel(key: String): String = when (key) {
     "Credit line interest payable" -> stringResource(R.string.credit_line_interest)
     "Credit line draws" -> stringResource(R.string.credit_line_draws)
     "Credit line principal repaid" -> stringResource(R.string.credit_line_repaid)
+    "Cash on hand" -> stringResource(R.string.cash_on_hand)
+    "Bank balance" -> stringResource(R.string.bank_balance)
     else -> key
 }
 

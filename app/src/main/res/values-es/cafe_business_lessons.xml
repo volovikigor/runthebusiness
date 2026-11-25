@@ -1,0 +1,18 @@
+<resources>
+    <string name="guide_controls_topic">Controles</string>
+    <string name="guide_cash_topic">Capital circulante</string>
+    <string name="guide_accounting_title">Contabilidad</string>
+    <string name="opening_loan_brief">Préstamo inicial · %1$s</string>
+    <string name="opening_purchase_brief">Compras iniciales: equipos %1$s, existencias %2$s</string>
+    <string name="opening_bank_brief">Saldo bancario inicial · %1$s</string>
+    <string name="loan_last_paid">Última cuota pagada · día %1$d · %2$s</string>
+    <string name="open_account_entries">Abrir asientos</string>
+    <string name="guide_accounting">La contabilidad de gestión ayuda a decidir qué cambiar. Usa precios, mermas y datos de personal para explicar las variaciones de ventas o margen.\n\nLa contabilidad financiera registra el resultado. Resultados muestra ingresos y gastos, Balance refleja lo que posee y debe la cafetería, y Flujo de caja muestra cobros y pagos.\n\nPrueba a comprar existencias con pago aplazado. Aumentan las existencias y la deuda con proveedores. El pago reduce banco y deuda y aparece en el flujo de caja. Los ingredientes usados en una venta pasan a ser un coste. Toca una cuenta marcada con › para abrir sus asientos y consultar el debe y el haber.</string>
+    <string name="day_bounds">Días %1$d–%2$d</string>
+    <string name="no_earlier_period">%1$s · Sin periodo anterior</string>
+    <string name="compare_periods">%1$s · Comparado con %2$s</string>
+    <string name="report_through_time">Hasta las %1$s</string>
+    <string name="report_same_time">Ambos meses hasta el mismo día y hora (%1$s).</string>
+    <string name="cash_on_hand">Efectivo en caja</string>
+    <string name="bank_balance">Saldo bancario</string>
+</resources>

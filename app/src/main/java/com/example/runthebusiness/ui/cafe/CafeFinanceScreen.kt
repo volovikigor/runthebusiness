@@ -246,6 +246,21 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         if (section == "Bills") {
             val today = forecast?.days?.firstOrNull()?.day
+            val lastPayment = entries.firstOrNull { it.id.startsWith("loan_payment_") }
+            if (lastPayment != null) {
+                val total = lastPayment.lines.sumOf { line ->
+                    if (line.account.substringBefore(' ') == "1100") line.creditCents else 0L
+                }
+                CafeLedgerPanel {
+                    Text(stringResource(R.string.loan_last_paid, lastPayment.day, money(total)),
+                        style = MaterialTheme.typography.titleSmall)
+                    TextButton(onClick = {
+                        openJournal("2100")
+                        selectedDay = lastPayment.day
+                        expandedId = lastPayment.id
+                    }) { Text(stringResource(R.string.open_account_entries)) }
+                }
+            }
             cashPosition?.let { position ->
                 val loanDue = forecast?.installments?.firstOrNull { today != null && it.dueDay <= today }
                 if (loanDue != null) {
@@ -362,9 +377,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         val report = statements
         if (report != null && section in setOf("P&L", "BS", "Cash Flow")) {
-            if (section == "P&L" || section == "BS") {
-                Text(stringResource(R.string.finance_journal_hint), style = MaterialTheme.typography.bodySmall)
-            }
             ComparativeReport(section, report, onAccount = { openJournal(it) })
         }
         if (section == "Journal") {
@@ -508,27 +520,30 @@ private fun ComparativeReport(
         else -> "Cash Flow"
     }
     Text(cafeLabel(heading), style = MaterialTheme.typography.titleLarge)
+    if (section == "P&L" || section == "BS") {
+        Text(stringResource(R.string.finance_journal_hint), style = MaterialTheme.typography.bodySmall)
+    }
     if (closed != null) {
         CafeLedgerOptions(listOf(liveLabel, closedLabel), if (showClosed) closedLabel else liveLabel) {
             showClosed = it == closedLabel
         }
     }
+    @Composable
     fun periodLabel(days: IntRange): String = when {
-        !monthly || days.first == days.last -> "Day ${days.last}"
-        else -> "Days ${days.first}–${days.last}"
+        !monthly || days.first == days.last -> stringResource(R.string.day_number, days.last)
+        else -> stringResource(R.string.day_bounds, days.first, days.last)
     }
     val currentLabel = periodLabel(current.days)
-    val previousLabel = previous?.days?.let(::periodLabel)
+    val previousLabel = previous?.days?.let { periodLabel(it) }
     Text(
-        if (previousLabel == null) "$currentLabel · No earlier period"
-        else "$currentLabel  ·  Compared with $previousLabel",
+        if (previousLabel == null) stringResource(R.string.no_earlier_period, currentLabel)
+        else stringResource(R.string.compare_periods, currentLabel, previousLabel),
         style = MaterialTheme.typography.bodySmall
     )
     if (!showClosed) {
         val time = "%02d:%02d".format(Locale.ROOT, report.time.hour, report.time.minute)
         Text(
-            if (previous == null) "Through $time"
-            else "Both months through the same day and time ($time).",
+            stringResource(if (previous == null) R.string.report_through_time else R.string.report_same_time, time),
             style = MaterialTheme.typography.bodySmall
         )
     }
@@ -640,7 +655,7 @@ private fun ComparisonTable(
         rows.forEach { row ->
             val change = row.current?.let { now -> row.previous?.let { now - it } }
             val interaction = if (row.account != null) Modifier.clickable(
-                role = Role.Button, onClickLabel = "Open account in journal"
+                role = Role.Button, onClickLabel = stringResource(R.string.open_account_entries)
             ) { onAccount(row.account) } else Modifier
             FinanceTableRow(
                 row.name, listOf(row.current?.let(format) ?: "—", row.previous?.let(format) ?: "—",
@@ -649,7 +664,7 @@ private fun ComparisonTable(
                     if (row.name == emphasis) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
                     else Modifier
                 ).padding(horizontal = 10.dp),
-                labelWeight = 1.6f, ruled = true, bold = row.name == "Gross profit"
+                labelWeight = 1.6f, ruled = true, bold = row.name == "Gross profit", linked = row.account != null
             )
         }
     }
@@ -698,13 +713,15 @@ private fun FinanceTableRow(
     modifier: Modifier = Modifier,
     labelWeight: Float = if (values.size == 3) 0.65f else 1.2f,
     ruled: Boolean = false,
-    bold: Boolean = false
+    bold: Boolean = false,
+    linked: Boolean = false
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(cafeJournalAccount(label), Modifier.weight(labelWeight),
+            Text(cafeJournalAccount(label) + if (linked) " ›" else "", Modifier.weight(labelWeight),
+                color = if (linked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
                 fontWeight = if (bold) FontWeight.SemiBold else null)
             values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold || heading) }

@@ -1,0 +1,18 @@
+<resources>
+    <string name="guide_controls_topic">Controls</string>
+    <string name="guide_cash_topic">Working capital</string>
+    <string name="guide_accounting_title">Accounting</string>
+    <string name="opening_loan_brief">Starting loan · %1$s</string>
+    <string name="opening_purchase_brief">Opening purchases: equipment %1$s, stock %2$s</string>
+    <string name="opening_bank_brief">Opening bank balance · %1$s</string>
+    <string name="loan_last_paid">Last loan payment · Day %1$d · %2$s</string>
+    <string name="open_account_entries">Open journal entries</string>
+    <string name="guide_accounting">Management accounting helps you decide what to change. Use pricing, stock losses and staffing data to explain changes in sales or margin.\n\nFinancial accounting records the result. P&amp;L shows income and expenses, Balance Sheet shows what the café owns and owes, and Cash Flow shows money received and paid.\n\nTry ordering stock with deferred payment. It increases inventory and supplier debt in the balance sheet. Paying the invoice reduces bank and debt, and appears in Cash Flow. Ingredients used in a sale become a cost in P&amp;L. Tap an account row marked › to follow it into the journal and open the debit and credit lines.</string>
+    <string name="day_bounds">Days %1$d–%2$d</string>
+    <string name="no_earlier_period">%1$s · No earlier period</string>
+    <string name="compare_periods">%1$s · Compared with %2$s</string>
+    <string name="report_through_time">Through %1$s</string>
+    <string name="report_same_time">Both months through the same day and time (%1$s).</string>
+    <string name="cash_on_hand">Cash on hand</string>
+    <string name="bank_balance">Bank balance</string>
+</resources>
