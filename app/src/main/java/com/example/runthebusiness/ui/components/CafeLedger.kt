@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,11 +75,28 @@ fun CafeLedgerOptions(sections: List<String>, selected: String, onSelect: (Strin
 
 @Composable
 fun CafeBottomNavigation(selected: Int, onSelect: (Int) -> Unit) {
-    Column(Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding()) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Row(Modifier.fillMaxWidth().selectableGroup()) {
+    val colors = MaterialTheme.colorScheme
+    val tabShape = RoundedCornerShape(12.dp)
+    Column(Modifier.background(colors.surfaceContainer).navigationBarsPadding()) {
+        HorizontalDivider(color = colors.outlineVariant)
+        Row(
+            Modifier.fillMaxWidth().selectableGroup().padding(horizontal = 12.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             listOf("Café", "Operations", "Finance").forEachIndexed { index, label ->
-                CafeTab(label, index == selected, { onSelect(index) }, Modifier.weight(1f))
+                val active = index == selected
+                Box(
+                    Modifier.weight(1f).heightIn(min = 48.dp).clip(tabShape)
+                        .background(if (active) colors.primaryContainer else colors.surfaceContainer)
+                        .selectable(selected = active, role = Role.Tab, onClick = { onSelect(index) })
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (active) colors.onPrimaryContainer else colors.onSurfaceVariant,
+                        maxLines = 1)
+                }
             }
         }
     }
