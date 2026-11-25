@@ -71,6 +71,13 @@ interface AccountingDao {
     """)
     suspend fun latestSupplierDelivery(sessionId: String): BusinessEventEntity?
 
+    @Query("""
+        SELECT * FROM business_events WHERE sessionId = :sessionId
+          AND eventType = 'PAYABLE_SETTLEMENT' AND sourceObjectType = 'AUTOMATIC_LEDGER_ACCOUNT'
+        ORDER BY gameDay DESC, gameHour DESC, gameMinute DESC, id DESC LIMIT 1
+    """)
+    suspend fun latestAutomaticPayment(sessionId: String): BusinessEventEntity?
+
     @Query("SELECT MAX(gameDay) FROM journal_entries WHERE sessionId = :sessionId AND id LIKE 'daily_close_%'")
     suspend fun latestCloseDayCandidate(sessionId: String): Int?
 

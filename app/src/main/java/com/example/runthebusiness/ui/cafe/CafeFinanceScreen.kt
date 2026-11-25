@@ -2,8 +2,6 @@ package com.example.runthebusiness.ui.cafe
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +31,8 @@ import com.example.runthebusiness.ui.components.CafeLedgerPanel
 import com.example.runthebusiness.ui.components.CafeLedgerOptions
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.math.BigDecimal
+import java.math.RoundingMode
 import com.example.runthebusiness.data.local.CafeCashForecast
 import com.example.runthebusiness.data.local.CafeCashForecastRepository
 
@@ -466,9 +466,9 @@ private fun ComparativeReport(
                 ComparisonRow("Revenue", current.revenueCents, previous?.revenueCents),
                 ComparisonRow("Expenses", current.expenseCents, previous?.expenseCents),
                 ComparisonRow("Net profit", current.profitCents, previous?.profitCents)
-            ), emphasis = "Net profit", grid = true)
-            ComparisonTable("Expense breakdown", accounts(current.expenses, previous?.expenses), onAccount = onAccount, grid = true)
-            ComparisonTable("Sales breakdown", accounts(current.revenue, previous?.revenue), onAccount = onAccount, grid = true)
+            ), emphasis = "Net profit")
+            ComparisonTable("Expense breakdown", accounts(current.expenses, previous?.expenses), onAccount = onAccount)
+            ComparisonTable("Sales breakdown", accounts(current.revenue, previous?.revenue), onAccount = onAccount)
             val nowServed = current.performance.sumOf { it.servedGroups }.toLong()
             val beforeServed = previous?.performance?.sumOf { it.servedGroups }?.toLong()
             ComparisonTable("Customer activity", listOf(
@@ -477,7 +477,7 @@ private fun ComparativeReport(
                 ComparisonRow("Groups served", nowServed, beforeServed),
                 ComparisonRow("Groups lost", current.performance.sumOf { it.lostGroups }.toLong(),
                     previous?.performance?.sumOf { it.lostGroups }?.toLong())
-            ), format = { it.toString() }, grid = true)
+            ), format = { it.toString() })
             val nowAverage = nowServed.takeIf { it > 0L }?.let { current.revenueCents / it }
             val beforeAverage = previous?.let { period ->
                 beforeServed?.takeIf { it > 0L }?.let { period.revenueCents / it }
@@ -485,7 +485,7 @@ private fun ComparativeReport(
             if (nowAverage != null || beforeAverage != null) {
                 ComparisonTable("Sales per served group", listOf(
                     ComparisonRow("Excluding VAT", nowAverage, beforeAverage)
-                ), grid = true)
+                ))
             }
             OutlinedButton(onClick = { showDaily = !showDaily }) {
                 Text(if (showDaily) "Hide daily results" else "Show daily results")
@@ -493,10 +493,11 @@ private fun ComparativeReport(
             if (showDaily) {
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
-                        FinanceTableRow("Day", listOf("Revenue", "Expenses", "Net"), heading = true)
+                        FinanceTableRow("Day", listOf("Revenue", "Expenses", "Net"), heading = true, ruled = true)
                         current.dailyResults.forEach { day ->
-                            FinanceTableRow(day.day.toString(), listOf(money(day.revenueCents),
-                                money(day.expenseCents), money(day.revenueCents - day.expenseCents)))
+                            FinanceTableRow(day.day.toString(), listOf(wholeEuros(day.revenueCents),
+                                wholeEuros(day.expenseCents), wholeEuros(day.revenueCents - day.expenseCents)),
+                                ruled = true)
                         }
                     }
                 }
@@ -511,7 +512,7 @@ private fun ComparativeReport(
             sections.forEach { (label, now, before) ->
                 ComparisonTable(label, accounts(now, before) + ComparisonRow(
                     "Total $label", now.sumOf { it.amountCents }, before?.sumOf { it.amountCents }
-                ), emphasis = "Total $label", onAccount = onAccount, grid = true)
+                ), emphasis = "Total $label", onAccount = onAccount)
             }
             if (current.assets.sumOf { it.amountCents } !=
                 current.liabilities.sumOf { it.amountCents } + current.equity.sumOf { it.amountCents }
@@ -549,8 +550,7 @@ private fun ComparisonTable(
     title: String,
     rows: List<ComparisonRow>,
     emphasis: String? = null,
-    format: (Long) -> String = ::money,
-    grid: Boolean = false,
+    format: (Long) -> String = ::wholeEuros,
     onAccount: (String) -> Unit = {}
 ) {
     if (rows.isEmpty()) return
@@ -559,20 +559,20 @@ private fun ComparisonTable(
             Text(title, Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp),
                 style = MaterialTheme.typography.titleSmall)
             FinanceTableRow("", listOf("Current", "Previous", "Change"), heading = true,
-                modifier = Modifier.padding(horizontal = 10.dp), labelWeight = 1.6f, grid = grid)
+                modifier = Modifier.padding(horizontal = 10.dp), labelWeight = 1.6f, ruled = true)
             rows.forEach { row ->
                 val change = row.current?.let { now -> row.previous?.let { now - it } }
                 val interaction = if (row.account != null) Modifier.clickable(
                     role = Role.Button, onClickLabel = "Open account in journal"
-                ) { onAccount(row.account) }.heightIn(min = 40.dp) else Modifier
+                ) { onAccount(row.account) } else Modifier
                 FinanceTableRow(
                     row.name, listOf(row.current?.let(format) ?: "—", row.previous?.let(format) ?: "—",
-                        change?.let { (if (it > 0L) "+" else "") + format(it) } ?: "—"),
+                        change?.let { (if (it > 0L && format(it) != format(0L)) "+" else "") + format(it) } ?: "—"),
                     modifier = interaction.then(
                         if (row.name == emphasis) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
                         else Modifier
                     ).padding(horizontal = 10.dp),
-                    labelWeight = 1.6f, grid = grid
+                    labelWeight = 1.6f, ruled = true
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -608,25 +608,26 @@ private fun FinanceTableRow(
     heading: Boolean = false,
     modifier: Modifier = Modifier,
     labelWeight: Float = if (values.size == 3) 0.65f else 1.2f,
-    grid: Boolean = false
+    ruled: Boolean = false
 ) {
-    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.23f)
-    val gridLines = if (grid) Modifier.drawBehind {
-        val gap = 4.dp.toPx()
-        val unit = (size.width - gap * values.size) / (labelWeight + values.size)
-        repeat(values.size) { index ->
-            val x = unit * (labelWeight + index) + gap * (index + 0.5f)
-            drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
+    Column(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(labelWeight),
+                style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall)
+            values.forEach { LedgerAmount(it, Modifier.weight(1f)) }
         }
-        val y = size.height - 0.5.dp.toPx()
-        drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
-    } else Modifier
-    Row(modifier.fillMaxWidth().then(gridLines).padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, Modifier.weight(labelWeight),
-            style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall)
-        values.forEach { LedgerAmount(it, Modifier.weight(1f)) }
+        if (ruled) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
+        }
     }
+}
+
+private fun wholeEuros(cents: Long): String {
+    val rounded = BigDecimal.valueOf(cents, 2).setScale(0, RoundingMode.HALF_UP).longValueExact()
+    return if (rounded < 0L) "-€%,d".format(Locale.ROOT, -rounded)
+        else "€%,d".format(Locale.ROOT, rounded)
 }
 
 @Composable
