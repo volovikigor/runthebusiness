@@ -16,8 +16,11 @@ internal enum class CafeMusicTrack(val title: String, val resource: Int) {
     MORNING_GROOVE("Morning Groove", R.raw.cafe_morning_groove),
     STEADY_SERVICE("Steady Service", R.raw.cafe_steady_service),
     WINDOW_SEAT("Window Seat", R.raw.cafe_window_seat),
-    AFTER_HOURS("After Hours", R.raw.cafe_after_hours)
+    AFTER_HOURS("After Hours", R.raw.cafe_after_hours),
+    BRASS_AND_VELVET("Brass & Velvet", R.raw.cafe_brass_and_velvet)
 }
+
+private val minimalistPlaylist = CafeMusicTrack.entries.filterNot { it == CafeMusicTrack.BRASS_AND_VELVET }
 
 private class PlaylistPosition(var track: Int = 0, var milliseconds: Int = 0)
 
@@ -36,7 +39,7 @@ internal fun CafeRunMusic(context: Context, playing: Boolean, track: CafeMusicTr
         var disposed = false
         fun playTrack() {
             val current = runCatching {
-                val resource = (track ?: CafeMusicTrack.entries[position.track]).resource
+                val resource = (track ?: minimalistPlaylist[position.track]).resource
                 MediaPlayer.create(context, resource, attributes, 0)
             }.getOrNull() ?: return
             player = current
@@ -46,7 +49,7 @@ internal fun CafeRunMusic(context: Context, playing: Boolean, track: CafeMusicTr
                 if (!disposed && player === current) {
                     current.release()
                     player = null
-                    position.track = (position.track + 1) % CafeMusicTrack.entries.size
+                    position.track = (position.track + 1) % minimalistPlaylist.size
                     position.milliseconds = 0
                     playTrack()
                 }

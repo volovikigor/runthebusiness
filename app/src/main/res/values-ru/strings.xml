@@ -355,4 +355,5 @@
     <string name="credit_line_interest">Проценты к оплате по кредитной линии</string>
     <string name="credit_line_draws">Поступления по кредитной линии</string>
     <string name="credit_line_repaid">Погашение долга по кредитной линии</string>
+    <string name="deco_soundtrack">Саундтрек ар-деко</string>
 </resources>

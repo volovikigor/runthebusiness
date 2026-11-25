@@ -4,7 +4,7 @@ import com.example.runthebusiness.ui.components.cafeLabel
 import com.example.runthebusiness.ui.components.cafeProductName
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -288,7 +288,7 @@ fun CafeHomeScreen(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(remember { ScrollState(0) }).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -370,7 +370,7 @@ fun CafeHomeScreen(
             }
             val tabs = listOf(R.string.home_menu, R.string.home_shift, R.string.home_actions, R.string.home_settings)
                 .map { stringResource(it) }
-            CafeLedgerOptions(tabs, tabs[homeSection]) { homeSection = tabs.indexOf(it) }
+            CafeLedgerOptions(tabs, tabs[homeSection], revealSelected = false) { homeSection = tabs.indexOf(it) }
             if (homeSection == 1) dailyPerformance.firstOrNull { it.day == shiftDay }?.let { shift ->
                 CafeShiftSummary(
                     shift = shift,
@@ -490,7 +490,7 @@ fun CafeHomeScreen(
                 val appearances = CafeAppearance.entries.associateWith {
                     stringResource(if (it == CafeAppearance.MINIMAL) R.string.appearance_minimal else R.string.appearance_deco)
                 }
-                CafeLedgerOptions(appearances.values.toList(), appearances.getValue(appearance)) { label ->
+                CafeLedgerOptions(appearances.values.toList(), appearances.getValue(appearance), revealSelected = false) { label ->
                     onAppearanceChanged(appearances.entries.first { it.value == label }.key)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

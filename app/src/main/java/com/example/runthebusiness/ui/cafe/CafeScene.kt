@@ -180,7 +180,7 @@ fun CafeScene(
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                     color = Color.White, style = MaterialTheme.typography.labelMedium)
             }
-            CafeLedgerOptions(CafeView.entries.map { it.label }, view.label) { label ->
+            CafeLedgerOptions(CafeView.entries.map { it.label }, view.label, revealSelected = false) { label ->
                 pinnedView = CafeView.entries.first { it.label == label }
             }
             val destination = when (view) {

@@ -60,19 +60,24 @@ private fun CafeSectionHeader(
             Text(cafeLabel(title), Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
             headerAction()
         }
-        CafeLedgerOptions(sections, selected, onSelect)
+        CafeLedgerOptions(sections, selected, onSelect = onSelect)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
 @Composable
-fun CafeLedgerOptions(sections: List<String>, selected: String, onSelect: (String) -> Unit) {
+fun CafeLedgerOptions(
+    sections: List<String>,
+    selected: String,
+    revealSelected: Boolean = true,
+    onSelect: (String) -> Unit
+) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
             .selectableGroup().padding(horizontal = 8.dp)
     ) {
         sections.forEach { label ->
-            CafeTab(label, label == selected, { onSelect(label) }, Modifier.widthIn(min = 56.dp))
+            CafeTab(label, label == selected, revealSelected, { onSelect(label) }, Modifier.widthIn(min = 56.dp))
         }
     }
 }
@@ -109,10 +114,10 @@ fun CafeBottomNavigation(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun CafeTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun CafeTab(label: String, selected: Boolean, revealSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val requester = remember { BringIntoViewRequester() }
-    LaunchedEffect(selected) {
-        if (selected) requester.bringIntoView()
+    LaunchedEffect(selected, revealSelected) {
+        if (selected && revealSelected) requester.bringIntoView()
     }
     Column(
         modifier.bringIntoViewRequester(requester)

@@ -88,8 +88,9 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(CafeMusicTrack.entries.firstOrNull { it.name == savedTrack })
                 }
                 var showMusic by remember { mutableStateOf(false) }
+                val themeTrack = if (appearance == CafeAppearance.ART_DECO) CafeMusicTrack.BRASS_AND_VELVET else null
                 CafeRunMusic(context, musicEnabled && appForeground && selectedTab == 0 &&
-                    !restoring && !settingUp && (gameSpeed > 0 || jumping), selectedTrack)
+                    !restoring && !settingUp && (gameSpeed > 0 || jumping), selectedTrack ?: themeTrack)
                 fun selectMusic(enabled: Boolean, track: CafeMusicTrack?) {
                     musicEnabled = enabled
                     selectedTrack = track
@@ -224,7 +225,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     DropdownMenu(expanded = showMusic, onDismissRequest = { showMusic = false }) {
                                         DropdownMenuItem(text = {
-                                            Text((if (musicEnabled && selectedTrack == null) "✓  " else "") + stringResource(R.string.playlist))
+                                            Text((if (musicEnabled && selectedTrack == null) "✓  " else "") + stringResource(if (themeTrack == null) R.string.playlist else R.string.deco_soundtrack))
                                         }, onClick = { selectMusic(true, null) })
                                         CafeMusicTrack.entries.forEach { track ->
                                             DropdownMenuItem(text = {
