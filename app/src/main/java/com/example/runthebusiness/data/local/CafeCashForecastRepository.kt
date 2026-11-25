@@ -19,6 +19,7 @@ data class CafeCashForecast(
 
 class CafeCashForecastRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
+    private val loans = CafeLoanPaymentRepository(context)
     private val bills = CafePaymentRegisterRepository(context)
 
     suspend fun load(sessionId: String = "debug_session_001"): CafeCashForecast? = db.withTransaction {
@@ -38,12 +39,7 @@ class CafeCashForecastRepository(context: Context) {
             ) / historyDays
         }
 
-        val installments = setup.getLoans(sessionId).filter { it.isActive }.flatMap {
-            CashForecast.loanSchedule(
-                it.outstandingPrincipalCents, it.annualInterestRate, it.monthlyPaymentCents,
-                it.nextPaymentDay, it.termMonths
-            )
-        }.filter { it.dueDay >= today }.sortedBy { it.dueDay }
+        val installments = loans.schedule(sessionId)
         val payments = installments.map { ForecastPayment("Loan installment", it.dueDay, it.totalCents) }
             .toMutableList()
         payments += bills.supplierBills(sessionId).map { ForecastPayment(it.label, it.dueDay, it.amountCents) }

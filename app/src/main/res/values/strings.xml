@@ -122,7 +122,7 @@
     <string name="pay_overdue_invoices">Pay overdue supplier invoices in Finance → Bills.</string>
     <string name="price">Price</string>
     <string name="price_demand">Price &amp; demand</string>
-    <string name="loan_projection">Projected loan payments. Monthly interest is accrued in P&amp;L.</string>
+    <string name="loan_projection">The starter loan is paid from the bank when due. If funds are short, its installment stays due in Bills.</string>
     <string name="review_bills">Review bills</string>
     <string name="review_prices">Review menu prices</string>
     <string name="review_staff">Review staffing</string>
@@ -348,4 +348,6 @@
     <string name="sales_no_closed_days">Units sold will appear after the first completed day.</string>
     <string name="purchase_bank_short">Bank balance is too low. Deposit cash in Finance → Bills.</string>
     <string name="purchase_bank_now">Stock arrives immediately. The full amount is paid from the bank account.</string>
+    <string name="loan_due">Starter loan due · %1$s</string>
+    <string name="loan_pay">Pay loan installment</string>
 </resources>

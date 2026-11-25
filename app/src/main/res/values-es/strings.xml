@@ -100,7 +100,7 @@
     <string name="pay_overdue_invoices">Paga las facturas vencidas en Finanzas → Facturas.</string>
     <string name="price">Precio</string>
     <string name="price_demand">Precio y demanda</string>
-    <string name="loan_projection">Pagos previstos del préstamo. El interés mensual se devenga en resultados.</string>
+    <string name="loan_projection">El préstamo inicial se paga desde el banco al vencer. Si faltan fondos, la cuota queda pendiente en Facturas.</string>
     <string name="review_bills">Revisar facturas</string>
     <string name="review_prices">Revisar precios del menú</string>
     <string name="review_staff">Revisar personal</string>
@@ -347,4 +347,6 @@
     <string name="sales_no_closed_days">Las ventas aparecen tras cerrar el primer día.</string>
     <string name="purchase_bank_short">Saldo bancario insuficiente. Ingresa efectivo en Finanzas → Facturas.</string>
     <string name="purchase_bank_now">El pedido llega enseguida. El importe completo se paga desde la cuenta bancaria.</string>
+    <string name="loan_due">Préstamo inicial pendiente · %1$s</string>
+    <string name="loan_pay">Pagar cuota del préstamo</string>
 </resources>

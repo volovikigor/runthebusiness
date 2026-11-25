@@ -95,7 +95,7 @@
     <string name="pay_overdue_invoices">Погасите просрочки в разделе «Финансы → Платежи».</string>
     <string name="price">Цена</string>
     <string name="price_demand">Цена и спрос</string>
-    <string name="loan_projection">Прогноз платежей по кредиту. Месячные проценты начисляются в отчёте о прибыли.</string>
+    <string name="loan_projection">Стартовый кредит погашается со счёта в день платежа. Если денег не хватает, взнос остаётся в разделе «Платежи».</string>
     <string name="review_bills">Проверить платежи</string>
     <string name="review_prices">Проверить цены меню</string>
     <string name="review_staff">Проверить состав команды</string>
@@ -342,4 +342,6 @@
     <string name="sales_no_closed_days">Продажи появятся после завершения первого дня.</string>
     <string name="purchase_bank_short">На счёте не хватает денег. Внесите наличные в разделе «Финансы → Платежи».</string>
     <string name="purchase_bank_now">Товар поступит сразу. Вся сумма будет списана с банковского счёта.</string>
+    <string name="loan_due">К оплате по стартовому кредиту · %1$s</string>
+    <string name="loan_pay">Оплатить взнос по кредиту</string>
 </resources>
