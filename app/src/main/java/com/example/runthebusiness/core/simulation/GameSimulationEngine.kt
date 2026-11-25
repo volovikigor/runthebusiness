@@ -110,7 +110,7 @@ class GameSimulationEngine(context: Context) {
         return StepResult(time, served)
     }
 
-    enum class JumpMode { NEXT_EVENT, NEXT_DECISION, NEXT_DAY, NEXT_WEEK, NEXT_OPENING }
+    enum class JumpMode { NEXT_EVENT, NEXT_DECISION, NEXT_DAY, NEXT_WEEK, NEXT_MONTH, NEXT_OPENING }
 
     /**
      * Every jump uses the same 15-minute simulation path as the live clock.
@@ -127,7 +127,8 @@ class GameSimulationEngine(context: Context) {
                 ?: return@withLock NextEventResult(initial, "No scheduled opening to skip to", 0)
             return@withLock NextEventResult(step.time, "Reached café opening time", step.groupsServed)
         }
-        val knownAlerts = if (mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_DAY)
+        val calendarJump = mode == JumpMode.NEXT_DAY || mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_MONTH
+        val knownAlerts = if (calendarJump)
             emptySet() else alerts.load(sessionId).map { it.id }.toSet()
         var previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
         var latest = initial
@@ -147,15 +148,17 @@ class GameSimulationEngine(context: Context) {
             JumpMode.NEXT_DECISION -> 96 * 14
             JumpMode.NEXT_DAY -> 96
             JumpMode.NEXT_WEEK -> 96 * 7
+            JumpMode.NEXT_MONTH -> 96 * 30
             JumpMode.NEXT_OPENING -> error("Opening jump handled above")
         }
         val startMinutes = (initial.day - 1L) * 1440L + initial.hour * 60L + initial.minute
         val targetMinutes = when (mode) {
             JumpMode.NEXT_DAY -> initial.day.toLong() * 1440L
             JumpMode.NEXT_WEEK -> startMinutes + 7L * 1440L
+            // Stop at the boundary following 30 completed days, before another trading shift.
+            JumpMode.NEXT_MONTH -> (initial.day + 29L) * 1440L
             else -> Long.MAX_VALUE
         }
-        val calendarJump = mode == JumpMode.NEXT_DAY || mode == JumpMode.NEXT_WEEK
         val location = if (calendarJump) clock.loadBusinessLocations(sessionId).singleOrNull() else null
         repeat(steps) {
             val advanceStarted = android.os.SystemClock.elapsedRealtime()
@@ -180,7 +183,7 @@ class GameSimulationEngine(context: Context) {
             stepsRun++
             latest = step.time
             groups += step.groupsServed
-            if (mode == JumpMode.NEXT_WEEK && latest.day != initial.day &&
+            if ((mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_MONTH) && latest.day != initial.day &&
                 latest.hour == 0 && latest.minute == 0) {
                 onProgress?.invoke(latest.day, latest.day - initial.day, groups)
             }
