@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.example.runthebusiness.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
@@ -184,6 +185,14 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             expandedId = null
         }
     ) {
+        CafeGuideButton(section, when (section) {
+            "Bills" -> R.string.guide_bills
+            "P&L" -> R.string.guide_pl
+            "BS" -> R.string.guide_bs
+            "Cash Flow" -> R.string.guide_cash
+            "Journal" -> R.string.guide_journal
+            else -> R.string.guide_forecast
+        })
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (section == "Forecast") {

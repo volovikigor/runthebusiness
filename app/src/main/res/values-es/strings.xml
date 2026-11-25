@@ -4,4 +4,19 @@
     <string name="debug_refresh">Actualizar</string>
     <string name="debug_seed">Crear asientos iniciales</string>
     <string name="debug_empty">Sin registros</string>
+    <string name="guide_button">Cómo jugar</string>
+    <string name="guide_close">Entendido</string>
+    <string name="guide_intro_title">Tu primer mes</string>
+    <string name="guide_intro">Empieza con el menú y mantén los ingredientes en existencias. Revisa lo que deja cada venta y reserva dinero para las facturas. Tu primer objetivo es cerrar un mes con beneficios.</string>
+    <string name="guide_cafe">Usa el turno y el resumen para detectar ventas perdidas. Si faltan existencias, compra ingredientes. Si el equipo está saturado, revisa Personal. Pausa antes de tomar decisiones.</string>
+    <string name="guide_pricing">Compara volumen de ventas y beneficio antes y después de cambiar un precio. Un descuento puede atraer nuevos grupos. Comprueba que haya existencias para atenderlos.</string>
+    <string name="guide_purchasing">Decide cuánto pedir y cuándo pagar. Comprar a crédito conserva el efectivo hoy y crea una factura para más adelante. Revisa la caducidad antes de comprar en volumen.</string>
+    <string name="guide_inventory">Compara compras, consumo, mermas y existencias finales. Abre un ingrediente para ver sus movimientos diarios. Reduce los pedidos si caduca con frecuencia.</string>
+    <string name="guide_staff">Contrata cuando pierdas grupos por capacidad de servicio. Compara el coste salarial adicional con el margen de esas ventas. Los cambios se aplican al día siguiente.</string>
+    <string name="guide_forecast">Comprueba cuándo podría faltar dinero en el banco. Si hay efectivo en caja, ingrésalo antes del vencimiento. La previsión se basa en la actividad reciente.</string>
+    <string name="guide_bills">Revisa los vencimientos y decide qué facturas pagar. Los retrasos de alquiler, salarios y proveedores pueden interrumpir la actividad. Los ingresos trasladan efectivo de caja al banco.</string>
+    <string name="guide_pl">Compara ventas y gastos y revisa la actividad de clientes para explicar el cambio. El beneficio incluye gastos devengados como salarios e intereses.</string>
+    <string name="guide_bs">Consulta lo que posee y debe la cafetería y el patrimonio acumulado. Observa cómo cambian las existencias y las facturas pendientes entre fechas.</string>
+    <string name="guide_cash">Consulta de dónde vino el dinero y en qué se gastó. Pagar una factura antigua cambia el efectivo en la fecha de pago. Mover dinero entre caja y banco deja el total igual.</string>
+    <string name="guide_journal">Abre una operación para ver sus cuentas e importes. Usa el diario para rastrear una cifra del informe hasta la operación correspondiente.</string>
 </resources>

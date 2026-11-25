@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import com.example.runthebusiness.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
@@ -221,6 +222,12 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             message = null
         }
     ) {
+        CafeGuideButton(sections.getOrElse(section) { sections[2] }, when (section) {
+            0 -> R.string.guide_pricing
+            1 -> R.string.guide_purchasing
+            3 -> R.string.guide_staff
+            else -> R.string.guide_inventory
+        })
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (message != null) Text(message!!, color = MaterialTheme.colorScheme.primary,
