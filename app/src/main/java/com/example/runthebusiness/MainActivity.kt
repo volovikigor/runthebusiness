@@ -55,17 +55,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
         val styleSettings = getSharedPreferences("cafe_appearance", MODE_PRIVATE)
         setContent {
             var appearance by remember {
                 val saved = styleSettings.getString("style", null)
                 mutableStateOf(CafeAppearance.entries.firstOrNull { it.name == saved } ?: CafeAppearance.MINIMAL)
-            }
-            SideEffect {
-                WindowCompat.getInsetsController(window, window.decorView).apply {
-                    isAppearanceLightStatusBars = appearance == CafeAppearance.MINIMAL
-                    isAppearanceLightNavigationBars = appearance == CafeAppearance.MINIMAL
-                }
             }
             RunthebusinessTheme(appearance = appearance) {
                 var selectedTab by remember { mutableIntStateOf(0) }

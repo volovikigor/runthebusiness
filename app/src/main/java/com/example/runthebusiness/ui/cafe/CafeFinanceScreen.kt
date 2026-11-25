@@ -199,16 +199,18 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             section = tab
             accountFilter = null
             expandedId = null
+        },
+        headerAction = {
+            CafeGuideButton(section, when (section) {
+                "Bills" -> R.string.guide_bills
+                "P&L" -> R.string.guide_pl
+                "BS" -> R.string.guide_bs
+                "Cash Flow" -> R.string.guide_cash
+                "Journal" -> R.string.guide_journal
+                else -> R.string.guide_forecast
+            })
         }
     ) {
-        CafeGuideButton(section, when (section) {
-            "Bills" -> R.string.guide_bills
-            "P&L" -> R.string.guide_pl
-            "BS" -> R.string.guide_bs
-            "Cash Flow" -> R.string.guide_cash
-            "Journal" -> R.string.guide_journal
-            else -> R.string.guide_forecast
-        })
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (section == "Forecast") {

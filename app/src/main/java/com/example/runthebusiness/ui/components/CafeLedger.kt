@@ -31,12 +31,13 @@ fun CafeSectionScreen(
     sections: List<String>,
     selected: String,
     onSelect: (String) -> Unit,
+    headerAction: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scroll = rememberScrollState()
     LaunchedEffect(selected) { scroll.scrollTo(0) }
     Column(modifier.fillMaxSize()) {
-        CafeSectionHeader(title, sections, selected, onSelect)
+        CafeSectionHeader(title, sections, selected, onSelect, headerAction)
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -50,11 +51,15 @@ private fun CafeSectionHeader(
     title: String,
     sections: List<String>,
     selected: String,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    headerAction: @Composable () -> Unit
 ) {
     Column(Modifier.background(MaterialTheme.colorScheme.background)) {
-        Text(cafeLabel(title), Modifier.padding(start = 16.dp, top = 10.dp),
-            style = MaterialTheme.typography.headlineMedium)
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(cafeLabel(title), Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+            headerAction()
+        }
         CafeLedgerOptions(sections, selected, onSelect)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
