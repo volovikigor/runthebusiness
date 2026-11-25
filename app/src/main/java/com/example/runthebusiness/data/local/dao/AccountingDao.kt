@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import com.example.runthebusiness.data.local.entity.*
 import com.example.runthebusiness.data.local.SupplierBill
 
+data class CafeDailyNetProfit(val day: Int, val cents: Long)
+
 @Dao
 interface AccountingDao {
 
@@ -77,6 +79,15 @@ interface AccountingDao {
         ORDER BY gameDay DESC, gameHour DESC, gameMinute DESC, id DESC LIMIT 1
     """)
     suspend fun latestAutomaticPayment(sessionId: String): BusinessEventEntity?
+
+    @Query("""
+        SELECT j.gameDay AS day, SUM(l.creditCents - l.debitCents) AS cents
+        FROM journal_entries j JOIN journal_lines l ON l.entryId = j.id
+        JOIN ledger_accounts a ON a.sessionId = j.sessionId AND a.businessId = j.businessId AND a.code = l.accountCode
+        WHERE j.sessionId = :sessionId AND j.gameDay < :beforeDay AND a.type IN ('REVENUE', 'EXPENSE')
+        GROUP BY j.gameDay
+    """)
+    suspend fun dailyNetProfit(sessionId: String, beforeDay: Int): List<CafeDailyNetProfit>
 
     @Query("SELECT MAX(gameDay) FROM journal_entries WHERE sessionId = :sessionId AND id LIKE 'daily_close_%'")
     suspend fun latestCloseDayCandidate(sessionId: String): Int?

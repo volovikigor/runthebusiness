@@ -5,4 +5,25 @@
     <string name="debug_refresh">Refresh</string>
     <string name="debug_seed">Seed opening entries</string>
     <string name="debug_empty">No records</string>
+    <string name="buy_pack_price">Buy pack · %1$s</string>
+    <string name="hide_shift_details">Hide shift details</string>
+    <string name="show_shift_details">Show shift details</string>
+    <string name="loss_stock">Stock</string>
+    <string name="loss_staff">Staff</string>
+    <string name="loss_price">Price</string>
+    <string name="loss_seats">Seats</string>
+    <string name="loss_rent">Closure</string>
+    <string name="cafe_overview">Café overview</string>
+    <string name="kpi_completed_window">Completed days in the last 30: %1$d</string>
+    <string name="kpi_profit">Net profit</string>
+    <string name="kpi_served">Groups served</string>
+    <string name="kpi_bank_after_bills">Bank after bills due today</string>
+    <string name="kpi_top_loss">Top reason for lost groups</string>
+    <string name="kpi_loss_value">%1$s · %2$d</string>
+    <string name="kpi_review_bills">Review bills</string>
+    <string name="cafe_milestones">Milestones</string>
+    <string name="goal_profitable">Close a profitable month</string>
+    <string name="goal_profitable_done">✓ Profitable month closed</string>
+    <string name="goal_target">Earn %1$s net profit in a closed month</string>
+    <string name="goal_target_done">✓ Earned %1$s net profit in a closed month</string>
 </resources>
