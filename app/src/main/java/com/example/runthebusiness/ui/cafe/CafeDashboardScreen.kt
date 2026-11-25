@@ -270,7 +270,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text(cafeProductName(product.id, product.name), style = MaterialTheme.typography.titleSmall)
-                            val status = if (product.enabled) "On menu" else "Off menu"
+                            val status = cafeLabel(if (product.enabled) "On menu" else "Off menu")
                             Text(stringResource(R.string.items_sold, product.unitsSoldRecently, status), style = MaterialTheme.typography.bodySmall)
                         }
                         OutlinedButton(enabled = !busy, onClick = { openMenuProduct = product.id },
@@ -502,7 +502,7 @@ private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchas
     CafeLedgerPanel {
         packs.forEach { pack ->
             val shelfLife = if (pack.shelfLifeDays > 0) " · ${pack.shelfLifeDays} days shelf life" else ""
-            Text("${pack.label} · ${stockQuantity(pack.quantity)} ${pack.unit} · ${menuPackMoney(pack.costCents)}$shelfLife",
+            Text("${cafeProductName(pack.itemId, pack.label)} · ${stockQuantity(pack.quantity)} ${pack.unit} · ${menuPackMoney(pack.costCents)}$shelfLife",
                 style = MaterialTheme.typography.bodySmall)
         }
         if (product.finishedStockItemId != null) {

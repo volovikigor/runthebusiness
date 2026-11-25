@@ -1,6 +1,7 @@
 package com.example.runthebusiness.ui.cafe
 
 import com.example.runthebusiness.ui.components.cafeLabel
+import com.example.runthebusiness.ui.components.cafeJournalAccount
 import com.example.runthebusiness.ui.components.cafeProductName
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
@@ -469,7 +470,7 @@ private fun ComparativeReport(
         "BS" -> "Balance Sheet"
         else -> "Cash Flow"
     }
-    Text(heading, style = MaterialTheme.typography.titleLarge)
+    Text(cafeLabel(heading), style = MaterialTheme.typography.titleLarge)
     if (closed != null) {
         CafeLedgerOptions(listOf(liveLabel, closedLabel), if (showClosed) closedLabel else liveLabel) {
             showClosed = it == closedLabel
@@ -666,7 +667,7 @@ private fun FinanceTableRow(
         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(cafeLabel(label), Modifier.weight(labelWeight),
+            Text(cafeJournalAccount(label), Modifier.weight(labelWeight),
                 style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
                 fontWeight = if (bold) FontWeight.SemiBold else null)
             values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold || heading) }

@@ -336,7 +336,7 @@ fun CafeHomeScreen(
                             visible.forEach { shortage ->
                                 val supply = shortage.supply
                                 HorizontalDivider()
-                                Text("${supply.name} · ${shortage.dishes.size} affected",
+                                Text("${cafeProductName(supply.itemId, supply.name)} · ${shortage.dishes.size} affected",
                                     style = MaterialTheme.typography.titleSmall)
                                 Text(shortage.dishes.map { cafeProductName(it.productId, it.name) }.joinToString(),
                                     style = MaterialTheme.typography.bodySmall)
@@ -382,7 +382,7 @@ fun CafeHomeScreen(
                                 else MaterialTheme.colorScheme.error)
                         dish.missing.forEach { missing ->
                             Text(
-                                "${missing.name} · %s / %s %s".format(
+                                "${cafeProductName(missing.itemId, missing.name)} · %s / %s %s".format(
                                     Locale.ROOT, missing.available, missing.required, missing.unit
                                 ),
                                 style = MaterialTheme.typography.bodySmall
