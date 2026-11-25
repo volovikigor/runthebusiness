@@ -22,7 +22,8 @@ object CafeArrivalPlanner {
             val hour = ((tick % 1440L) / 60L).toInt()
             val slot = ((tick % 60L) / 15L).toInt()
             if (hour in openingHour until closingHour) {
-                val busy = hour in 8..10 || hour in 12..14
+                val busy = if (CafePriceDemandRules.isWeekend(day)) hour in 9..11 || hour in 14..16
+                    else hour in 8..10 || hour in 12..14
                 // Keep one group per 15-minute slot and some quiet off-peak slots.
                 val cycle = Math.floorMod(day * 31L + hour * 7L + slot * 13L, 7L).toInt()
                 val guests = if (busy) {

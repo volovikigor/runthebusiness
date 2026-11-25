@@ -7,6 +7,8 @@ import com.example.runthebusiness.data.local.entity.CustomerOrderEntity
 import com.example.runthebusiness.data.local.entity.CustomerOrderLineEntity
 import com.example.runthebusiness.data.local.entity.StockMovementEntity
 
+data class ProductUnitsSold(val productId: String, val units: Long)
+
 @Dao
 interface CafeSalesDao {
     @Insert suspend fun insertOrder(order: CustomerOrderEntity)
@@ -22,6 +24,14 @@ interface CafeSalesDao {
 
     @Query("SELECT * FROM customer_order_lines WHERE orderId IN (:orderIds)")
     suspend fun getOrderLinesForOrders(orderIds: List<String>): List<CustomerOrderLineEntity>
+
+    @Query("""
+        SELECT l.productId, SUM(l.quantity) AS units
+        FROM customer_order_lines l JOIN customer_orders o ON o.id = l.orderId
+        WHERE o.locationId = :locationId AND o.gameDay >= :fromDay AND o.gameDay < :today
+        GROUP BY l.productId
+    """)
+    suspend fun unitsSold(locationId: String, fromDay: Int, today: Int): List<ProductUnitsSold>
 
     @Query("SELECT * FROM stock_movements WHERE sourceId = :sourceId ORDER BY id")
     suspend fun getMovementsForSource(sourceId: String): List<StockMovementEntity>

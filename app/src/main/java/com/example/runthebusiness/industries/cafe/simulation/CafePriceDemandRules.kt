@@ -35,8 +35,10 @@ object CafePriceDemandRules {
         return bucket < probabilityPercent
     }
 
-    /** Per-group intent, stable for the same arrival across process restarts. */
-    fun wantsCategory(arrivalId: String, hour: Int, category: String): Boolean {
+    fun isWeekend(day: Int): Boolean = (day - 1) % 7 >= 5
+
+    /** Per-guest intent, stable for the same arrival across process restarts. */
+    fun wantsCategory(arrivalId: String, hour: Int, category: String, day: Int = 1): Boolean {
         val chance = when (category) {
             "FOOD" -> when (hour) {
                 in 11..14 -> 82
@@ -56,6 +58,11 @@ object CafePriceDemandRules {
             }
             else -> 100
         }
-        return Math.floorMod("$arrivalId:$category:intent".hashCode(), 100) < chance
+        val weeklyChange = when (category) {
+            "FOOD" -> if (isWeekend(day)) -10 else 4
+            "DESSERT" -> if (isWeekend(day)) 12 else -5
+            else -> 0
+        }
+        return Math.floorMod("$arrivalId:$category:intent".hashCode(), 100) < (chance + weeklyChange)
     }
 }

@@ -16,6 +16,8 @@ data class CafeMenuItem(
     val priceCents: Long,
     val preparationMinutes: Int,
     val enabled: Boolean,
+    val unitsSoldRecently: Long,
+    val finishedStockItemId: String?,
     val ingredients: List<Pair<String, Double>>
 )
 
@@ -73,12 +75,17 @@ class CafeMenuRepository(context: Context) {
                 ?: return@withContext emptyList()
             val location = locations.getLocations(business.id).singleOrNull()
                 ?: return@withContext emptyList()
+            val today = db.accountingDao().getSession(sessionId)?.currentDay ?: 1
+            val recentSales = db.cafeSalesDao().unitsSold(location.id, (today - 7).coerceAtLeast(1), today)
+                .associate { it.productId to it.units }
             menu.getProducts(location.id).map { product ->
                 CafeMenuItem(
                     id = product.id, name = product.name, type = product.type,
                     priceCents = product.sellingPriceCents,
                     preparationMinutes = product.preparationMinutes,
                     enabled = product.isAvailable,
+                    unitsSoldRecently = recentSales[product.id] ?: 0L,
+                    finishedStockItemId = product.finishedStockItemId,
                     ingredients = menu.getRecipe(product.id).map {
                         it.ingredientId to it.quantity
                     }

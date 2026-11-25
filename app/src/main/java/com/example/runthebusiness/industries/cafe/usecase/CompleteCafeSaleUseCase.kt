@@ -1,5 +1,7 @@
 package com.example.runthebusiness.industries.cafe.usecase
 
+import com.example.runthebusiness.core.finance.CafeTaxPolicy
+
 import com.example.runthebusiness.engine.accounting.AccountingEngine
 import com.example.runthebusiness.engine.model.*
 import java.math.BigDecimal
@@ -10,7 +12,7 @@ class CompleteCafeSaleUseCase(private val accounting: AccountingEngine = Account
     fun execute(
         state: SimulationState,
         order: CustomerOrder,
-        vatRatePercent: Int = 10
+        vatRatePercent: Int = CafeTaxPolicy.hospitalityVatPercent
     ): SimulationState {
         require(vatRatePercent in 0..100)
         require(order.id.isNotBlank() && order.locationId.isNotBlank())
