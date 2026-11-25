@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +36,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val inventoryRepo = remember(context) { CafeInventorySummaryRepository(context) }
     var inventory by remember { mutableStateOf<CafeInventorySummary?>(null) }
     var openIngredient by remember { mutableStateOf<String?>(null) }
-    var openMenuDetails by remember { mutableStateOf<String?>(null) }
+    var openMenuProduct by remember { mutableStateOf<String?>(null) }
     var selectedPack by remember { mutableStateOf<CafePurchasingRepository.Supply?>(null) }
     var deferredPayment by remember { mutableStateOf(false) }
     fun selectPack(supply: CafePurchasingRepository.Supply, defer: Boolean) {
@@ -93,6 +94,40 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             }
         }
         LaunchedEffect(Unit) { run { } }
+    products.firstOrNull { it.id == openMenuProduct }?.let { product ->
+        val itemIds = listOfNotNull(product.finishedStockItemId).ifEmpty {
+            product.ingredients.map { it.first }
+        }
+        val packs = CafePurchasingRepository.supplies.filter { it.itemId in itemIds }
+        AlertDialog(
+            onDismissRequest = { openMenuProduct = null },
+            title = { Text(product.name) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Price", Modifier.weight(1f))
+                        IconButton(
+                            modifier = Modifier.semantics { contentDescription = "Decrease price by €0.10" },
+                            enabled = !busy && product.priceCents > 50L,
+                            onClick = { run { menu.updatePrice(product.id, (product.priceCents - 10L).coerceAtLeast(50L)) } }
+                        ) { Text("−") }
+                        Text(menuPackMoney(product.priceCents), style = MaterialTheme.typography.titleSmall)
+                        IconButton(
+                            modifier = Modifier.semantics { contentDescription = "Increase price by €0.10" },
+                            enabled = !busy && product.priceCents < 5000L,
+                            onClick = { run { menu.updatePrice(product.id, (product.priceCents + 10L).coerceAtMost(5000L)) } }
+                        ) { Text("+") }
+                    }
+                    OutlinedButton(enabled = !busy, onClick = {
+                        run { expanded.setEnabled(product.id, !product.enabled) }
+                    }) { Text(if (product.enabled) "Remove from menu" else "Add to menu") }
+                    if (packs.isNotEmpty()) MenuPurchasingDetails(product, packs)
+                }
+            },
+            confirmButton = { TextButton(onClick = { openMenuProduct = null }) { Text("Done") } }
+        )
+    }
+
     selectedPack?.let { supply ->
         AlertDialog(
             onDismissRequest = { selectedPack = null },
@@ -161,41 +196,24 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         message = "11 new menu items added. Enable and stock the ones you want to sell."
                     } }, enabled = !busy) { Text("Expand menu: cakes, sandwiches & salads") }
                 }
+                if (products.any { lowerOpeningPrice(it.id, it.priceCents) != null }) {
+                    CafeActionButton(enabled = !busy, onClick = { run {
+                        val changed = menu.applyLowerOpeningPrices()
+                        message = "Updated $changed prices still at their former defaults."
+                    } }) { Text("Apply lower starting prices") }
+                }
                 products.forEach { product ->
-                    HorizontalDivider()
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text(product.name, style = MaterialTheme.typography.titleSmall)
-                            Text("${product.unitsSoldRecently} sold", style = MaterialTheme.typography.bodySmall)
-                            TextButton(
-                                enabled = !busy,
-                                onClick = { run { expanded.setEnabled(product.id, !product.enabled) } },
-                                contentPadding = PaddingValues(horizontal = 4.dp)
-                            ) { Text(if (product.enabled) "On menu · Remove" else "Add to menu") }
+                            val status = if (product.enabled) "On menu" else "Off menu"
+                            Text("${product.unitsSoldRecently} sold · $status", style = MaterialTheme.typography.bodySmall)
                         }
-                        IconButton(
-                            modifier = Modifier.semantics { contentDescription = "Decrease ${product.name} price by €0.10" },
-                            enabled = !busy && product.priceCents > 50L,
-                            onClick = { run { menu.updatePrice(product.id, (product.priceCents - 10L).coerceAtLeast(50L)) } }
-                        ) { Text("−") }
-                        Text("€%.2f".format(Locale.ROOT, product.priceCents / 100.0),
-                            style = MaterialTheme.typography.titleSmall)
-                        IconButton(
-                            modifier = Modifier.semantics { contentDescription = "Increase ${product.name} price by €0.10" },
-                            enabled = !busy && product.priceCents < 5000L,
-                            onClick = { run { menu.updatePrice(product.id, (product.priceCents + 10L).coerceAtMost(5000L)) } }
-                        ) { Text("+") }
-                    }
-                    val itemIds = listOfNotNull(product.finishedStockItemId).ifEmpty {
-                        product.ingredients.map { it.first }
-                    }
-                    val packs = CafePurchasingRepository.supplies.filter { it.itemId in itemIds }
-                    if (packs.isNotEmpty()) {
-                        val selected = openMenuDetails == product.id
-                        TextButton(onClick = { openMenuDetails = if (selected) null else product.id }) {
-                            Text(if (selected) "Hide purchasing details" else "Purchasing details")
-                        }
-                        if (selected) MenuPurchasingDetails(product, packs)
+                        OutlinedButton(enabled = !busy, onClick = { openMenuProduct = product.id },
+                            modifier = Modifier.semantics { contentDescription = "Edit ${product.name} price and menu options" }
+                        ) { Text(menuPackMoney(product.priceCents)) }
                     }
                 }
             }
