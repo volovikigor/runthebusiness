@@ -8,7 +8,7 @@
     <string name="guide_close">Entendido</string>
     <string name="guide_intro_title">Tu primer mes</string>
     <string name="guide_intro">Empieza con el menú y mantén los ingredientes en existencias. Revisa lo que deja cada venta y reserva dinero para las facturas. Tu primer objetivo es cerrar un mes con beneficios.</string>
-    <string name="guide_cafe">Para cerrar un mes con beneficios, repón los platos que pierden ventas y compara el beneficio antes y después de cambiar precios. Contrata si la capacidad limita las ventas. Revisa los pagos próximos e ingresa efectivo antes de que falte. Cuando alcances los objetivos, intenta repetir el resultado pagando a tiempo.</string>
+    <string name="guide_cafe">Abrir cafetería crea tu negocio. La cafetería abre a la hora prevista. Pulsa ×1, ×5 o ×20 para avanzar, o Pausa para detener el tiempo. Saltar avanza a un evento o a otro día y procesa ventas y pagos.\n\nLas pestañas de escena cambian la vista y los enlaces abren su sección de gestión. Usa la barra inferior para ir a Operaciones y gestionar precios, compras y personal, o a Finanzas para ver previsiones, facturas e informes. Elige una pista o silénciala en Música.\n\nPara lograr tus objetivos, repón existencias si pierdes ventas y revisa los pagos próximos. Contrata si falta capacidad de servicio.</string>
     <string name="guide_pricing">Compara volumen de ventas y beneficio antes y después de cambiar un precio. Un descuento puede atraer nuevos grupos. Comprueba que haya existencias para atenderlos.</string>
     <string name="guide_purchasing">Decide cuánto pedir y cuándo pagar. Comprar a crédito conserva el efectivo hoy y crea una factura para más adelante. Revisa la caducidad antes de comprar en volumen.</string>
     <string name="guide_inventory">Compara compras, consumo, mermas y existencias finales. Abre un ingrediente para ver sus movimientos diarios. Reduce los pedidos si caduca con frecuencia.</string>
@@ -347,4 +347,9 @@
     <string name="sales_no_closed_days">Las ventas aparecen tras cerrar el primer día.</string>
     <string name="purchase_bank_short">Saldo bancario insuficiente. Ingresa efectivo en Finanzas → Facturas.</string>
     <string name="purchase_bank_now">El pedido llega enseguida. El importe completo se paga desde la cuenta bancaria.</string>
+    <string name="kpi_no_days">Aún no hay días completos.</string>
+    <string name="kpi_days_range">Días completados %1$d–%2$d</string>
+    <string name="menu_ready_count">La cifra indica los platos con existencias para al menos una ración.</string>
+    <string name="menu_servings_explain">Los números junto a los platos indican las raciones que permiten las existencias actuales. Consulta las ventas en Operaciones → Precios.</string>
+    <string name="finance_journal_hint">Toca una fila de cuenta para abrir sus asientos.</string>
 </resources>

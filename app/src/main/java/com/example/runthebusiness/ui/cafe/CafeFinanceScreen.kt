@@ -328,6 +328,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         }
         val report = statements
         if (report != null && section in setOf("P&L", "BS", "Cash Flow")) {
+            if (section == "P&L" || section == "BS") {
+                Text(stringResource(R.string.finance_journal_hint), style = MaterialTheme.typography.bodySmall)
+            }
             ComparativeReport(section, report, onAccount = { openJournal(it) })
         }
         if (section == "Journal") {
