@@ -9,6 +9,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.example.runthebusiness.R
+import com.example.runthebusiness.data.local.GameDatabase
+import com.example.runthebusiness.data.local.dao.CafeDailyNetProfit
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
 import com.example.runthebusiness.data.local.CafePaymentConsequencesRepository
@@ -81,6 +85,62 @@ private fun CafeShiftSummary(
 }
 
 @Composable
+private fun CafeKpiPanel(
+    completedDays: Int,
+    profitCents: Long,
+    bankAfterBills: Long?,
+    days: List<CafeDayPerformance>,
+    reachedProfit: Boolean,
+    reachedTarget: Boolean,
+    onOpenFinance: () -> Unit
+) {
+    val arrivals = days.sumOf { it.arrivingGroups }
+    val served = days.sumOf { it.servedGroups }
+    val losses = listOf(
+        R.string.loss_stock to days.sumOf { it.noStock },
+        R.string.loss_staff to days.sumOf { it.staffCapacity + it.staffDisruption },
+        R.string.loss_price to days.sumOf { it.declinedPrice },
+        R.string.loss_seats to days.sumOf { it.noSeats },
+        R.string.loss_rent to days.sumOf { it.rentShutdown }
+    ).filter { it.second > 0 }
+    val top = losses.maxByOrNull { it.second }
+    CafeLedgerPanel {
+        Text(stringResource(R.string.cafe_overview), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.kpi_completed_window, completedDays),
+            style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            KpiValue(stringResource(R.string.kpi_profit), if (completedDays > 0) euro(profitCents) else "—",
+                Modifier.weight(1f))
+            KpiValue(stringResource(R.string.kpi_served), if (arrivals > 0) "${(served * 100.0 / arrivals).toInt()}%" else "—",
+                Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            KpiValue(stringResource(R.string.kpi_bank_after_bills), bankAfterBills?.let(::euro) ?: "—", Modifier.weight(1f))
+            KpiValue(stringResource(R.string.kpi_top_loss),
+                top?.let { stringResource(R.string.kpi_loss_value, stringResource(it.first), it.second) } ?: "—",
+                Modifier.weight(1f))
+        }
+        if (bankAfterBills != null && bankAfterBills < 0) {
+            TextButton(onClick = onOpenFinance) { Text(stringResource(R.string.kpi_review_bills)) }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Text(stringResource(R.string.cafe_milestones), style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(if (reachedProfit) R.string.goal_profitable_done else R.string.goal_profitable),
+            style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(if (reachedTarget) R.string.goal_target_done else R.string.goal_target, euro(200_000L)),
+            style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun KpiValue(label: String, value: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        Text(value, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
 fun CafeHomeScreen(
     modifier: Modifier = Modifier,
     speed: Int = 0,
@@ -111,6 +171,12 @@ fun CafeHomeScreen(
     var visitors by remember { mutableStateOf<List<CafeArrivalEntity>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var alerts by remember { mutableStateOf<List<ManagementAlert>>(emptyList()) }
+    val accounting = remember(context) { GameDatabase.getInstance(context).accountingDao() }
+    var profitHistory by remember { mutableStateOf<List<CafeDailyNetProfit>?>(null) }
+    LaunchedEffect(time?.day) {
+        profitHistory = time?.day?.let { accounting.dailyNetProfit("debug_session_001", it) }
+    }
+    var showShift by remember { mutableStateOf(false) }
     var dailyPerformance by remember { mutableStateOf<List<CafeDayPerformance>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
@@ -127,7 +193,7 @@ fun CafeHomeScreen(
         menuReadiness = if (state != null) menuReadinessRepo.snapshot() else emptyList()
         visitors = arrivals.recent()
         alerts = if (state != null) alertsRepo.load() else emptyList()
-        dailyPerformance = if (state != null) performanceRepo.recent() else emptyList()
+        dailyPerformance = if (state != null) performanceRepo.recent(days = 31) else emptyList()
     }
     fun run(action: suspend () -> Unit) {
         if (loading) return
@@ -221,7 +287,25 @@ fun CafeHomeScreen(
             } else {
                 cafe.time.day
             }
-            dailyPerformance.firstOrNull { it.day == shiftDay }?.let { shift ->
+            val window = (cafe.time.day - 30).coerceAtLeast(1) until cafe.time.day
+            profitHistory?.let { profits ->
+                val completed = dailyPerformance.filter { it.day in window }
+                val monthProfits = profits.filter { it.day <= (cafe.time.day - 1) / 30 * 30 }
+                    .groupBy { (it.day - 1) / 30 }.values.map { month -> month.sumOf { it.cents } }
+                CafeKpiPanel(
+                    completedDays = window.count(),
+                    profitCents = profits.filter { it.day in window }.sumOf { it.cents },
+                    bankAfterBills = cashPosition?.let { it.bankCents - bills.sumOf { bill -> bill.due } - supplierDueCents },
+                    days = completed,
+                    reachedProfit = monthProfits.any { it > 0 },
+                    reachedTarget = monthProfits.any { it >= 200_000L },
+                    onOpenFinance = onOpenFinance
+                )
+            }
+            TextButton(onClick = { showShift = !showShift }) {
+                Text(stringResource(if (showShift) R.string.hide_shift_details else R.string.show_shift_details))
+            }
+            if (showShift) dailyPerformance.firstOrNull { it.day == shiftDay }?.let { shift ->
                 CafeShiftSummary(
                     shift = shift,
                     currentDay = cafe.time.day,
@@ -234,13 +318,6 @@ fun CafeHomeScreen(
                 val ready = menuReadiness.count { it.ready }
                 Text("Menu readiness · $ready / ${menuReadiness.size} dishes",
                     style = MaterialTheme.typography.titleMedium)
-                val recentStockLosses = dailyPerformance
-                    .filter { it.day in (cafe.time.day - 7) until cafe.time.day }
-                    .sumOf { it.noStock }
-                if (recentStockLosses > 0) {
-                    Text("Groups lost to stock shortages in the last 7 completed days · $recentStockLosses",
-                        style = MaterialTheme.typography.bodySmall)
-                }
                 if (shortages.isNotEmpty()) {
                     Surface(
                         shape = MaterialTheme.shapes.medium,
@@ -265,12 +342,12 @@ fun CafeHomeScreen(
                                     Button(
                                         enabled = !loading && affordable,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.70f),
                                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                         ),
                                         onClick = { run { purchasingRepo.purchase(supply.itemId) } }
                                     ) {
-                                        Text("Buy ${supply.name} · ${euro(cost)}")
+                                        Text(stringResource(R.string.buy_pack_price, euro(cost)), maxLines = 1)
                                     }
                                     if (cashPosition != null && !affordable) {
                                         Text("Insufficient cash or bank funds for this pack.",
