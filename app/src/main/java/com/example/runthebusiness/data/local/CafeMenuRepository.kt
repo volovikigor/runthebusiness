@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.CafeProductEntity
 import com.example.runthebusiness.data.local.entity.CafeRecipeItemEntity
+import com.example.runthebusiness.data.local.entity.CafePriceChangeEntity
+import com.example.runthebusiness.data.local.dao.ProductSalesTotals
+import com.example.runthebusiness.data.local.dao.PriceWindowTraffic
 import com.example.runthebusiness.engine.model.ProductType
 import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.openingPriceCents
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +23,21 @@ data class CafeMenuItem(
     val finishedStockItemId: String?,
     val ingredients: List<Pair<String, Double>>
 )
+
+data class PriceObservation(val days: IntRange, val sales: ProductSalesTotals, val traffic: PriceWindowTraffic)
+data class MenuPriceInsights(
+    val recent: PriceObservation?,
+    val change: CafePriceChangeEntity?,
+    val before: PriceObservation?,
+    val after: PriceObservation?
+)
+
+internal fun comparablePriceWindows(today: Int, changeDay: Int, previousChangeDay: Int?): Pair<IntRange, IntRange>? {
+    val firstStableDay = (previousChangeDay ?: 0) + 1
+    val days = minOf(7, today - changeDay - 1, changeDay - firstStableDay)
+    if (days <= 0) return null
+    return ((changeDay - days) until changeDay) to ((changeDay + 1)..(changeDay + days))
+}
 
 /** First persistent menu. Recipes reference the existing opening-stock placeholder until
  * ingredient-specific opening stock and purchasing are introduced.
@@ -63,10 +81,47 @@ class CafeMenuRepository(context: Context) {
                 val business = setup.getBusinesses(sessionId).singleOrNull()
                     ?: error("Start café first")
                 val location = locations.getLocations(business.id).single()
-                check(menu.updatePrice(productId, location.id, priceCents) == 1) {
-                    "Menu product not found"
-                }
+                val product = checkNotNull(menu.getProduct(location.id, productId)) { "Menu product not found" }
+                val day = checkNotNull(db.accountingDao().getSession(sessionId)).currentDay
+                recordPrice(product, priceCents, day)
+                Unit
             }
+        }
+
+    suspend fun resetPrices(sessionId: String = "debug_session_001"): Int = db.withTransaction {
+        val business = setup.getBusinesses(sessionId).single()
+        val location = locations.getLocations(business.id).single()
+        val day = checkNotNull(db.accountingDao().getSession(sessionId)).currentDay
+        menu.getProducts(location.id).count { product ->
+            recordPrice(product, openingPriceCents(product.id), day)
+        }
+    }
+
+    private suspend fun recordPrice(product: CafeProductEntity, priceCents: Long, day: Int): Boolean {
+        if (product.sellingPriceCents == priceCents) return false
+        val sameDay = menu.latestPriceChanges(product.id).firstOrNull()?.takeIf { it.gameDay == day }
+        menu.savePriceChange(CafePriceChangeEntity(
+            product.id, day, sameDay?.previousCents ?: product.sellingPriceCents, priceCents
+        ))
+        check(menu.updatePrice(product.id, product.locationId, priceCents) == 1) { "Menu product not found" }
+        return true
+    }
+
+    suspend fun priceInsights(productId: String, sessionId: String = "debug_session_001"): MenuPriceInsights =
+        db.withTransaction {
+            val business = setup.getBusinesses(sessionId).single()
+            val location = locations.getLocations(business.id).single()
+            val today = checkNotNull(db.accountingDao().getSession(sessionId)).currentDay
+            val changes = menu.latestPriceChanges(productId)
+            val change = changes.firstOrNull()
+            val windows = change?.let { comparablePriceWindows(today, it.gameDay, changes.getOrNull(1)?.gameDay) }
+            suspend fun observe(days: IntRange): PriceObservation =
+                PriceObservation(days, db.cafeSalesDao().productSales(location.id, productId, days.first, days.last),
+                    db.cafeArrivalDao().priceWindowTraffic(location.id, productId, days.first, days.last))
+            MenuPriceInsights(
+                if (today > 1) observe((today - 7).coerceAtLeast(1) until today) else null,
+                change, windows?.let { observe(it.first) }, windows?.let { observe(it.second) }
+            )
         }
 
     suspend fun loadMenu(sessionId: String = "debug_session_001"): List<CafeMenuItem> =

@@ -9,6 +9,10 @@ import com.example.runthebusiness.data.local.entity.StockMovementEntity
 
 data class ProductUnitsSold(val productId: String, val units: Long)
 
+data class ProductSalesTotals(
+    val units: Long, val grossCents: Long, val minPriceCents: Long?, val maxPriceCents: Long?
+)
+
 @Dao
 interface CafeSalesDao {
     @Insert suspend fun insertOrder(order: CustomerOrderEntity)
@@ -32,6 +36,16 @@ interface CafeSalesDao {
         GROUP BY l.productId
     """)
     suspend fun unitsSold(locationId: String, fromDay: Int, today: Int): List<ProductUnitsSold>
+
+    @Query("""
+        SELECT COALESCE(SUM(l.quantity), 0) AS units,
+            COALESCE(SUM(l.quantity * l.unitPriceCents), 0) AS grossCents,
+            MIN(l.unitPriceCents) AS minPriceCents, MAX(l.unitPriceCents) AS maxPriceCents
+        FROM customer_order_lines l JOIN customer_orders o ON o.id = l.orderId
+        WHERE o.locationId = :locationId AND l.productId = :productId
+            AND o.gameDay BETWEEN :fromDay AND :throughDay
+    """)
+    suspend fun productSales(locationId: String, productId: String, fromDay: Int, throughDay: Int): ProductSalesTotals
 
     @Query("SELECT * FROM stock_movements WHERE sourceId = :sourceId ORDER BY id")
     suspend fun getMovementsForSource(sourceId: String): List<StockMovementEntity>

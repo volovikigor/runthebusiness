@@ -3,6 +3,11 @@ package com.example.runthebusiness.data.local.dao
 import androidx.room.*
 import com.example.runthebusiness.data.local.entity.CafeArrivalEntity
 
+data class PriceWindowTraffic(
+    val groups: Int, val guests: Int, val promotionGroups: Int,
+    val promotionStockLosses: Int, val promotionStaffLosses: Int, val staffLosses: Int
+)
+
 @Dao
 interface CafeArrivalDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -23,8 +28,24 @@ interface CafeArrivalDao {
     @Query("UPDATE cafe_arrivals SET status = :status WHERE id = :id AND status = 'ARRIVED'")
     suspend fun markProcessed(id: String, status: String): Int
 
+    @Query("""
+        SELECT COUNT(*) AS "groups", COALESCE(SUM(guests), 0) AS guests,
+            COUNT(CASE WHEN preferredProductId = :productId THEN 1 END) AS promotionGroups,
+            COUNT(CASE WHEN preferredProductId = :productId AND status = 'NO_STOCK' THEN 1 END) AS promotionStockLosses,
+            COUNT(CASE WHEN preferredProductId = :productId AND status = 'STAFF_CAPACITY' THEN 1 END) AS promotionStaffLosses,
+            COUNT(CASE WHEN status = 'STAFF_CAPACITY' THEN 1 END) AS staffLosses
+        FROM cafe_arrivals WHERE locationId = :locationId AND gameDay BETWEEN :fromDay AND :throughDay
+    """)
+    suspend fun priceWindowTraffic(locationId: String, productId: String, fromDay: Int, throughDay: Int): PriceWindowTraffic
+
     @Query("SELECT COUNT(*) FROM cafe_arrivals WHERE locationId = :locationId AND gameDay = :day")
     suspend fun countForDay(locationId: String, day: Int): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM cafe_arrivals WHERE locationId = :locationId
+          AND gameDay BETWEEN :fromDay AND :throughDay AND status = 'STAFF_CAPACITY'
+    """)
+    suspend fun capacityLosses(locationId: String, fromDay: Int, throughDay: Int): Int
 
     @Query("SELECT COUNT(*) FROM cafe_arrivals WHERE locationId = :locationId AND gameDay = :day AND status = 'STAFF_CAPACITY'")
     suspend fun capacityLossesForDay(locationId: String, day: Int): Int

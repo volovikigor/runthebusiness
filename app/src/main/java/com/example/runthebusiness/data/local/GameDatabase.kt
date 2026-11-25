@@ -26,9 +26,9 @@ import com.example.runthebusiness.data.local.entity.*
         BusinessLocationEntity::class,
         CustomerOrderEntity::class, CustomerOrderLineEntity::class, StockMovementEntity::class,
         CafeProductEntity::class, CafeRecipeItemEntity::class,
-        CafeArrivalEntity::class
+        CafeArrivalEntity::class, CafePriceChangeEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 abstract class GameDatabase : RoomDatabase() {
@@ -336,13 +336,26 @@ abstract class GameDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS cafe_price_changes (
+                        productId TEXT NOT NULL, gameDay INTEGER NOT NULL,
+                        previousCents INTEGER NOT NULL, currentCents INTEGER NOT NULL,
+                        PRIMARY KEY(productId, gameDay),
+                        FOREIGN KEY(productId) REFERENCES cafe_products(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+            }
+        }
+
         @Volatile private var INSTANCE: GameDatabase? = null
 
         fun getInstance(context: Context): GameDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext, GameDatabase::class.java, "runthebusiness.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14).build().also { INSTANCE = it }
             }
     }
 }
