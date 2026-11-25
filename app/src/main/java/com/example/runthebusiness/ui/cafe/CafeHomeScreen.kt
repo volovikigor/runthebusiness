@@ -1,5 +1,6 @@
 package com.example.runthebusiness.ui.cafe
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -46,24 +47,33 @@ private fun CafeShiftSummary(
             if (shift.day == currentDay) "Today's shift" else "Last shift · Day ${shift.day}",
             style = MaterialTheme.typography.titleMedium
         )
-        Text("${shift.servedGroups} of ${shift.arrivingGroups} groups served · ${shift.lostGroups} lost")
-        if (shift.pendingGroups > 0) Text("Awaiting service: ${shift.pendingGroups}")
-        Text("Net sales ${euro(shift.netSalesCents)} · Gross margin ${euro(shift.grossMarginCents)}")
+        Text("${shift.servedGroups} of ${shift.arrivingGroups} groups served · ${shift.lostGroups} lost",
+                style = MaterialTheme.typography.bodySmall)
+        if (shift.pendingGroups > 0) Text("Awaiting service: ${shift.pendingGroups}",
+                style = MaterialTheme.typography.bodySmall)
+        Text("Net sales ${euro(shift.netSalesCents)} · Gross margin ${euro(shift.grossMarginCents)}",
+                style = MaterialTheme.typography.bodySmall)
         if (shift.noStock > 0) {
-            Text("Groups lost to stock shortages · ${shift.noStock}")
+            Text("Groups lost to stock shortages · ${shift.noStock}",
+                style = MaterialTheme.typography.bodySmall)
             CafeActionButton(onClick = { onOpenOperations(1) }) { Text("Go to purchasing") }
         }
         if (shift.declinedPrice > 0) {
-            Text("Left without buying · ${shift.declinedPrice}")
+            Text("Left without buying · ${shift.declinedPrice}",
+                style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = { onOpenOperations(0) }) { Text("Review menu prices") }
         }
-        if (shift.noSeats > 0) Text("No seats available · ${shift.noSeats}")
+        if (shift.noSeats > 0) Text("No seats available · ${shift.noSeats}",
+                style = MaterialTheme.typography.bodySmall)
         if (shift.staffCapacity > 0) {
-            Text("Groups lost to staff capacity · ${shift.staffCapacity}")
+            Text("Groups lost to staff capacity · ${shift.staffCapacity}",
+                style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = { onOpenOperations(3) }) { Text("Review staffing") }
         }
-        if (shift.staffDisruption > 0) Text("Overdue payroll disruption · ${shift.staffDisruption}")
-        if (shift.rentShutdown > 0) Text("Closed due to overdue rent · ${shift.rentShutdown}")
+        if (shift.staffDisruption > 0) Text("Overdue payroll disruption · ${shift.staffDisruption}",
+                style = MaterialTheme.typography.bodySmall)
+        if (shift.rentShutdown > 0) Text("Closed due to overdue rent · ${shift.rentShutdown}",
+                style = MaterialTheme.typography.bodySmall)
         if (shift.staffDisruption > 0 || shift.rentShutdown > 0) {
             CafeActionButton(onClick = onOpenFinance) { Text("Review unpaid bills") }
         }
@@ -232,7 +242,11 @@ fun CafeHomeScreen(
                         style = MaterialTheme.typography.bodySmall)
                 }
                 if (shortages.isNotEmpty()) {
-                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.32f)) {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
                         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text("Ingredients blocking the menu", style = MaterialTheme.typography.titleSmall)
                             val visible = if (showMenuReadiness) shortages else shortages.take(3)
@@ -248,8 +262,12 @@ fun CafeHomeScreen(
                                     val affordable = cashPosition?.let {
                                         it.cashCents >= cost || it.bankCents >= cost
                                     } == true
-                                    OutlinedButton(
+                                    Button(
                                         enabled = !loading && affordable,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                        ),
                                         onClick = { run { purchasingRepo.purchase(supply.itemId) } }
                                     ) {
                                         Text("Buy ${supply.name} · ${euro(cost)}")

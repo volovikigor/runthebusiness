@@ -158,7 +158,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                             style = MaterialTheme.typography.bodySmall)
                     }
                     if (product.enabled && CafePriceDemandRules.discountTrafficWeight(product.id, product.priceCents) > 0) {
-                        Text("This discount attracts extra groups for this item. Check stock and staff capacity.",
+                        Text("This discount attracts extra groups for this item. They need one serving per guest before they count toward staff workload.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     insights?.let { MenuPriceAnalytics(it) }
