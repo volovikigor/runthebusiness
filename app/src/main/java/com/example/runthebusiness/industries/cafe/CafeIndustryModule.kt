@@ -9,5 +9,5 @@ object CafeIndustryModule : IndustryModule<CafeStartingConfiguration> {
     override val industry: Industry = Industry.CAFE
 
     override fun createInitialState(configuration: CafeStartingConfiguration): SimulationState =
-        CafeStartingFactory.create(configuration.toLegacy())
+        CafeStartingFactory.create(configuration.toLegacy(), configuration.openingGrossSalaryCents)
 }

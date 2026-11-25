@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.entity.CafeProductEntity
 import com.example.runthebusiness.data.local.entity.InventoryItemEntity
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.referencePriceCents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,21 +26,21 @@ class CafeExpandedMenuRepository(context: Context) {
 
     companion object {
         val offerings = listOf(
-            Offering("americano_001", "Americano", "DRINK", 280, 80, 30.0, 7, 3),
-            Offering("latte_001", "Latte", "DRINK", 390, 140, 30.0, 7, 4),
-            Offering("pain_chocolat_001", "Pain au chocolat", "PASTRY", 320, 150, 30.0, 3, 2),
-            Offering("muffin_001", "Blueberry muffin", "PASTRY", 340, 160, 30.0, 3, 2),
-            Offering("cheesecake_001", "Cheesecake slice", "DESSERT", 490, 220, 20.0, 4, 2),
-            Offering("carrot_cake_001", "Carrot cake slice", "DESSERT", 450, 190, 20.0, 4, 2),
-            Offering("brownie_001", "Brownie", "DESSERT", 400, 150, 24.0, 5, 2),
-            Offering("ham_cheese_001", "Ham & cheese sandwich", "FOOD", 590, 280, 20.0, 2, 5),
-            Offering("chicken_sandwich_001", "Chicken sandwich", "FOOD", 750, 360, 20.0, 2, 6),
-            Offering("caesar_salad_001", "Caesar salad", "FOOD", 900, 440, 15.0, 2, 8),
-            Offering("med_salad_001", "Mediterranean salad", "FOOD", 850, 380, 15.0, 2, 7)
+            Offering("americano_001", "Americano", "DRINK", referencePriceCents("americano_001"), 80, 30.0, 7, 3),
+            Offering("latte_001", "Latte", "DRINK", referencePriceCents("latte_001"), 140, 30.0, 7, 4),
+            Offering("pain_chocolat_001", "Pain au chocolat", "PASTRY", referencePriceCents("pain_chocolat_001"), 150, 30.0, 3, 2),
+            Offering("muffin_001", "Blueberry muffin", "PASTRY", referencePriceCents("muffin_001"), 160, 30.0, 3, 2),
+            Offering("cheesecake_001", "Cheesecake slice", "DESSERT", referencePriceCents("cheesecake_001"), 220, 20.0, 4, 2),
+            Offering("carrot_cake_001", "Carrot cake slice", "DESSERT", referencePriceCents("carrot_cake_001"), 190, 20.0, 4, 2),
+            Offering("brownie_001", "Brownie", "DESSERT", referencePriceCents("brownie_001"), 150, 24.0, 5, 2),
+            Offering("ham_cheese_001", "Ham & cheese sandwich", "FOOD", referencePriceCents("ham_cheese_001"), 280, 20.0, 2, 5),
+            Offering("chicken_sandwich_001", "Chicken sandwich", "FOOD", referencePriceCents("chicken_sandwich_001"), 360, 20.0, 2, 6),
+            Offering("caesar_salad_001", "Caesar salad", "FOOD", referencePriceCents("caesar_salad_001"), 440, 15.0, 2, 8),
+            Offering("med_salad_001", "Mediterranean salad", "FOOD", referencePriceCents("med_salad_001"), 380, 15.0, 2, 7)
         )
     }
 
-    suspend fun install(sessionId: String = "debug_session_001") =
+    suspend fun install(sessionId: String = "debug_session_001", enableNewProducts: Boolean = false) =
         withContext(Dispatchers.IO) {
             db.withTransaction {
                 val business = db.gameSetupDao().getBusinesses(sessionId).single()
@@ -56,7 +57,7 @@ class CafeExpandedMenuRepository(context: Context) {
                 val newProducts = offerings.filter { it.id !in existing }.map {
                     CafeProductEntity(it.id, location.id, it.name, it.type,
                         it.priceCents, "ES_HOSPITALITY", it.preparationMinutes,
-                        false, "RESALE", it.stockId)
+                        enableNewProducts, "RESALE", it.stockId)
                 }
                 if (newProducts.isNotEmpty()) menu.insertProducts(newProducts)
             }

@@ -4,13 +4,14 @@ import com.example.runthebusiness.core.business.BusinessStartingConfiguration
 import com.example.runthebusiness.engine.model.StartingConfiguration
 
 data class CafeStartingConfiguration(
-    val business: BusinessStartingConfiguration = BusinessStartingConfiguration(),
+    val business: BusinessStartingConfiguration = BusinessStartingConfiguration(startingLoanCents = 2_000_000L),
     val employeeCount: Int = 3,
     val tableCount: Int = 6,
     val seatsPerTable: Int = 4,
     val targetCustomersPerDay: Int = 90,
     val operatingDaysPerMonth: Int = 26,
-    val averageSpendPerCustomerCents: Long = 850L
+    val averageSpendPerCustomerCents: Long = 850L,
+    val openingGrossSalaryCents: Long = 150_000L
 ) {
     /** Transitional adapter: preserve the existing factory and saved game format. */
     internal fun toLegacy(): StartingConfiguration = StartingConfiguration(

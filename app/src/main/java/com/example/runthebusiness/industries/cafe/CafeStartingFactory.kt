@@ -9,13 +9,15 @@ internal object CafeStartingFactory {
     private val accounting = AccountingEngine()
 
     fun create(
-        config: StartingConfiguration = StartingConfiguration()
+        config: StartingConfiguration = StartingConfiguration(),
+        openingGrossSalaryCents: Long = Employee().monthlyGrossSalaryCents
     ): SimulationState {
 
         require(config.startingLoanCents > 0L)
         require(config.equipmentBudgetCents >= 0L)
         require(config.initialInventoryBudgetCents >= 0L)
         require(config.employeeCount > 0)
+        require(openingGrossSalaryCents > 0L)
         require(config.tableCount > 0)
         require(config.loanTermMonths > 0)
         require(config.annualInterestRate >= 0.0)
@@ -63,7 +65,8 @@ internal object CafeStartingFactory {
                 id = "employee_$index",
                 locationId = locationId,
                 name = "Employee $index",
-                role = roles[(index - 1) % roles.size]
+                role = roles[(index - 1) % roles.size],
+                monthlyGrossSalaryCents = openingGrossSalaryCents
             )
         }
 

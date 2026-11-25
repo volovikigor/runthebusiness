@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CafePriceDemandRulesTest {
     @Test fun referencePriceAlwaysConverts() {
-        assertTrue(CafePriceDemandRules.accepts("arrival_1", "espresso_001", 220L))
+        assertTrue(CafePriceDemandRules.accepts("arrival_1", "espresso_001", 290L))
     }
 
     @Test fun sameArrivalAndPriceAlwaysHaveSameOutcome() {
@@ -24,10 +24,10 @@ class CafePriceDemandRulesTest {
     }
 
     @Test fun expandedMenuUsesItsOwnReferencePrices() {
-        assertEquals(900L, CafePriceDemandRules.referencePriceCents("caesar_salad_001"))
-        assertEquals(750L, CafePriceDemandRules.referencePriceCents("chicken_sandwich_001"))
-        assertEquals(490L, CafePriceDemandRules.referencePriceCents("cheesecake_001"))
-        assertTrue(CafePriceDemandRules.accepts("lunch_1", "caesar_salad_001", 900L))
+        assertEquals(1200L, CafePriceDemandRules.referencePriceCents("caesar_salad_001"))
+        assertEquals(1000L, CafePriceDemandRules.referencePriceCents("chicken_sandwich_001"))
+        assertEquals(660L, CafePriceDemandRules.referencePriceCents("cheesecake_001"))
+        assertTrue(CafePriceDemandRules.accepts("lunch_1", "caesar_salad_001", 1200L))
     }
 
     @Test fun lunchDemandForFoodExceedsBreakfastDemand() {

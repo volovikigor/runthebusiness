@@ -6,13 +6,13 @@ package com.example.runthebusiness.industries.cafe.simulation
  */
 object CafePriceDemandRules {
     private val referencePrices = mapOf(
-        "espresso_001" to 220L, "cappuccino_001" to 350L,
-        "croissant_001" to 290L, "americano_001" to 280L,
-        "latte_001" to 390L, "pain_chocolat_001" to 320L,
-        "muffin_001" to 340L, "cheesecake_001" to 490L,
-        "carrot_cake_001" to 450L, "brownie_001" to 400L,
-        "ham_cheese_001" to 590L, "chicken_sandwich_001" to 750L,
-        "caesar_salad_001" to 900L, "med_salad_001" to 850L
+        "espresso_001" to 290L, "cappuccino_001" to 470L,
+        "croissant_001" to 390L, "americano_001" to 390L,
+        "latte_001" to 520L, "pain_chocolat_001" to 430L,
+        "muffin_001" to 450L, "cheesecake_001" to 660L,
+        "carrot_cake_001" to 600L, "brownie_001" to 535L,
+        "ham_cheese_001" to 790L, "chicken_sandwich_001" to 1000L,
+        "caesar_salad_001" to 1200L, "med_salad_001" to 1140L
     )
 
     fun referencePriceCents(productId: String): Long = referencePrices[productId] ?: 300L

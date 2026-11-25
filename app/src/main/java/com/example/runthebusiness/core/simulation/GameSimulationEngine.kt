@@ -245,10 +245,11 @@ class GameSimulationEngine(context: Context) {
                 CafePaymentConsequencesRepository.invalidate()
             }
             db.withTransaction {
+                val newCafe = clock.loadGameTime() == null
                 clock.initializeOpeningGame()
                 CafeMenuRepository(appContext).seedMenu()
                 CafeInventorySetupRepository(appContext).initializeRealStock()
-                CafeExpandedMenuRepository(appContext).install()
+                CafeExpandedMenuRepository(appContext).install(enableNewProducts = newCafe)
                 kitchen.activate()
             }
         }
