@@ -220,8 +220,29 @@ class SimulationLifecycleTest {
         GameDatabase.getInstance(context).accountingDao()
             .updateGameTime("debug_session_001", 32, 8, 0, System.currentTimeMillis())
         val later = checkNotNull(CafeCashForecastRepository(context).load())
-        assertEquals(61, later.installments.first().dueDay)
-        assertTrue(later.days.none { day -> day.payments.any { it.label == "Loan installment" } })
+        assertEquals(31, later.installments.first().dueDay)
+        assertTrue(later.days.first().payments.any { it.label == "Loan installment" })
+    }
+
+    @Test
+    fun starterLoanPaysPrincipalAndAccruedInterestExactlyOnce() = runBlocking {
+        val simulation = GameSimulationEngine(context)
+        simulation.startGame()
+        val session = "debug_session_001"
+        val db = GameDatabase.getInstance(context)
+        val dao = db.accountingDao()
+        val bank = dao.accountBalance(session, "1100")
+        dao.updateGameTime(session, 30, 23, 45, System.currentTimeMillis())
+
+        simulation.jump(GameSimulationEngine.JumpMode.NEXT_DAY)
+        assertEquals(bank - 96_664L, dao.accountBalance(session, "1100"))
+        assertEquals(-4_928_336L, dao.accountBalance(session, "2100"))
+        assertEquals(0L, dao.accountBalance(session, "2110"))
+        assertEquals(25_000L, dao.accountBalance(session, "5700"))
+        assertEquals(61, db.gameSetupDao().getLoans(session).single().nextPaymentDay)
+        val payments = com.example.runthebusiness.data.local.CafeLoanPaymentRepository(context)
+        assertEquals(0L, payments.settleDue(automatic = false))
+        assertEquals(bank - 96_664L, dao.accountBalance(session, "1100"))
     }
 
     @Test

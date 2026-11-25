@@ -8,6 +8,7 @@ interface GameSetupDao {
     @Insert suspend fun insertBusiness(business: BusinessEntity)
     @Insert suspend fun insertAccounts(accounts: List<LedgerAccountEntity>)
     @Insert suspend fun insertLoans(loans: List<LoanEntity>)
+    @Update suspend fun updateLoan(loan: LoanEntity): Int
 
     @Query("SELECT * FROM businesses WHERE sessionId = :sessionId")
     suspend fun getBusinesses(sessionId: String): List<BusinessEntity>

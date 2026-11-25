@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
+import com.example.runthebusiness.data.local.CafeLoanPaymentRepository
 import com.example.runthebusiness.data.local.CashPosition
 import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
@@ -50,6 +51,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
     var forecast by remember { mutableStateOf<CafeCashForecast?>(null) }
     val journalRepo = remember(context) { DebugDatabaseRepository(context) }
     val financeRepo = remember(context) { CafeFinancialStatementsRepository(context) }
+    val loanRepo = remember(context) { CafeLoanPaymentRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
     val consequencesRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentConsequencesRepository(context) }
@@ -230,6 +232,23 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         if (section == "Bills") {
             val today = forecast?.days?.firstOrNull()?.day
             cashPosition?.let { position ->
+                val loanDue = forecast?.installments?.firstOrNull { today != null && it.dueDay <= today }
+                if (loanDue != null) {
+                    CafeLedgerPanel {
+                        Text(stringResource(R.string.loan_due, money(loanDue.totalCents)),
+                            style = MaterialTheme.typography.titleMedium)
+                        CafeActionButton(enabled = !busy && position.bankCents >= loanDue.totalCents,
+                            onClick = { paymentAction { loanRepo.settleDue(automatic = false) } }) {
+                            Text(stringResource(R.string.loan_pay))
+                        }
+                        if (position.bankCents < loanDue.totalCents) {
+                            Text(stringResource(R.string.purchase_bank_short), style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = ::openDeposit, enabled = !busy && position.cashCents > 0L) {
+                                Text(stringResource(R.string.deposit_bank))
+                            }
+                        }
+                    }
+                }
                 listOf(true, false).forEach { dueNow ->
                     val invoices = supplierBills.filter { (today != null && it.dueDay <= today) == dueNow }
                     val recurring = bills.filter { (it.due > 0L) == dueNow }

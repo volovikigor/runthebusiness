@@ -20,6 +20,7 @@ import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.dao.CafeDailyNetProfit
 import androidx.compose.ui.unit.dp
 import com.example.runthebusiness.data.local.CafeCashManagementRepository
+import com.example.runthebusiness.data.local.CafeLoanPaymentRepository
 import com.example.runthebusiness.data.local.CafePaymentConsequencesRepository
 import com.example.runthebusiness.data.local.CashPosition
 import com.example.runthebusiness.data.local.PaymentConsequences
@@ -190,9 +191,10 @@ fun CafeHomeScreen(
 ) {
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
+    val loanRepo = remember(context) { CafeLoanPaymentRepository(context) }
     val cashRepo = remember(context) { CafeCashManagementRepository(context) }
     val billsRepo = remember(context) { com.example.runthebusiness.data.local.CafePaymentRegisterRepository(context) }
-    var supplierDueCents by remember { mutableLongStateOf(0L) }
+    var additionalDueCents by remember { mutableLongStateOf(0L) }
     var bills by remember { mutableStateOf<List<com.example.runthebusiness.data.local.ScheduledBill>>(emptyList()) }
     val consequencesRepo = remember(context) { CafePaymentConsequencesRepository(context) }
     val alertsRepo = remember(context) { CafeManagementAlertsRepository(context) }
@@ -224,8 +226,10 @@ fun CafeHomeScreen(
         state = dashboard.snapshot()
         cashPosition = if (state != null) cashRepo.position() else null
         bills = if (state != null) billsRepo.snapshot() else emptyList()
-        supplierDueCents = state?.time?.day?.let { day ->
-            billsRepo.supplierBills().filter { it.dueDay <= day }.sumOf { it.amountCents }
+        additionalDueCents = state?.time?.day?.let { day ->
+            val suppliers = billsRepo.supplierBills().filter { it.dueDay <= day }.sumOf { it.amountCents }
+            val loan = loanRepo.schedule().firstOrNull { it.dueDay <= day }?.totalCents ?: 0L
+            suppliers + loan
         } ?: 0L
         paymentStatus = if (state != null) consequencesRepo.load() else null
         menuReadiness = if (state != null) menuReadinessRepo.snapshot() else emptyList()
@@ -330,7 +334,7 @@ fun CafeHomeScreen(
                 CafeKpiPanel(
                     completedDays = window.count(),
                     profitCents = profits.filter { it.day in window }.sumOf { it.cents },
-                    bankAfterBills = cashPosition?.let { it.bankCents - bills.sumOf { bill -> bill.due } - supplierDueCents },
+                    bankAfterBills = cashPosition?.let { it.bankCents - bills.sumOf { bill -> bill.due } - additionalDueCents },
                     days = completed,
                     reachedProfit = monthProfits.any { it > 0 },
                     reachedTarget = monthProfits.any { it >= 200_000L },
@@ -424,7 +428,7 @@ fun CafeHomeScreen(
             }
             if (homeSection == 2) CafeLedgerPanel {
                 Text(stringResource(R.string.management_decisions), style = MaterialTheme.typography.titleMedium)
-                val due = bills.sumOf { it.due } + supplierDueCents
+                val due = bills.sumOf { it.due } + additionalDueCents
                 if (due > 0L) {
                     Text(stringResource(R.string.home_payments_due, euro(due)),
                         style = MaterialTheme.typography.bodyMedium)

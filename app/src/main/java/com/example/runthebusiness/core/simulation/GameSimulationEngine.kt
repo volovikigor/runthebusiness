@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.CafeStaffRepository
 import com.example.runthebusiness.data.local.CafeServiceRepository
 import com.example.runthebusiness.data.local.CafeDailyCloseRepository
+import com.example.runthebusiness.data.local.CafeLoanPaymentRepository
 import com.example.runthebusiness.data.local.CafeArrivalRepository
 import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
 import com.example.runthebusiness.data.local.GameRepository
@@ -31,6 +32,7 @@ class GameSimulationEngine(context: Context) {
     private val db = GameDatabase.getInstance(appContext)
     private val clock = GameRepository(appContext)
     private val cafe = CafeServiceRepository(appContext)
+    private val loanPayments = CafeLoanPaymentRepository(appContext)
     private val close = CafeDailyCloseRepository(appContext)
     private val spoilage = CafeSpoilageRepository(appContext)
     private val autoPurchasing = CafeAutoPurchasingRepository(appContext)
@@ -99,6 +101,7 @@ class GameSimulationEngine(context: Context) {
                     kitchen.activate(sessionId)
                     autoPurchasing.replenish(next.day, sessionId)
                     bills.settleAutomatic(sessionId)
+                    loanPayments.settleDue(automatic = true, sessionId = sessionId)
                 }
                 // Keep the clock, arrivals, sales and midnight accounting in the same commit.
                 StepResult(next, cafe.processPending(sessionId))
