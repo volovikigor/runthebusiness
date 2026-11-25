@@ -1,5 +1,8 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.cafeLabel
+import com.example.runthebusiness.ui.components.cafeProductName
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
@@ -131,13 +134,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         val available = cashPosition?.cashCents ?: 0L
         AlertDialog(
             onDismissRequest = { depositInput = null },
-            title = { Text("Deposit cash into bank") },
+            title = { Text(stringResource(R.string.deposit_bank)) },
             text = {
                 OutlinedTextField(
                     value = input,
                     onValueChange = { depositInput = it },
-                    label = { Text("Amount in euros") },
-                    supportingText = { Text("Available cash ${money(available)}") },
+                    label = { Text(stringResource(R.string.amount_euros)) },
+                    supportingText = { Text(stringResource(R.string.cash_available, money(available))) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
@@ -153,9 +156,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             settlementMessage = "Deposited ${money(cents)} into bank"
                         }
                     }
-                ) { Text("Deposit") }
+                ) { Text(stringResource(R.string.deposit)) }
             },
-            dismissButton = { TextButton(onClick = { depositInput = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { depositInput = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
     LaunchedEffect(Unit) { refresh() }
@@ -199,29 +202,29 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             forecast?.let { report ->
                 cashPosition?.let { position ->
                     CafeLedgerPanel {
-                        Text("Available now", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.available_now), style = MaterialTheme.typography.titleMedium)
                         FinanceAmountRow("Cash on hand", position.cashCents)
                         FinanceAmountRow("Bank balance", position.bankCents)
                         ForecastWarnings(report)
                         CafeActionButton(enabled = !busy && position.cashCents > 0L, onClick = ::openDeposit) {
-                            Text("Deposit cash into bank")
+                            Text(stringResource(R.string.deposit_bank))
                         }
                     }
                 }
-                TextButton(onClick = { section = "Bills" }) { Text("Review bills") }
+                TextButton(onClick = { section = "Bills" }) { Text(stringResource(R.string.kpi_review_bills)) }
                 CashForecastSection(report)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Automatic deposits for bills", Modifier.weight(1f))
+                    Text(stringResource(R.string.deposits), Modifier.weight(1f))
                     Switch(checked = autoDeposit, enabled = !busy, onCheckedChange = { enabled ->
                         billsRepo.setAutomaticDeposits(enabled)
                         autoDeposit = enabled
                     })
                 }
-                Text("On day change, use cash to cover the bank shortfall for bills with automatic payment enabled.",
+                Text(stringResource(R.string.auto_deposit_help),
                     style = MaterialTheme.typography.bodySmall)
                 settlementMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
             }
-            if (forecast == null && !busy && error == null) Text("Start the café to see its cash forecast.")
+            if (forecast == null && !busy && error == null) Text(stringResource(R.string.start_for_forecast))
         }
         if (section == "Bills") {
             val today = forecast?.days?.firstOrNull()?.day
@@ -231,7 +234,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     val recurring = bills.filter { (it.due > 0L) == dueNow }
                         .sortedBy { it.nextDueDay - if (dueNow) it.periodDays else 0 }
                     if (invoices.isNotEmpty() || recurring.isNotEmpty()) {
-                        Text(if (dueNow) "Due and overdue" else "Upcoming", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(if (dueNow) R.string.due_overdue else R.string.upcoming), style = MaterialTheme.typography.titleMedium)
                     }
                     invoices.forEach { invoice ->
                         val overdue = today != null && invoice.dueDay < today
@@ -242,7 +245,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(enabled = !busy && position.bankCents >= invoice.amountCents,
                             onClick = { paymentAction { cashRepo.paySupplier(invoice.id) } }
-                        ) { Text("Pay supplier") }
+                        ) { Text(stringResource(R.string.pay_supplier)) }
                         }
                     }
                     recurring.forEach { bill ->
@@ -257,13 +260,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Auto-pay", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.auto_pay), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                             Switch(checked = bill.automatic, enabled = !busy,
                                 onCheckedChange = { enabled -> paymentAction { billsRepo.setAutomatic(bill.account, enabled) } })
                             if (dueNow) {
                                 TextButton(enabled = !busy && position.bankCents >= bill.due,
                                     onClick = { paymentAction { cashRepo.pay(bill.account, amountCents = bill.due) } }
-                                ) { Text("Pay due") }
+                                ) { Text(stringResource(R.string.pay_due)) }
                             }
                         }
                         }
@@ -274,7 +277,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 val payrollLate = payment?.payrollDaysLate ?: 0
                 CafeLedgerPanel {
                     HorizontalDivider()
-                    Text("Early settlement & cash deposits", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.early_settlement), style = MaterialTheme.typography.titleSmall)
                     Text("Bank: €%.2f · Cash: €%.2f".format(Locale.ROOT,
                         position.bankCents / 100.0, position.cashCents / 100.0))
                     Text("Rent payable: €%.2f · %d days late".format(Locale.ROOT,
@@ -282,22 +285,22 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     Text("Payroll payable: €%.2f · %d days late".format(Locale.ROOT,
                         position.salariesPayableCents / 100.0, payrollLate))
                     if (payment?.rentShutdown == true) {
-                        Text("Trading blocked by overdue rent. Pay rent to reopen.",
+                        Text(stringResource(R.string.trade_blocked),
                             color = MaterialTheme.colorScheme.error)
                     } else if (overdue >= 5) {
-                        Text("Rent shutdown starts after 7 days overdue.",
+                        Text(stringResource(R.string.rent_shutdown_rule),
                             color = MaterialTheme.colorScheme.error)
                     }
                     if (payment?.staffDisruption == true) {
-                        Text("Late payroll is disrupting service.",
+                        Text(stringResource(R.string.late_payroll),
                             color = MaterialTheme.colorScheme.error)
                     } else if (payrollLate >= 1) {
-                        Text("Payroll disruption starts after 2 days overdue.",
+                        Text(stringResource(R.string.payroll_disruption_rule),
                             color = MaterialTheme.colorScheme.error)
                     }
                     if (position.bankCents < position.totalDueCents &&
                         position.cashCents > 0L) {
-                        Text("Bank funds are short for accrued rent and payroll.",
+                        Text(stringResource(R.string.bank_short),
                             style = MaterialTheme.typography.bodySmall)
                     }
                     if (position.cashCents > 0L && position.totalDueCents > position.bankCents) {
@@ -305,7 +308,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             val transfer = minOf(position.cashCents,
                                 (position.totalDueCents - position.bankCents).coerceAtLeast(0L))
                             if (transfer > 0L) cashRepo.transferCashToBank(transfer)
-                        } }) { Text("Deposit for rent and payroll") }
+                        } }) { Text(stringResource(R.string.deposit_payroll)) }
                     }
                     if (position.rentPayableCents > 0L) {
                         CafeActionButton(enabled = !busy && position.bankCents >= position.rentPayableCents,
@@ -327,7 +330,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             ComparativeReport(section, report, onAccount = { openJournal(it) })
         }
         if (section == "Journal") {
-            Text("General ledger · newest first", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.ledger_newest), style = MaterialTheme.typography.titleMedium)
             if (accountFilter != null) {
                 TextButton(onClick = { accountFilter = null }) { Text("Clear account $accountFilter") }
             }
@@ -349,7 +352,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     Column(Modifier.weight(1f)) {
                         Text(journalHeading(entry.id, entry.description), style = MaterialTheme.typography.titleSmall,
                             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        Text("Day ${entry.day}",
+                        Text(stringResource(R.string.day_number, entry.day),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -367,17 +370,17 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             entry.description.startsWith("Cost of sale ")
                         if (legacy) {
                             if (expandedSale?.products?.isEmpty() == true) {
-                                Text("Historical sale: product detail was not recorded.",
+                                Text(stringResource(R.string.historic_sale),
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         if (entry.id.startsWith("sale_")) expandedSale?.products?.forEach { item ->
-                            Text("${item.quantity} × ${item.productName} · ${money(item.unitPriceCents)} each",
+                            Text("${item.quantity} × ${cafeProductName(item.productId, item.productName)} · ${money(item.unitPriceCents)} each",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         if (entry.id.startsWith("cogs_")) expandedSale?.stock?.let { stock ->
                             if (stock.isNotEmpty()) {
-                                Text("Recipe cost breakdown · actual FIFO",
+                                Text(stringResource(R.string.fifo_breakdown),
                                     style = MaterialTheme.typography.titleSmall)
                                 stock.filter { it.quantityDelta < 0.0 }.forEach { movement ->
                                     val quantity = -movement.quantityDelta
@@ -425,9 +428,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     }
                 }
             }
-            if (filtered.size > 100) Text("Showing 100 newest entries; narrow by day or account.")
+            if (filtered.size > 100) Text(stringResource(R.string.journal_limit))
         }
-        OutlinedButton(onClick = { refresh() }, enabled = !busy) { Text("Refresh") }
+        OutlinedButton(onClick = { refresh() }, enabled = !busy) { Text(stringResource(R.string.refresh)) }
     }
 }
 
@@ -527,7 +530,7 @@ private fun ComparativeReport(
                 ))
             }
             OutlinedButton(onClick = { showDaily = !showDaily }) {
-                Text(if (showDaily) "Hide daily results" else "Show daily results")
+                Text(stringResource(if (showDaily) R.string.hide_daily else R.string.show_daily))
             }
             if (showDaily) {
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -556,7 +559,7 @@ private fun ComparativeReport(
             if (current.assets.sumOf { it.amountCents } !=
                 current.liabilities.sumOf { it.amountCents } + current.equity.sumOf { it.amountCents }
             ) {
-                Text("Balance sheet does not balance. Inspect the journal.", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.bs_mismatch), color = MaterialTheme.colorScheme.error)
             }
         }
         else -> {
@@ -578,7 +581,7 @@ private fun ComparativeReport(
                         emphasis = "Net $label")
                 }
             }
-            Text("Cash deposits and other transfers between cash and bank are internal.",
+            Text(stringResource(R.string.internal_deposits),
                 style = MaterialTheme.typography.bodySmall)
         }
     }
@@ -618,7 +621,7 @@ private fun ComparisonTable(
 private fun FinanceReportTable(title: String, content: @Composable ColumnScope.() -> Unit) {
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
-            Text(title, Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp),
+            Text(cafeLabel(title), Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp),
                 style = MaterialTheme.typography.titleSmall)
             content()
             Spacer(Modifier.height(4.dp))
@@ -631,7 +634,7 @@ private fun FinanceAmountRow(label: String, cents: Long, modifier: Modifier = Mo
     Row(modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        Text(cafeLabel(label), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         LedgerAmount(money(cents), color = if (cents < 0) MaterialTheme.colorScheme.error
             else MaterialTheme.colorScheme.onSurface)
     }
@@ -663,7 +666,7 @@ private fun FinanceTableRow(
         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(label, Modifier.weight(labelWeight),
+            Text(cafeLabel(label), Modifier.weight(labelWeight),
                 style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
                 fontWeight = if (bold) FontWeight.SemiBold else null)
             values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold || heading) }
@@ -683,11 +686,11 @@ private fun wholeEuros(cents: Long): String {
 @Composable
 private fun ForecastWarnings(forecast: CafeCashForecast) {
     forecast.days.firstOrNull { it.bankShortfallCents > 0L }?.let {
-        Text("Bank shortfall on Day ${it.day} · ${money(it.bankShortfallCents)}",
+        Text(stringResource(R.string.bank_short_day, it.day, money(it.bankShortfallCents)),
             color = MaterialTheme.colorScheme.error)
     }
     forecast.days.firstOrNull { it.cashCents < 0L }?.let {
-        Text("Cash shortfall on Day ${it.day} · ${money(-it.cashCents)}",
+        Text(stringResource(R.string.cash_short_day, it.day, money(-it.cashCents)),
             color = MaterialTheme.colorScheme.error)
     }
 }
@@ -703,13 +706,13 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
                 listOf(wholeEuros(day.cashCents), wholeEuros(day.bankCents)), modifier = inset, ruled = true)
         }
     }
-    Text("Expected balances after payments. Cash is the money in the café. Bills are paid from the bank.",
+    Text(stringResource(R.string.forecast_explain),
         style = MaterialTheme.typography.bodySmall)
     FinanceReportTable("Upcoming payments") {
         FinanceTableRow("Payment", listOf("Due", "Amount"), heading = true, modifier = inset,
             labelWeight = 2.5f, ruled = true)
         if (forecast.days.none { it.payments.isNotEmpty() }) {
-            Text("No payments in this forecast.", inset.padding(vertical = 6.dp),
+            Text(stringResource(R.string.no_forecast_payments), inset.padding(vertical = 6.dp),
                 style = MaterialTheme.typography.bodySmall)
         }
         forecast.days.forEach { day ->
@@ -737,13 +740,13 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
             FinanceTableRow("Day", listOf("Principal", "Interest", "Total"), heading = true,
                 modifier = inset, labelWeight = 1.2f, ruled = true)
             forecast.installments.take(3).forEach { installment ->
-                FinanceTableRow("Day ${installment.dueDay}", listOf(
+                FinanceTableRow(stringResource(R.string.day_number, installment.dueDay), listOf(
                     wholeEuros(installment.principalCents), wholeEuros(installment.interestCents),
                     wholeEuros(installment.totalCents)
                 ), modifier = inset, labelWeight = 1.2f, ruled = true)
             }
         }
-        Text("Projected loan payments. Monthly interest is accrued in P&L.", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.loan_projection), style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.cafeLabel
 import androidx.annotation.StringRes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -15,7 +16,7 @@ internal fun CafeGuideButton(title: String, @StringRes message: Int) {
     if (open) {
         AlertDialog(
             onDismissRequest = { open = false },
-            title = { Text(title) },
+            title = { Text(cafeLabel(title)) },
             text = { Text(stringResource(message)) },
             confirmButton = {
                 TextButton(onClick = { open = false }) { Text(stringResource(R.string.guide_close)) }

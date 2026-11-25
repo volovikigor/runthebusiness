@@ -1,5 +1,7 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.cafeLabel
+import com.example.runthebusiness.ui.components.cafeProductName
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -48,38 +50,38 @@ private fun CafeShiftSummary(
 ) {
     CafeLedgerPanel {
         Text(
-            if (shift.day == currentDay) "Today's shift" else "Last shift · Day ${shift.day}",
+            if (shift.day == currentDay) stringResource(R.string.today_shift) else stringResource(R.string.last_shift, shift.day),
             style = MaterialTheme.typography.titleMedium
         )
-        Text("${shift.servedGroups} of ${shift.arrivingGroups} groups served · ${shift.lostGroups} lost",
+        Text(stringResource(R.string.shift_groups, shift.servedGroups, shift.arrivingGroups, shift.lostGroups),
                 style = MaterialTheme.typography.bodySmall)
-        if (shift.pendingGroups > 0) Text("Awaiting service: ${shift.pendingGroups}",
+        if (shift.pendingGroups > 0) Text(stringResource(R.string.awaiting_service, shift.pendingGroups),
                 style = MaterialTheme.typography.bodySmall)
-        Text("Net sales ${euro(shift.netSalesCents)} · Gross margin ${euro(shift.grossMarginCents)}",
+        Text(stringResource(R.string.shift_sales, euro(shift.netSalesCents), euro(shift.grossMarginCents)),
                 style = MaterialTheme.typography.bodySmall)
         if (shift.noStock > 0) {
-            Text("Groups lost to stock shortages · ${shift.noStock}",
+            Text(stringResource(R.string.lost_stock, shift.noStock),
                 style = MaterialTheme.typography.bodySmall)
-            CafeActionButton(onClick = { onOpenOperations(1) }) { Text("Go to purchasing") }
+            CafeActionButton(onClick = { onOpenOperations(1) }) { Text(stringResource(R.string.go_purchasing)) }
         }
         if (shift.declinedPrice > 0) {
-            Text("Left without buying · ${shift.declinedPrice}",
+            Text(stringResource(R.string.lost_price, shift.declinedPrice),
                 style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick = { onOpenOperations(0) }) { Text("Review menu prices") }
+            OutlinedButton(onClick = { onOpenOperations(0) }) { Text(stringResource(R.string.review_prices)) }
         }
-        if (shift.noSeats > 0) Text("No seats available · ${shift.noSeats}",
+        if (shift.noSeats > 0) Text(stringResource(R.string.lost_seats, shift.noSeats),
                 style = MaterialTheme.typography.bodySmall)
         if (shift.staffCapacity > 0) {
-            Text("Groups lost to staff capacity · ${shift.staffCapacity}",
+            Text(stringResource(R.string.lost_capacity, shift.staffCapacity),
                 style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick = { onOpenOperations(3) }) { Text("Review staffing") }
+            OutlinedButton(onClick = { onOpenOperations(3) }) { Text(stringResource(R.string.review_staff)) }
         }
-        if (shift.staffDisruption > 0) Text("Overdue payroll disruption · ${shift.staffDisruption}",
+        if (shift.staffDisruption > 0) Text(stringResource(R.string.lost_payroll, shift.staffDisruption),
                 style = MaterialTheme.typography.bodySmall)
-        if (shift.rentShutdown > 0) Text("Closed due to overdue rent · ${shift.rentShutdown}",
+        if (shift.rentShutdown > 0) Text(stringResource(R.string.lost_rent, shift.rentShutdown),
                 style = MaterialTheme.typography.bodySmall)
         if (shift.staffDisruption > 0 || shift.rentShutdown > 0) {
-            CafeActionButton(onClick = onOpenFinance) { Text("Review unpaid bills") }
+            CafeActionButton(onClick = onOpenFinance) { Text(stringResource(R.string.review_unpaid)) }
         }
     }
 }
@@ -217,16 +219,16 @@ fun CafeHomeScreen(
     if (confirmNewGame) {
         AlertDialog(
             onDismissRequest = { confirmNewGame = false },
-            title = { Text("Start a new game?") },
-            text = { Text("This permanently deletes your current café, purchases, stock, sales, journals and game progress. A new café will start at 08:00 on Day 1 with kitchen recipes installed. This cannot be undone.") },
+            title = { Text(stringResource(R.string.start_new_question)) },
+            text = { Text(stringResource(R.string.reset_details)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmNewGame = false
                     onStartGame(true)
-                }) { Text("Delete save & start new") }
+                }) { Text(stringResource(R.string.delete_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmNewGame = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmNewGame = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -239,13 +241,13 @@ fun CafeHomeScreen(
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         val cafe = state
         if (cafe == null) {
-            Text("Welcome to Maison Café", style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(R.string.welcome), style = MaterialTheme.typography.headlineMedium)
             CafeLedgerPanel {
                 Text(stringResource(R.string.guide_intro_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.guide_intro), style = MaterialTheme.typography.bodyMedium)
             }
             CafeActionButton(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
-                Text("Start café")
+                Text(stringResource(R.string.start_cafe))
             }
         } else {
             CafeScene(
@@ -282,7 +284,7 @@ fun CafeHomeScreen(
                     style = MaterialTheme.typography.bodySmall
                 )
                 TextButton(onClick = { run { game.setCafeOpen(!cafe.isOpen) } }, enabled = !loading) {
-                    Text(if (cafe.isOpen) "Close manually" else "Resume schedule")
+                    Text(stringResource(if (cafe.isOpen) R.string.close_manually else R.string.resume_schedule))
                 }
             }
             CafeGuideButton(stringResource(R.string.cafe_overview), R.string.guide_cafe)
@@ -320,7 +322,7 @@ fun CafeHomeScreen(
             val shortages = remember(menuReadiness) { menuReadiness.stockShortages() }
             CafeLedgerPanel {
                 val ready = menuReadiness.count { it.ready }
-                Text("Menu readiness · $ready / ${menuReadiness.size} dishes",
+                Text(stringResource(R.string.menu_readiness, ready, menuReadiness.size),
                     style = MaterialTheme.typography.titleMedium)
                 if (shortages.isNotEmpty()) {
                     Surface(
@@ -329,14 +331,14 @@ fun CafeHomeScreen(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("Ingredients blocking the menu", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.ingredients_blocking), style = MaterialTheme.typography.titleSmall)
                             val visible = if (showMenuReadiness) shortages else shortages.take(3)
                             visible.forEach { shortage ->
                                 val supply = shortage.supply
                                 HorizontalDivider()
                                 Text("${supply.name} · ${shortage.dishes.size} affected",
                                     style = MaterialTheme.typography.titleSmall)
-                                Text(shortage.dishes.joinToString { it.name },
+                                Text(shortage.dishes.map { cafeProductName(it.productId, it.name) }.joinToString(),
                                     style = MaterialTheme.typography.bodySmall)
                                 val cost = supply.supplierPackCents
                                 if (cost != null) {
@@ -354,28 +356,28 @@ fun CafeHomeScreen(
                                         Text(stringResource(R.string.buy_pack_price, euro(cost)), maxLines = 1)
                                     }
                                     if (cashPosition != null && !affordable) {
-                                        Text("Insufficient cash or bank funds for this pack.",
+                                        Text(stringResource(R.string.insufficient_pack),
                                             style = MaterialTheme.typography.bodySmall)
                                     }
                                 } else {
-                                    Text("No supplier pack available", style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(R.string.no_supplier_pack), style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
                     }
                 }
                 TextButton(onClick = { showMenuReadiness = !showMenuReadiness }) {
-                    Text(if (showMenuReadiness) "Hide menu details" else "Show menu details")
+                    Text(stringResource(if (showMenuReadiness) R.string.hide_menu_details else R.string.show_menu_details))
                 }
                 if (showMenuReadiness) {
                     menuReadiness.forEach { dish ->
                         HorizontalDivider()
                         val availability = when {
-                            dish.unsupported -> "Recipe unavailable"
-                            dish.ready -> "${dish.servings} servings"
-                            else -> "Out of stock"
+                            dish.unsupported -> stringResource(R.string.recipe_unavailable)
+                            dish.ready -> stringResource(R.string.availability_servings, dish.servings)
+                            else -> stringResource(R.string.out_of_stock)
                         }
-                        Text("${dish.name} · $availability", style = MaterialTheme.typography.titleSmall,
+                        Text("${cafeProductName(dish.productId, dish.name)} · $availability", style = MaterialTheme.typography.titleSmall,
                             color = if (dish.ready) MaterialTheme.colorScheme.onSurface
                                 else MaterialTheme.colorScheme.error)
                         dish.missing.forEach { missing ->
@@ -393,13 +395,13 @@ fun CafeHomeScreen(
                 CafeLedgerPanel {
                         Text("Payments · ${euro(bills.sumOf { it.due } + supplierDueCents)} due")
                         Text("Bank · ${euro(position.bankCents)}")
-                        CafeActionButton(onClick = onOpenFinance, enabled = !loading) { Text("Manage payments") }
+                        CafeActionButton(onClick = onOpenFinance, enabled = !loading) { Text(stringResource(R.string.manage_payments)) }
                 }
             }
             val blockedIngredients = shortages.map { "stock_${it.supply.itemId}" }.toSet()
             val otherAlerts = alerts.filterNot { it.id in blockedIngredients }
             if (otherAlerts.isNotEmpty()) {
-                Text("Management decisions", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.management_decisions), style = MaterialTheme.typography.titleMedium)
                 otherAlerts.forEach { alert ->
                     CafeLedgerPanel {
                             Text(alert.title, style = MaterialTheme.typography.titleSmall,
@@ -414,14 +416,14 @@ fun CafeHomeScreen(
                 }
             }
             OutlinedButton(onClick = { showSettings = !showSettings }) {
-                Text(if (showSettings) "Hide game settings" else "Game settings")
+                Text(stringResource(if (showSettings) R.string.hide_settings else R.string.game_settings))
             }
             if (showSettings) {
                 CafeLedgerPanel {
-                    Text("Save game", style = MaterialTheme.typography.titleMedium)
-                    Text("Starting a new game deletes this save.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.save_game), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.new_game_warning), style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = { confirmNewGame = true }, enabled = !loading && speed == 0) {
-                        Text("Start a new game")
+                        Text(stringResource(R.string.start_new))
                     }
                 }
             }
