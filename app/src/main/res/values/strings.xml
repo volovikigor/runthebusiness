@@ -334,4 +334,5 @@
     <string name="lettuce">Lettuce</string>
     <string name="tomato">Tomato</string>
     <string name="salad_dressing">Salad dressing</string>
+    <string name="kpi_groups_lost">Lost groups by cause</string>
 </resources>

@@ -105,25 +105,52 @@ private fun CafeKpiPanel(
         R.string.loss_seats to days.sumOf { it.noSeats },
         R.string.loss_rent to days.sumOf { it.rentShutdown }
     ).filter { it.second > 0 }
-    val top = losses.maxByOrNull { it.second }
+    val rankedLosses = losses.sortedByDescending { it.second }
+    val totalLosses = rankedLosses.sumOf { it.second }
+    val colors = MaterialTheme.colorScheme
     CafeLedgerPanel {
         Text(stringResource(R.string.cafe_overview), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.kpi_completed_window, completedDays),
             style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            KpiValue(stringResource(R.string.kpi_profit), if (completedDays > 0) euro(profitCents) else "—",
-                Modifier.weight(1f))
-            KpiValue(stringResource(R.string.kpi_served), if (arrivals > 0) "${(served * 100.0 / arrivals).toInt()}%" else "—",
-                Modifier.weight(1f))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = if (completedDays > 0 && profitCents < 0) colors.errorContainer else colors.primaryContainer,
+            contentColor = if (completedDays > 0 && profitCents < 0) colors.onErrorContainer else colors.onPrimaryContainer
+        ) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(stringResource(R.string.kpi_profit), style = MaterialTheme.typography.labelLarge)
+                Text(if (completedDays > 0) euro(profitCents) else "—",
+                    style = MaterialTheme.typography.headlineMedium)
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            KpiValue(stringResource(R.string.kpi_bank_after_bills), bankAfterBills?.let(::euro) ?: "—", Modifier.weight(1f))
-            KpiValue(stringResource(R.string.kpi_top_loss),
-                top?.let { stringResource(R.string.kpi_loss_value, stringResource(it.first), it.second) } ?: "—",
+            KpiValue(stringResource(R.string.kpi_bank_after_bills), bankAfterBills?.let(::euro) ?: "—",
+                Modifier.weight(1f), alert = bankAfterBills?.let { it < 0 } == true)
+            KpiValue(stringResource(R.string.kpi_served),
+                if (arrivals > 0) "${(served * 100.0 / arrivals).toInt()}%" else "—",
                 Modifier.weight(1f))
         }
         if (bankAfterBills != null && bankAfterBills < 0) {
             TextButton(onClick = onOpenFinance) { Text(stringResource(R.string.kpi_review_bills)) }
+        }
+        if (totalLosses > 0) {
+            HorizontalDivider(color = colors.outlineVariant)
+            Text(stringResource(R.string.kpi_groups_lost), style = MaterialTheme.typography.titleSmall)
+            rankedLosses.forEachIndexed { index, (reason, count) ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(reason), style = MaterialTheme.typography.bodyMedium)
+                    Text(count.toString(), style = MaterialTheme.typography.labelLarge)
+                }
+                LinearProgressIndicator(
+                    progress = { count.toFloat() / totalLosses },
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    color = if (index == 0) colors.primary else colors.outline,
+                    trackColor = colors.surfaceContainerHighest,
+                    gapSize = 0.dp,
+                    drawStopIndicator = {}
+                )
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text(stringResource(R.string.cafe_milestones), style = MaterialTheme.typography.titleSmall)
@@ -135,10 +162,14 @@ private fun CafeKpiPanel(
 }
 
 @Composable
-private fun KpiValue(label: String, value: String, modifier: Modifier) {
-    Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
-        Text(value, style = MaterialTheme.typography.titleMedium)
+private fun KpiValue(label: String, value: String, modifier: Modifier, alert: Boolean = false) {
+    val colors = MaterialTheme.colorScheme
+    Surface(modifier, shape = MaterialTheme.shapes.medium, color = colors.surface) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleMedium,
+                color = if (alert) colors.error else colors.onSurface)
+        }
     }
 }
 

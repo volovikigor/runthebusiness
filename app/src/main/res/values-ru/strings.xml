@@ -328,4 +328,5 @@
     <string name="lettuce">Салат-латук</string>
     <string name="tomato">Томат</string>
     <string name="salad_dressing">Заправка для салата</string>
+    <string name="kpi_groups_lost">Потерянные группы по причинам</string>
 </resources>
