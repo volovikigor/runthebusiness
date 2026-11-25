@@ -347,9 +347,4 @@
     <string name="sales_no_closed_days">Las ventas aparecen tras cerrar el primer día.</string>
     <string name="purchase_bank_short">Saldo bancario insuficiente. Ingresa efectivo en Finanzas → Facturas.</string>
     <string name="purchase_bank_now">El pedido llega enseguida. El importe completo se paga desde la cuenta bancaria.</string>
-    <string name="kpi_no_days">Aún no hay días completos.</string>
-    <string name="kpi_days_range">Días completados %1$d–%2$d</string>
-    <string name="menu_ready_count">La cifra indica los platos con existencias para al menos una ración.</string>
-    <string name="menu_servings_explain">Los números junto a los platos indican las raciones que permiten las existencias actuales. Consulta las ventas en Operaciones → Precios.</string>
-    <string name="finance_journal_hint">Toca una fila de cuenta para abrir sus asientos.</string>
 </resources>

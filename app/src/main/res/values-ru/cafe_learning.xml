@@ -1,0 +1,7 @@
+<resources>
+    <string name="kpi_no_days">Завершённых дней пока нет.</string>
+    <string name="kpi_days_range">Завершённые дни %1$d–%2$d</string>
+    <string name="menu_ready_count">Число показывает, для скольких блюд хватит запасов хотя бы на одну порцию.</string>
+    <string name="menu_servings_explain">Числа у блюд показывают, сколько порций можно приготовить из текущих запасов. Продажи смотрите в разделе «Управление → Цены».</string>
+    <string name="finance_journal_hint">Нажмите на строку счёта, чтобы открыть его проводки в журнале.</string>
+</resources>

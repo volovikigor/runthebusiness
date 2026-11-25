@@ -348,9 +348,4 @@
     <string name="sales_no_closed_days">Units sold will appear after the first completed day.</string>
     <string name="purchase_bank_short">Bank balance is too low. Deposit cash in Finance → Bills.</string>
     <string name="purchase_bank_now">Stock arrives immediately. The full amount is paid from the bank account.</string>
-    <string name="kpi_no_days">No completed days yet.</string>
-    <string name="kpi_days_range">Completed Days %1$d–%2$d</string>
-    <string name="menu_ready_count">The count shows dishes with stock for at least one serving.</string>
-    <string name="menu_servings_explain">Numbers next to dishes show how many servings current stock can make. Sales are in Operations → Pricing.</string>
-    <string name="finance_journal_hint">Tap an account row to open its journal entries.</string>
 </resources>
