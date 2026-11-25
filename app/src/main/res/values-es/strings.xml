@@ -345,4 +345,6 @@
     <string name="home_after_goals">Objetivos logrados. Sigue jugando e intenta repetir el resultado el mes próximo y pagar las facturas a tiempo.</string>
     <string name="sales_completed_range">Unidades vendidas · días cerrados %1$d–%2$d. Hoy queda fuera.</string>
     <string name="sales_no_closed_days">Las ventas aparecen tras cerrar el primer día.</string>
+    <string name="purchase_bank_short">Saldo bancario insuficiente. Ingresa efectivo en Finanzas → Facturas.</string>
+    <string name="purchase_bank_now">El pedido llega enseguida. El importe completo se paga desde la cuenta bancaria.</string>
 </resources>

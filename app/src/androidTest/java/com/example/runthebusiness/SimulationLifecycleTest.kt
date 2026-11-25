@@ -63,6 +63,39 @@ class SimulationLifecycleTest {
     }
 
     @Test
+    fun immediatePurchasesUseBankAndLeaveTheTillUntouched() = runBlocking {
+        GameSimulationEngine(context).startGame()
+        val sessionId = "debug_session_001"
+        val db = GameDatabase.getInstance(context)
+        val businessId = db.gameSetupDao().getBusinesses(sessionId).single().id
+        val dao = db.accountingDao()
+        val bankBefore = dao.accountBalance(sessionId, "1100")
+        val stock = CafePurchasingRepository(context)
+        val item = CafePurchasingRepository.supplies.first { it.itemId == "stock_brownie_001" }
+        val initialBank = 3 * item.costCents
+        val tillFunding = bankBefore - initialBank
+        dao.saveAccountingOperation(
+            BusinessEventEntity("test_till", sessionId, businessId, "TEST_TRANSFER", "TEST",
+                "test_till", 1, 8, 0, "Fund test till"),
+            JournalEntryEntity("test_till", sessionId, businessId, "test_till", "Fund test till", 1, 8, 0),
+            listOf(
+                JournalLineEntity("test_till_1", "test_till", 1, "1000", "", tillFunding, 0L),
+                JournalLineEntity("test_till_2", "test_till", 2, "1100", "", 0L, tillFunding)
+            )
+        )
+
+        stock.purchasePacks(item.itemId, 2, onCredit = false)
+        assertEquals(item.costCents, dao.accountBalance(sessionId, "1100"))
+        assertEquals(tillFunding, dao.accountBalance(sessionId, "1000"))
+
+        val before = stock.stock()
+        assertTrue(runCatching { stock.purchasePacks(item.itemId, 2, onCredit = false) }.isFailure)
+        assertEquals(before, stock.stock())
+        assertEquals(item.costCents, dao.accountBalance(sessionId, "1100"))
+        assertEquals(tillFunding, dao.accountBalance(sessionId, "1000"))
+    }
+
+    @Test
     fun clockStartsAtEightAndStaysPausedOnNavigationAndRecreation() {
         startCafe()
         assertVisible("Day 1 · 08:00")

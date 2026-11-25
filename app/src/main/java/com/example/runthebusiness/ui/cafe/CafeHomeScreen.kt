@@ -375,9 +375,7 @@ fun CafeHomeScreen(
                                     style = MaterialTheme.typography.bodySmall)
                                 val cost = supply.supplierPackCents
                                 if (cost != null) {
-                                    val affordable = cashPosition?.let {
-                                        it.cashCents >= cost || it.bankCents >= cost
-                                    } == true
+                                    val affordable = cashPosition?.let { it.bankCents >= cost } == true
                                     Button(
                                         enabled = !loading && affordable,
                                         colors = ButtonDefaults.buttonColors(
@@ -389,7 +387,7 @@ fun CafeHomeScreen(
                                         Text(stringResource(R.string.buy_pack_price, euro(cost)), maxLines = 1)
                                     }
                                     if (cashPosition != null && !affordable) {
-                                        Text(stringResource(R.string.insufficient_pack),
+                                        Text(stringResource(R.string.purchase_bank_short),
                                             style = MaterialTheme.typography.bodySmall)
                                     }
                                 } else {

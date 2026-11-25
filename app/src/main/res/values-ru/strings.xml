@@ -340,4 +340,6 @@
     <string name="home_after_goals">Цели выполнены. Продолжайте игру и попробуйте повторить результат в следующем месяце, оплачивая счета вовремя.</string>
     <string name="sales_completed_range">Продано за завершённые дни %1$d–%2$d. Сегодняшние продажи не входят.</string>
     <string name="sales_no_closed_days">Продажи появятся после завершения первого дня.</string>
+    <string name="purchase_bank_short">На счёте не хватает денег. Внесите наличные в разделе «Финансы → Платежи».</string>
+    <string name="purchase_bank_now">Товар поступит сразу. Вся сумма будет списана с банковского счёта.</string>
 </resources>

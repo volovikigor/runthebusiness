@@ -194,7 +194,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     }
                     Text(if (deferredPayment) {
                         "Stock arrives now. Pay the supplier invoice in Finance → Bills on Day ${currentGameDay + supply.creditDays}."
-                    } else "Stock arrives immediately and payment is taken now.")
+                    } else stringResource(R.string.purchase_bank_now))
                 }
             },
             confirmButton = {

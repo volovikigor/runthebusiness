@@ -346,4 +346,6 @@
     <string name="home_after_goals">Milestones complete. Keep playing and try to repeat the result next month while covering bills on time.</string>
     <string name="sales_completed_range">Units sold · completed Days %1$d–%2$d. Today is excluded.</string>
     <string name="sales_no_closed_days">Units sold will appear after the first completed day.</string>
+    <string name="purchase_bank_short">Bank balance is too low. Deposit cash in Finance → Bills.</string>
+    <string name="purchase_bank_now">Stock arrives immediately. The full amount is paid from the bank account.</string>
 </resources>
