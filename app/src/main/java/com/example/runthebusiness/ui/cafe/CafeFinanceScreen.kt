@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -583,27 +584,34 @@ private fun ComparisonTable(
     onAccount: (String) -> Unit = {}
 ) {
     if (rows.isEmpty()) return
+    FinanceReportTable(title) {
+        FinanceTableRow("", listOf("Current", "Previous", "Change"), heading = true,
+            modifier = Modifier.padding(horizontal = 10.dp), labelWeight = 1.6f, ruled = true)
+        rows.forEach { row ->
+            val change = row.current?.let { now -> row.previous?.let { now - it } }
+            val interaction = if (row.account != null) Modifier.clickable(
+                role = Role.Button, onClickLabel = "Open account in journal"
+            ) { onAccount(row.account) } else Modifier
+            FinanceTableRow(
+                row.name, listOf(row.current?.let(format) ?: "—", row.previous?.let(format) ?: "—",
+                    change?.let { (if (it > 0L && format(it) != format(0L)) "+" else "") + format(it) } ?: "—"),
+                modifier = interaction.then(
+                    if (row.name == emphasis) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
+                    else Modifier
+                ).padding(horizontal = 10.dp),
+                labelWeight = 1.6f, ruled = true, bold = row.name == "Gross profit"
+            )
+        }
+    }
+}
+
+@Composable
+private fun FinanceReportTable(title: String, content: @Composable ColumnScope.() -> Unit) {
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
             Text(title, Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp),
                 style = MaterialTheme.typography.titleSmall)
-            FinanceTableRow("", listOf("Current", "Previous", "Change"), heading = true,
-                modifier = Modifier.padding(horizontal = 10.dp), labelWeight = 1.6f, ruled = true)
-            rows.forEach { row ->
-                val change = row.current?.let { now -> row.previous?.let { now - it } }
-                val interaction = if (row.account != null) Modifier.clickable(
-                    role = Role.Button, onClickLabel = "Open account in journal"
-                ) { onAccount(row.account) } else Modifier
-                FinanceTableRow(
-                    row.name, listOf(row.current?.let(format) ?: "—", row.previous?.let(format) ?: "—",
-                        change?.let { (if (it > 0L && format(it) != format(0L)) "+" else "") + format(it) } ?: "—"),
-                    modifier = interaction.then(
-                        if (row.name == emphasis) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
-                        else Modifier
-                    ).padding(horizontal = 10.dp),
-                    labelWeight = 1.6f, ruled = true
-                )
-            }
+            content()
             Spacer(Modifier.height(4.dp))
         }
     }
@@ -624,9 +632,11 @@ private fun FinanceAmountRow(label: String, cents: Long, modifier: Modifier = Mo
 private fun LedgerAmount(
     value: String,
     modifier: Modifier = Modifier,
-    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    bold: Boolean = false
 ) {
     Text(value, modifier, color = color, textAlign = TextAlign.End,
+        fontWeight = if (bold) FontWeight.SemiBold else null,
         style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
 }
 
@@ -637,15 +647,17 @@ private fun FinanceTableRow(
     heading: Boolean = false,
     modifier: Modifier = Modifier,
     labelWeight: Float = if (values.size == 3) 0.65f else 1.2f,
-    ruled: Boolean = false
+    ruled: Boolean = false,
+    bold: Boolean = false
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text(label, Modifier.weight(labelWeight),
-                style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall)
-            values.forEach { LedgerAmount(it, Modifier.weight(1f)) }
+                style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
+                fontWeight = if (bold) FontWeight.SemiBold else null)
+            values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold || heading) }
         }
         if (ruled) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
@@ -674,23 +686,35 @@ private fun ForecastWarnings(forecast: CafeCashForecast) {
 @Composable
 private fun CashForecastSection(forecast: CafeCashForecast) {
     val today = forecast.days.first().day
-    Text("7-day cash forecast", style = MaterialTheme.typography.titleMedium)
-    Text(
-        "Staff cost today ${money(forecast.staffCostTodayCents)} · Day ${today + 1} ${money(forecast.staffCostTomorrowCents)}",
-        style = MaterialTheme.typography.bodySmall
-    )
-    Text("Expected balances after payments. Cash is the money in the café. Bills are paid from the bank.",
-        style = MaterialTheme.typography.bodySmall)
-    FinanceTableRow("Day", listOf("Cash", "Bank"), heading = true)
-    forecast.days.forEach { day ->
-        HorizontalDivider()
-        FinanceTableRow(if (day.day == today) "Today" else "${day.day}",
-            listOf(money(day.cashCents), money(day.bankCents)))
-        day.payments.forEach { payment ->
-            val overdue = if (payment.dueDay < today) " · due Day ${payment.dueDay}" else ""
-            Text("${payment.label} ${money(payment.amountCents)}$overdue", style = MaterialTheme.typography.bodySmall)
+    val inset = Modifier.padding(horizontal = 10.dp)
+    FinanceReportTable("7-day cash forecast") {
+        FinanceTableRow("Day", listOf("Cash", "Bank"), heading = true, modifier = inset, ruled = true)
+        forecast.days.forEach { day ->
+            FinanceTableRow(if (day.day == today) "Today" else "Day ${day.day}",
+                listOf(wholeEuros(day.cashCents), wholeEuros(day.bankCents)), modifier = inset, ruled = true)
         }
     }
+    Text("Expected balances after payments. Cash is the money in the café. Bills are paid from the bank.",
+        style = MaterialTheme.typography.bodySmall)
+    FinanceReportTable("Upcoming payments") {
+        FinanceTableRow("Payment", listOf("Due", "Amount"), heading = true, modifier = inset,
+            labelWeight = 2.5f, ruled = true)
+        if (forecast.days.none { it.payments.isNotEmpty() }) {
+            Text("No payments in this forecast.", inset.padding(vertical = 6.dp),
+                style = MaterialTheme.typography.bodySmall)
+        }
+        forecast.days.forEach { day ->
+            day.payments.forEach { payment ->
+                val due = if (payment.dueDay < today) "Day ${payment.dueDay}\nOverdue" else "Day ${payment.dueDay}"
+                FinanceTableRow(payment.label, listOf(due, wholeEuros(payment.amountCents)), modifier = inset,
+                    labelWeight = 2.5f, ruled = true)
+            }
+        }
+    }
+    Text(
+        "Staff cost today ${wholeEuros(forecast.staffCostTodayCents)} · Day ${today + 1} ${wholeEuros(forecast.staffCostTomorrowCents)}",
+        style = MaterialTheme.typography.bodySmall
+    )
     Text(
         if (forecast.historyDays > 0) {
             "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading. Corporate tax uses profit booked so far. Balances exclude deposits."
@@ -700,17 +724,17 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
         style = MaterialTheme.typography.bodySmall
     )
     if (forecast.installments.isNotEmpty()) {
-        HorizontalDivider()
-        Text("Next loan installments", style = MaterialTheme.typography.titleMedium)
-        Text("Upcoming amounts from the original schedule. Loan payments are not posted yet.",
-            style = MaterialTheme.typography.bodySmall)
-        forecast.installments.take(3).forEach { installment ->
-            Text("Day ${installment.dueDay} · ${money(installment.totalCents)}")
-            Text(
-                "Principal ${money(installment.principalCents)} · Interest ${money(installment.interestCents)}",
-                style = MaterialTheme.typography.bodySmall
-            )
+        FinanceReportTable("Next loan installments") {
+            FinanceTableRow("Day", listOf("Principal", "Interest", "Total"), heading = true,
+                modifier = inset, labelWeight = 1.2f, ruled = true)
+            forecast.installments.take(3).forEach { installment ->
+                FinanceTableRow("Day ${installment.dueDay}", listOf(
+                    wholeEuros(installment.principalCents), wholeEuros(installment.interestCents),
+                    wholeEuros(installment.totalCents)
+                ), modifier = inset, labelWeight = 1.2f, ruled = true)
+            }
         }
+        Text("Projected from the original loan schedule.", style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -6,6 +6,7 @@ import com.example.runthebusiness.data.local.entity.CafeProductEntity
 import com.example.runthebusiness.data.local.entity.CafeRecipeItemEntity
 import com.example.runthebusiness.engine.model.ProductType
 import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.openingPriceCents
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules.referencePriceCents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -20,6 +21,11 @@ data class CafeMenuItem(
     val finishedStockItemId: String?,
     val ingredients: List<Pair<String, Double>>
 )
+
+internal fun lowerOpeningPrice(productId: String, currentPrice: Long): Long? =
+    openingPriceCents(productId).takeIf {
+        currentPrice == referencePriceCents(productId) && it < currentPrice
+    }
 
 /** First persistent menu. Recipes reference the existing opening-stock placeholder until
  * ingredient-specific opening stock and purchasing are introduced.
@@ -66,6 +72,16 @@ class CafeMenuRepository(context: Context) {
                 check(menu.updatePrice(productId, location.id, priceCents) == 1) {
                     "Menu product not found"
                 }
+            }
+        }
+
+    suspend fun applyLowerOpeningPrices(sessionId: String = "debug_session_001"): Int =
+        db.withTransaction {
+            val business = setup.getBusinesses(sessionId).single()
+            val location = locations.getLocations(business.id).single()
+            menu.getProducts(location.id).sumOf { product ->
+                val price = lowerOpeningPrice(product.id, product.sellingPriceCents)
+                if (price == null) 0 else menu.updatePrice(product.id, location.id, price)
             }
         }
 
