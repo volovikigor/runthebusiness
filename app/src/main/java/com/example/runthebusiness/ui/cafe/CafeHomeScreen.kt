@@ -32,6 +32,7 @@ import com.example.runthebusiness.data.local.CafeDayPerformance
 import com.example.runthebusiness.data.local.CafeManagementAlertsRepository
 import com.example.runthebusiness.data.local.ManagementAlert
 import com.example.runthebusiness.engine.model.GameTime
+import com.example.runthebusiness.ui.components.CafeActionButton
 import com.example.runthebusiness.ui.components.CafeLedgerPanel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -58,7 +59,7 @@ private fun CafeShiftSummary(
         Text("Net sales ${euro(shift.netSalesCents)} · Gross margin ${euro(shift.grossMarginCents)}")
         if (shift.noStock > 0) {
             Text("Groups lost to stock shortages · ${shift.noStock}")
-            Button(onClick = { onOpenOperations(1) }) { Text("Go to purchasing") }
+            CafeActionButton(onClick = { onOpenOperations(1) }) { Text("Go to purchasing") }
         }
         if (shift.declinedPrice > 0) {
             Text("Left without buying · ${shift.declinedPrice}")
@@ -69,7 +70,7 @@ private fun CafeShiftSummary(
         if (shift.staffDisruption > 0) Text("Overdue payroll disruption · ${shift.staffDisruption}")
         if (shift.rentShutdown > 0) Text("Closed due to overdue rent · ${shift.rentShutdown}")
         if (shift.staffDisruption > 0 || shift.rentShutdown > 0) {
-            Button(onClick = onOpenFinance) { Text("Review unpaid bills") }
+            CafeActionButton(onClick = onOpenFinance) { Text("Review unpaid bills") }
         }
     }
 }
@@ -169,7 +170,7 @@ fun CafeHomeScreen(
         if (cafe == null) {
             Text("Welcome to Maison Café", style = MaterialTheme.typography.headlineMedium)
             Text("Start your business to create the first café and its opening balance sheet.")
-            Button(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
+            CafeActionButton(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
                 Text("Start café")
             }
         } else {
@@ -290,7 +291,7 @@ fun CafeHomeScreen(
                 CafeLedgerPanel {
                         Text("Payments · ${euro(bills.sumOf { it.due } + supplierDueCents)} due")
                         Text("Bank · ${euro(position.bankCents)}")
-                        Button(onClick = onOpenFinance, enabled = !loading) { Text("Manage payments") }
+                        CafeActionButton(onClick = onOpenFinance, enabled = !loading) { Text("Manage payments") }
                 }
             }
             val blockedIngredients = shortages.map { "stock_${it.supply.itemId}" }.toSet()

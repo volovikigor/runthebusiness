@@ -1,80 +1,134 @@
 package com.example.runthebusiness.data.local
 
 import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import androidx.room.withTransaction
+import com.example.runthebusiness.data.local.dao.JournalWithLines
+import com.example.runthebusiness.data.local.entity.LedgerAccountEntity
 
 data class FinancialLine(val code: String, val name: String, val amountCents: Long)
-data class FinancialStatements(
+
+data class DailyProfitLoss(val day: Int, val revenueCents: Long, val expenseCents: Long)
+
+data class FinancialPeriod(
+    val days: IntRange,
     val assets: List<FinancialLine>,
     val liabilities: List<FinancialLine>,
     val equity: List<FinancialLine>,
     val revenue: List<FinancialLine>,
     val expenses: List<FinancialLine>,
-    val cashMovements: List<FinancialLine>,
-    val netIncomeCents: Long
-)
-
-data class DailyProfitLoss(val day: Int, val revenueCents: Long, val expenseCents: Long) {
-    val profitCents: Long get() = revenueCents - expenseCents
+    val cashFlows: Map<CashFlowLine, Long>,
+    val openingCashCents: Long,
+    val closingCashCents: Long,
+    val performance: List<CafeDayPerformance>,
+    val dailyResults: List<DailyProfitLoss>
+) {
+    val revenueCents get() = revenue.sumOf { it.amountCents }
+    val expenseCents get() = expenses.sumOf { it.amountCents }
+    val profitCents get() = revenueCents - expenseCents
 }
 
-/** Ledger-derived, cumulative statements for the current game session. */
+data class FinancialStatements(val current: FinancialPeriod, val previous: FinancialPeriod?)
+
+enum class CashFlowLine(val label: String, val section: String) {
+    SALES("Customer receipts", "Operations"),
+    STOCK("Supplier and stock payments", "Operations"),
+    PAYROLL("Payroll", "Operations"),
+    RENT("Rent", "Operations"),
+    TAX("Taxes and social contributions", "Operations"),
+    OTHER("Other operating movements", "Operations"),
+    EQUIPMENT("Equipment", "Investing"),
+    BORROWING("Loan proceeds", "Financing"),
+    PRINCIPAL("Loan principal repaid", "Financing"),
+    INTEREST("Loan interest", "Financing"),
+    CAPITAL("Owner contributions and withdrawals", "Financing")
+}
+
 class CafeFinancialStatementsRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
+    private val performance = CafeDailyPerformanceRepository(context.applicationContext)
 
-    suspend fun dailyProfitLoss(sessionId: String = "debug_session_001"): List<DailyProfitLoss> =
-        withContext(Dispatchers.IO) {
-            val types = db.gameSetupDao().getAccounts(sessionId).associate { it.code to it.type }
-            db.journalViewDao().getJournal(sessionId)
-                .groupBy { it.entry.gameDay }
-                .map { (day, entries) ->
-                    var revenue = 0L
-                    var expense = 0L
-                    entries.forEach { entry ->
-                        entry.lines.forEach { line ->
-                            when (types[line.accountCode]?.uppercase()) {
-                                "REVENUE" -> revenue += line.creditCents - line.debitCents
-                                "EXPENSE" -> expense += line.debitCents - line.creditCents
-                            }
-                        }
-                    }
-                    DailyProfitLoss(day, revenue, expense)
-                }.sortedByDescending { it.day }
-        }
+    suspend fun load(sessionId: String = "debug_session_001"): FinancialStatements? = db.withTransaction {
+        val today = db.accountingDao().getSession(sessionId)?.currentDay ?: return@withTransaction null
+        val start = ((today - 1) / 30) * 30 + 1
+        val journal = db.journalViewDao().getJournal(sessionId)
+        val accounts = db.gameSetupDao().getAccounts(sessionId)
+        val activity = performance.recent(sessionId, today - start + 31)
+        FinancialStatements(
+            financialPeriod(start..today, journal, accounts, activity),
+            if (start > 1) financialPeriod((start - 30) until start, journal, accounts, activity) else null
+        )
+    }
+}
 
-    suspend fun cashAvailable(sessionId: String = "debug_session_001"): Long =
-        withContext(Dispatchers.IO) {
-            db.journalViewDao().getJournal(sessionId).sumOf { entry ->
-                entry.lines.filter { it.accountCode == "1000" || it.accountCode == "1100" }
-                    .sumOf { it.debitCents - it.creditCents }
-            }
-        }
+private val liquidAccounts = setOf("1000", "1100")
 
-    suspend fun load(sessionId: String = "debug_session_001"): FinancialStatements =
-        withContext(Dispatchers.IO) {
-            val accounts = db.gameSetupDao().getAccounts(sessionId)
-            val journal = db.journalViewDao().getJournal(sessionId)
-            val balances = mutableMapOf<String, Long>()
-            for (entry in journal) for (line in entry.lines) {
-                balances[line.accountCode] = (balances[line.accountCode] ?: 0L) +
-                    line.debitCents - line.creditCents
-            }
-            fun lines(type: String): List<FinancialLine> =
-                accounts.filter { it.type.equals(type, ignoreCase = true) }
-                    .map { account ->
-                        val signed = balances[account.code] ?: 0L
-                        FinancialLine(account.code, account.name,
-                            if (type == "ASSET" || type == "EXPENSE") signed else -signed)
-                    }.filter { it.amountCents != 0L }
-            val revenue = lines("REVENUE")
-            val expenses = lines("EXPENSE")
-            val profit = revenue.sumOf { it.amountCents } - expenses.sumOf { it.amountCents }
-            val equity = lines("EQUITY") + FinancialLine("CURRENT_RESULT", "Current profit / loss", profit)
-            // Movement in cash and bank accounts, not a classified operating/investing/financing CF.
-            val cash = accounts.filter { it.code in setOf("1000", "1100") }.map { account ->
-                FinancialLine(account.code, account.name, balances[account.code] ?: 0L)
-            }
-            FinancialStatements(lines("ASSET"), lines("LIABILITY"), equity, revenue, expenses, cash, profit)
+internal fun financialPeriod(
+    days: IntRange,
+    journal: List<JournalWithLines>,
+    accounts: List<LedgerAccountEntity>,
+    activity: List<CafeDayPerformance>
+): FinancialPeriod {
+    val entries = journal.filter { it.entry.gameDay in days }
+    val closing = balances(journal.filter { it.entry.gameDay <= days.last })
+    val opening = balances(journal.filter { it.entry.gameDay < days.first })
+    val movement = balances(entries)
+    fun lines(type: String, values: Map<String, Long>): List<FinancialLine> =
+        accounts.filter { it.type.equals(type, ignoreCase = true) }.mapNotNull { account ->
+            val debitBalance = values[account.code] ?: 0L
+            val amount = if (type == "ASSET" || type == "EXPENSE") debitBalance else -debitBalance
+            if (amount == 0L) null else FinancialLine(account.code, account.name, amount)
         }
+    val earnings = lines("REVENUE", closing).sumOf { it.amountCents } -
+        lines("EXPENSE", closing).sumOf { it.amountCents }
+    val cashFlows = mutableMapOf<CashFlowLine, Long>()
+    entries.forEach { entry ->
+        cashMovement(entry).forEach { (line, amount) ->
+            cashFlows[line] = cashFlows.getOrDefault(line, 0L) + amount
+        }
+    }
+    val daily = entries.groupBy { it.entry.gameDay }.map { (day, rows) ->
+        val dailyMovement = balances(rows)
+        DailyProfitLoss(day, lines("REVENUE", dailyMovement).sumOf { it.amountCents },
+            lines("EXPENSE", dailyMovement).sumOf { it.amountCents })
+    }.sortedByDescending { it.day }
+    return FinancialPeriod(days, lines("ASSET", closing), lines("LIABILITY", closing),
+        lines("EQUITY", closing) + FinancialLine("RESULT", "Accumulated result", earnings),
+        lines("REVENUE", movement), lines("EXPENSE", movement), cashFlows,
+        liquidAccounts.sumOf { opening[it] ?: 0L }, liquidAccounts.sumOf { closing[it] ?: 0L },
+        activity.filter { it.day in days }, daily)
+}
+
+private fun balances(entries: List<JournalWithLines>): Map<String, Long> {
+    val totals = mutableMapOf<String, Long>()
+    for (entry in entries) for (line in entry.lines) {
+        totals[line.accountCode] = totals.getOrDefault(line.accountCode, 0L) + line.debitCents - line.creditCents
+    }
+    return totals
+}
+
+/** A transfer between cash and bank has zero net movement. Non-cash accruals are excluded. */
+internal fun cashMovement(entry: JournalWithLines): Map<CashFlowLine, Long> {
+    val net = entry.lines.filter { it.accountCode in liquidAccounts }.sumOf { it.debitCents - it.creditCents }
+    if (net == 0L) return emptyMap()
+    val counterparts = entry.lines.filter { it.accountCode !in liquidAccounts }
+    val codes = counterparts.map { it.accountCode }.toSet()
+    // Sales can include VAT and simultaneous non-cash cost-of-sales postings.
+    if ("4000" in codes || "1200" in codes || "1300" in codes) return mapOf(CashFlowLine.SALES to net)
+    val flows = counterparts.groupingBy { line ->
+        when (line.accountCode) {
+            "1400", "2010" -> CashFlowLine.STOCK
+            "2300", "5200" -> CashFlowLine.PAYROLL
+            "2000", "5400" -> CashFlowLine.RENT
+            "2200", "2400", "2500", "2600", "5300", "5800" -> CashFlowLine.TAX
+            "1500" -> CashFlowLine.EQUIPMENT
+            "2100" -> if (line.creditCents > 0L) CashFlowLine.BORROWING else CashFlowLine.PRINCIPAL
+            "5700" -> CashFlowLine.INTEREST
+            "3000" -> CashFlowLine.CAPITAL
+            else -> CashFlowLine.OTHER
+        }
+    }.fold(0L) { amount, line -> amount + line.creditCents - line.debitCents }
+    if (CashFlowLine.STOCK in flows && codes.all { it in setOf("1400", "2010", "1600") }) {
+        return mapOf(CashFlowLine.STOCK to net)
+    }
+    return flows.filterValues { it != 0L }
 }

@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -102,7 +104,7 @@ private fun CafeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
             maxLines = 1
         )
         if (selected) HorizontalDivider(Modifier.width(24.dp), thickness = 2.dp,
-            color = MaterialTheme.colorScheme.tertiary)
+            color = MaterialTheme.colorScheme.tertiaryContainer)
         else Spacer(Modifier.height(2.dp))
     }
 }
@@ -116,4 +118,18 @@ fun CafeLedgerPanel(modifier: Modifier = Modifier, content: @Composable ColumnSc
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content
     )
+}
+
+@Composable
+fun CafeActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
+    Button(onClick = onClick, modifier = modifier, enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ), content = content)
 }
