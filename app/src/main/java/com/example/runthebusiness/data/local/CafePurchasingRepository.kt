@@ -46,16 +46,22 @@ class CafePurchasingRepository(context: Context) {
         onCredit: Boolean = false): Long =
         purchase(itemId, sessionId, quantity, skipUnavailable = false, onCredit = onCredit)
 
+    suspend fun purchasePacks(itemId: String, packs: Int, onCredit: Boolean,
+        sessionId: String = "debug_session_001"): Long {
+        require(packs in 1..99)
+        return purchase(itemId, sessionId, quantity = null, skipUnavailable = false, onCredit = onCredit, packs = packs)
+    }
+
     internal suspend fun purchaseIfAvailable(itemId: String, sessionId: String, quantity: Double): Long =
         purchase(itemId, sessionId, quantity, skipUnavailable = true)
 
     private suspend fun purchase(
-        itemId: String, sessionId: String, quantity: Double?, skipUnavailable: Boolean, onCredit: Boolean = false
+        itemId: String, sessionId: String, quantity: Double?, skipUnavailable: Boolean, onCredit: Boolean = false, packs: Int = 1
     ): Long =
         withContext(Dispatchers.IO) {
             val standard = supplies.singleOrNull { it.itemId == itemId }
                 ?: error("Unknown supplier pack")
-            val supply = if (quantity == null) standard else {
+            val supply = if (quantity == null) standard.copy(quantity = standard.quantity * packs) else {
                 require(quantity.isFinite() && quantity > 0 && quantity <= standard.quantity && quantity == kotlin.math.floor(quantity))
                 standard.copy(quantity = quantity)
             }
@@ -81,17 +87,20 @@ class CafePurchasingRepository(context: Context) {
                         "Pay overdue supplier invoices before buying on credit"
                     }
                 }
-                val canAfford = onCredit || cash >= supply.costCents || bank >= supply.costCents
+                val cashPayment = when {
+                    onCredit -> 0L
+                    packs == 1 -> if (cash >= supply.costCents) supply.costCents else 0L
+                    else -> (cash.coerceAtLeast(0L) / standard.costCents).coerceAtMost(packs.toLong()) * standard.costCents
+                }
+                val bankPayment = if (onCredit) 0L else supply.costCents - cashPayment
+                val canAfford = onCredit || bankPayment == 0L || bank >= bankPayment
                 if (skipUnavailable && !canAfford) return@withTransaction 0L
                 require(canAfford) {
-                    "Insufficient funds: supplier pack costs €%.2f".format(
+                    "Insufficient funds for €%.2f of supplies".format(
                         java.util.Locale.ROOT, supply.costCents / 100.0)
                 }
-                val paymentAccount = when {
-                    onCredit -> "2010"
-                    cash >= supply.costCents -> "1000"
-                    else -> "1100"
-                }
+                val paymentLines = listOf("1000" to cashPayment, "1100" to bankPayment,
+                    "2010" to if (onCredit) supply.costCents else 0L).filter { it.second > 0L }
                 val id = UUID.randomUUID().toString()
                 db.operationsDao().insertInventoryBatches(listOf(
                     InventoryBatchEntity(
@@ -147,13 +156,14 @@ class CafePurchasingRepository(context: Context) {
                             id = "${entryId}_1", entryId = entryId, lineNumber = 1,
                             accountCode = "1400", locationId = location.id,
                             debitCents = supply.costCents, creditCents = 0L
-                        ),
-                        JournalLineEntity(
-                            id = "${entryId}_2", entryId = entryId, lineNumber = 2,
-                            accountCode = paymentAccount, locationId = location.id,
-                            debitCents = 0L, creditCents = supply.costCents
                         )
-                    )
+                    ) + paymentLines.mapIndexed { index, (account, amount) ->
+                        JournalLineEntity(
+                            id = "${entryId}_${index + 2}", entryId = entryId, lineNumber = index + 2,
+                            accountCode = account, locationId = location.id,
+                            debitCents = 0L, creditCents = amount
+                        )
+                    }
                 )
                 supply.costCents
             }
