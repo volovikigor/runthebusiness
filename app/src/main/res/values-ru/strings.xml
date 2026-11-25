@@ -344,4 +344,15 @@
     <string name="purchase_bank_now">Товар поступит сразу. Вся сумма будет списана с банковского счёта.</string>
     <string name="loan_due">К оплате по стартовому кредиту · %1$s</string>
     <string name="loan_pay">Оплатить взнос по кредиту</string>
+    <string name="credit_line_title">Кредитная линия</string>
+    <string name="credit_terms">Лимит %1$s · %2$d%% годовых. Проценты начисляются ежедневно на использованную сумму.</string>
+    <string name="credit_available">Доступно к получению · %1$s</string>
+    <string name="credit_owing">Основной долг %1$s · Проценты %2$s</string>
+    <string name="credit_draw">Получить средства</string>
+    <string name="credit_repay">Погасить</string>
+    <string name="credit_max">Максимум · %1$s</string>
+    <string name="credit_line_principal">Основной долг по кредитной линии</string>
+    <string name="credit_line_interest">Проценты к оплате по кредитной линии</string>
+    <string name="credit_line_draws">Поступления по кредитной линии</string>
+    <string name="credit_line_repaid">Погашение долга по кредитной линии</string>
 </resources>

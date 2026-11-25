@@ -349,4 +349,15 @@
     <string name="purchase_bank_now">El pedido llega enseguida. El importe completo se paga desde la cuenta bancaria.</string>
     <string name="loan_due">Préstamo inicial pendiente · %1$s</string>
     <string name="loan_pay">Pagar cuota del préstamo</string>
+    <string name="credit_line_title">Línea de crédito</string>
+    <string name="credit_terms">Dispones de %1$s al %2$d%% anual. El importe utilizado devenga intereses a diario.</string>
+    <string name="credit_available">Disponible para disponer · %1$s</string>
+    <string name="credit_owing">Principal %1$s · Intereses %2$s</string>
+    <string name="credit_draw">Usar crédito</string>
+    <string name="credit_repay">Devolver crédito</string>
+    <string name="credit_max">Máximo · %1$s</string>
+    <string name="credit_line_principal">Principal de la línea de crédito</string>
+    <string name="credit_line_interest">Intereses de la línea de crédito por pagar</string>
+    <string name="credit_line_draws">Disposiciones de la línea de crédito</string>
+    <string name="credit_line_repaid">Principal devuelto de la línea de crédito</string>
 </resources>
