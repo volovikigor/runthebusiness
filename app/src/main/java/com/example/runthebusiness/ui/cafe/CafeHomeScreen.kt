@@ -122,6 +122,8 @@ private fun CafeKpiPanel(
             else stringResource(R.string.kpi_days_range, window.first, window.last),
             style = MaterialTheme.typography.bodySmall
         )
+        Text(stringResource(R.string.home_tab_summary), style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
