@@ -80,27 +80,19 @@ class CafePurchasingRepository(context: Context) {
                         } }
                 if (skipUnavailable && convertedFood) return@withTransaction 0L
                 require(!convertedFood) { "This meal is prepared from ingredients; purchase kitchen supplies instead" }
-                val cash = db.accountingDao().accountBalance(sessionId, "1000")
                 val bank = db.accountingDao().accountBalance(sessionId, "1100")
                 if (onCredit) {
                     require(db.accountingDao().supplierBills(sessionId).none { it.dueDay < session.currentDay }) {
                         "Pay overdue supplier invoices before buying on credit"
                     }
                 }
-                val cashPayment = when {
-                    onCredit -> 0L
-                    packs == 1 -> if (cash >= supply.costCents) supply.costCents else 0L
-                    else -> (cash.coerceAtLeast(0L) / standard.costCents).coerceAtMost(packs.toLong()) * standard.costCents
-                }
-                val bankPayment = if (onCredit) 0L else supply.costCents - cashPayment
-                val canAfford = onCredit || bankPayment == 0L || bank >= bankPayment
+                val canAfford = onCredit || bank >= supply.costCents
                 if (skipUnavailable && !canAfford) return@withTransaction 0L
                 require(canAfford) {
-                    "Insufficient funds for €%.2f of supplies".format(
+                    "Insufficient bank balance for €%.2f of supplies".format(
                         java.util.Locale.ROOT, supply.costCents / 100.0)
                 }
-                val paymentLines = listOf("1000" to cashPayment, "1100" to bankPayment,
-                    "2010" to if (onCredit) supply.costCents else 0L).filter { it.second > 0L }
+                val paymentAccount = if (onCredit) "2010" else "1100"
                 val id = UUID.randomUUID().toString()
                 db.operationsDao().insertInventoryBatches(listOf(
                     InventoryBatchEntity(
@@ -131,7 +123,7 @@ class CafePurchasingRepository(context: Context) {
                 val eventId = "purchase_event_$id"
                 val entryId = "purchase_$id"
                 val description = if (onCredit) "Supplier invoice · ${supply.label}, ${supply.quantity} ${supply.unit}"
-                    else "Cash purchase: ${supply.label}, ${supply.quantity} ${supply.unit}"
+                    else "Bank purchase: ${supply.label}, ${supply.quantity} ${supply.unit}"
                 db.accountingDao().saveAccountingOperation(
                     BusinessEventEntity(
                         id = eventId, sessionId = sessionId, businessId = business.id,
@@ -156,14 +148,13 @@ class CafePurchasingRepository(context: Context) {
                             id = "${entryId}_1", entryId = entryId, lineNumber = 1,
                             accountCode = "1400", locationId = location.id,
                             debitCents = supply.costCents, creditCents = 0L
-                        )
-                    ) + paymentLines.mapIndexed { index, (account, amount) ->
+                        ),
                         JournalLineEntity(
-                            id = "${entryId}_${index + 2}", entryId = entryId, lineNumber = index + 2,
-                            accountCode = account, locationId = location.id,
-                            debitCents = 0L, creditCents = amount
+                            id = "${entryId}_2", entryId = entryId, lineNumber = 2,
+                            accountCode = paymentAccount, locationId = location.id,
+                            debitCents = 0L, creditCents = supply.costCents
                         )
-                    }
+                    )
                 )
                 supply.costCents
             }
