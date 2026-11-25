@@ -298,7 +298,11 @@ fun CafeHomeScreen(
             Text(stringResource(R.string.welcome), style = MaterialTheme.typography.headlineMedium)
             val opening = remember { CafeStartingConfiguration().business }
             CafeLedgerPanel {
-                Text(stringResource(R.string.guide_intro_title), style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.guide_intro_title), Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium)
+                    CafeGuideButton(stringResource(R.string.guide_button), R.string.guide_cafe)
+                }
                 Text(stringResource(R.string.guide_intro), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.opening_loan_brief, euro(opening.startingLoanCents)),
                     style = MaterialTheme.typography.bodyMedium)
@@ -308,7 +312,6 @@ fun CafeHomeScreen(
                     opening.equipmentBudgetCents - opening.initialInventoryBudgetCents)),
                     style = MaterialTheme.typography.bodyMedium)
             }
-            CafeGuideButton(stringResource(R.string.guide_button), R.string.guide_cafe)
             CafeActionButton(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
                 Text(stringResource(R.string.start_cafe))
             }

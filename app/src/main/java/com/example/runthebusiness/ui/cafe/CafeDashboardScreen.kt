@@ -221,20 +221,22 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     }
 
 
-        val sections = listOf("Pricing", "Purchasing", "Inventory", "Staff")
+    val sections = listOf("Pricing", "Purchasing", "Inventory", "Staff")
     CafeSectionScreen(
         modifier, "Operations", sections, sections.getOrElse(section) { "Inventory" },
         onSelect = { label ->
             section = sections.indexOf(label)
             message = null
+        },
+        headerAction = {
+            CafeGuideButton(sections.getOrElse(section) { sections[2] }, when (section) {
+                0 -> R.string.guide_pricing
+                1 -> R.string.guide_purchasing
+                3 -> R.string.guide_staff
+                else -> R.string.guide_inventory
+            })
         }
     ) {
-        CafeGuideButton(sections.getOrElse(section) { sections[2] }, when (section) {
-            0 -> R.string.guide_pricing
-            1 -> R.string.guide_purchasing
-            3 -> R.string.guide_staff
-            else -> R.string.guide_inventory
-        })
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
         if (message != null) Text(message!!, color = MaterialTheme.colorScheme.primary,
