@@ -21,6 +21,7 @@ import com.example.runthebusiness.data.local.DebugDatabaseRepository
 import com.example.runthebusiness.data.local.DebugJournal
 import com.example.runthebusiness.data.local.FinancialLine
 import com.example.runthebusiness.data.local.FinancialStatements
+import com.example.runthebusiness.data.local.financialMonthStart
 import com.example.runthebusiness.data.local.CashFlowLine
 import com.example.runthebusiness.data.local.CafeTransactionDetailRepository
 import com.example.runthebusiness.data.local.SaleDetail
@@ -434,8 +435,15 @@ private fun ComparativeReport(
     onAccount: (String) -> Unit
 ) {
     var showDaily by remember { mutableStateOf(false) }
-    val current = report.current
-    val previous = report.previous
+    val liveLabel = "Month to date"
+    val closedLabel = "Closed months"
+    val closed = report.closedMonths
+    var showClosed by remember(report.time.day, closed != null) {
+        mutableStateOf(closed != null && report.time.day == financialMonthStart(report.time.day))
+    }
+    val comparison = if (showClosed && closed != null) closed else report.monthToDate
+    val current = comparison.current
+    val previous = comparison.previous
     fun accounts(now: List<FinancialLine>, before: List<FinancialLine>?): List<ComparisonRow> =
         (now + before.orEmpty()).distinctBy { it.code }.map { line ->
             ComparisonRow(line.name, now.firstOrNull { it.code == line.code }?.amountCents ?: 0L,
@@ -449,22 +457,39 @@ private fun ComparativeReport(
         else -> "Cash Flow"
     }
     Text(heading, style = MaterialTheme.typography.titleLarge)
-    val currentLabel = if (monthly) "Day ${current.days.first}–${current.days.last}" else "Day ${current.days.last}"
-    val previousLabel = if (monthly) previous?.days?.let { "Day ${it.first}–${it.last}" }
-        else previous?.days?.last?.let { "Day $it" }
+    if (closed != null) {
+        CafeLedgerOptions(listOf(liveLabel, closedLabel), if (showClosed) closedLabel else liveLabel) {
+            showClosed = it == closedLabel
+        }
+    }
+    fun periodLabel(days: IntRange): String = when {
+        !monthly || days.first == days.last -> "Day ${days.last}"
+        else -> "Days ${days.first}–${days.last}"
+    }
+    val currentLabel = periodLabel(current.days)
+    val previousLabel = previous?.days?.let(::periodLabel)
     Text(
-        if (previousLabel == null) "Current: $currentLabel · comparison starts on Day 31"
-        else "Current: $currentLabel  ·  Previous: $previousLabel",
+        if (previousLabel == null) "$currentLabel · No earlier period"
+        else "$currentLabel  ·  Compared with $previousLabel",
         style = MaterialTheme.typography.bodySmall
     )
-    if (monthly && previous != null && current.days.count() < 30) {
-        Text("Current month to date vs. the full previous month.", style = MaterialTheme.typography.bodySmall)
+    if (!showClosed) {
+        val time = "%02d:%02d".format(Locale.ROOT, report.time.hour, report.time.minute)
+        Text(
+            if (previous == null) "Through $time"
+            else "Both months through the same day and time ($time).",
+            style = MaterialTheme.typography.bodySmall
+        )
     }
     when (section) {
         "P&L" -> {
             ComparisonTable("Results", listOf(
                 ComparisonRow("Revenue", current.revenueCents, previous?.revenueCents),
-                ComparisonRow("Expenses", current.expenseCents, previous?.expenseCents),
+                ComparisonRow("Expenses before income tax", current.expenseCents - current.incomeTaxCents,
+                    previous?.let { it.expenseCents - it.incomeTaxCents }),
+                ComparisonRow("Profit before income tax", current.profitCents + current.incomeTaxCents,
+                    previous?.let { it.profitCents + it.incomeTaxCents }),
+                ComparisonRow("Income tax", current.incomeTaxCents, previous?.incomeTaxCents),
                 ComparisonRow("Net profit", current.profitCents, previous?.profitCents)
             ), emphasis = "Net profit")
             ComparisonTable("Expense breakdown", accounts(current.expenses, previous?.expenses), onAccount = onAccount)

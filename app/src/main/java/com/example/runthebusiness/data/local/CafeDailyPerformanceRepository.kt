@@ -1,6 +1,7 @@
 package com.example.runthebusiness.data.local
 
 import android.content.Context
+import com.example.runthebusiness.engine.model.GameTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,7 +29,11 @@ data class CafeDayPerformance(
 class CafeDailyPerformanceRepository(context: Context) {
     private val db = GameDatabase.getInstance(context.applicationContext)
 
-    suspend fun recent(sessionId: String = "debug_session_001", days: Int = 14): List<CafeDayPerformance> =
+    suspend fun recent(
+        sessionId: String = "debug_session_001",
+        days: Int = 14,
+        through: GameTime? = null
+    ): List<CafeDayPerformance> =
         withContext(Dispatchers.IO) {
             val business = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
                 ?: return@withContext emptyList()
@@ -36,14 +41,17 @@ class CafeDailyPerformanceRepository(context: Context) {
                 ?: return@withContext emptyList()
             val session = db.accountingDao().getSession(sessionId)
                 ?: return@withContext emptyList()
-            val fromDay = (session.currentDay - days + 1).coerceAtLeast(1)
+            val end = through ?: GameTime(session.currentDay, session.currentHour, session.currentMinute)
+            val fromDay = (end.day - days + 1).coerceAtLeast(1)
+            fun included(day: Int, hour: Int, minute: Int): Boolean =
+                day >= fromDay && GameTime(day, hour, minute) <= end
             val arrivals = db.cafeArrivalDao().history(location.id)
-                .filter { it.gameDay >= fromDay }
+                .filter { included(it.gameDay, it.gameHour, it.gameMinute) }
                 .groupBy { it.gameDay }
             val orders = db.cafeSalesDao().getOrders(location.id)
-                .filter { it.gameDay >= fromDay }
+                .filter { included(it.gameDay, it.gameHour, it.gameMinute) }
                 .groupBy { it.gameDay }
-            (fromDay..session.currentDay).map { day ->
+            (fromDay..end.day).map { day ->
                 val groups = arrivals[day].orEmpty()
                 val sales = orders[day].orEmpty()
                 CafeDayPerformance(
