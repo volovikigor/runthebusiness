@@ -9,6 +9,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.runthebusiness.ui.components.CafeLedgerOptions
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -158,6 +161,9 @@ private fun CafeKpiPanel(
             style = MaterialTheme.typography.bodyMedium)
         Text(stringResource(if (reachedTarget) R.string.goal_target_done else R.string.goal_target, euro(200_000L)),
             style = MaterialTheme.typography.bodyMedium)
+        if (reachedTarget) {
+            Text(stringResource(R.string.home_after_goals), style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -209,10 +215,9 @@ fun CafeHomeScreen(
     LaunchedEffect(time?.day) {
         profitHistory = time?.day?.let { accounting.dailyNetProfit("debug_session_001", it) }
     }
-    var showShift by remember { mutableStateOf(false) }
+    var homeSection by rememberSaveable { mutableIntStateOf(0) }
     var dailyPerformance by remember { mutableStateOf<List<CafeDayPerformance>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
     var confirmNewGame by remember { mutableStateOf(false) }
 
     suspend fun reload() {
@@ -266,7 +271,7 @@ fun CafeHomeScreen(
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
@@ -307,18 +312,11 @@ fun CafeHomeScreen(
                 onOpenFinance = onOpenFinance,
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (cafe.isOpen) "Scheduled hours · %02d:00–%02d:00".format(Locale.ROOT, cafe.openingHour, cafe.closingHour)
-                    else "Scheduled opening is disabled.",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                TextButton(onClick = { run { game.setCafeOpen(!cafe.isOpen) } }, enabled = !loading) {
-                    Text(stringResource(if (cafe.isOpen) R.string.close_manually else R.string.resume_schedule))
+            if (!cafe.isOpen) {
+                TextButton(onClick = { run { game.setCafeOpen(true) } }, enabled = !loading) {
+                    Text(stringResource(R.string.resume_schedule))
                 }
             }
-            CafeGuideButton(stringResource(R.string.cafe_overview), R.string.guide_cafe)
             val shiftDay = if (cafe.time.hour < cafe.openingHour && cafe.time.day > 1) {
                 cafe.time.day - 1
             } else {
@@ -339,10 +337,10 @@ fun CafeHomeScreen(
                     onOpenFinance = onOpenFinance
                 )
             }
-            TextButton(onClick = { showShift = !showShift }) {
-                Text(stringResource(if (showShift) R.string.hide_shift_details else R.string.show_shift_details))
-            }
-            if (showShift) dailyPerformance.firstOrNull { it.day == shiftDay }?.let { shift ->
+            val tabs = listOf(R.string.home_menu, R.string.home_shift, R.string.home_actions, R.string.home_settings)
+                .map { stringResource(it) }
+            CafeLedgerOptions(tabs, tabs[homeSection]) { homeSection = tabs.indexOf(it) }
+            if (homeSection == 1) dailyPerformance.firstOrNull { it.day == shiftDay }?.let { shift ->
                 CafeShiftSummary(
                     shift = shift,
                     currentDay = cafe.time.day,
@@ -351,11 +349,15 @@ fun CafeHomeScreen(
                 )
             }
             val shortages = remember(menuReadiness) { menuReadiness.stockShortages() }
-            CafeLedgerPanel {
+            if (homeSection == 0) CafeLedgerPanel {
                 val ready = menuReadiness.count { it.ready }
                 Text(stringResource(R.string.menu_readiness, ready, menuReadiness.size),
                     style = MaterialTheme.typography.titleMedium)
-                if (shortages.isNotEmpty()) {
+                if (shortages.isEmpty()) {
+                    Text(stringResource(if (ready == menuReadiness.size && ready > 0)
+                        R.string.home_no_shortages else R.string.home_check_menu),
+                        style = MaterialTheme.typography.bodySmall)
+                } else {
                     Surface(
                         shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surface,
@@ -379,7 +381,7 @@ fun CafeHomeScreen(
                                     Button(
                                         enabled = !loading && affordable,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.70f),
+                                            containerColor = Color(0xFFFFFF9C).copy(alpha = 0.70f),
                                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                         ),
                                         onClick = { run { purchasingRepo.purchase(supply.itemId) } }
@@ -422,42 +424,45 @@ fun CafeHomeScreen(
                     }
                 }
             }
-            cashPosition?.let { position ->
-                CafeLedgerPanel {
-                        Text("Payments · ${euro(bills.sumOf { it.due } + supplierDueCents)} due")
-                        Text("Bank · ${euro(position.bankCents)}")
-                        CafeActionButton(onClick = onOpenFinance, enabled = !loading) { Text(stringResource(R.string.manage_payments)) }
-                }
-            }
-            val blockedIngredients = shortages.map { "stock_${it.supply.itemId}" }.toSet()
-            val otherAlerts = alerts.filterNot { it.id in blockedIngredients }
-            if (otherAlerts.isNotEmpty()) {
+            if (homeSection == 2) CafeLedgerPanel {
                 Text(stringResource(R.string.management_decisions), style = MaterialTheme.typography.titleMedium)
+                val due = bills.sumOf { it.due } + supplierDueCents
+                if (due > 0L) {
+                    Text(stringResource(R.string.home_payments_due, euro(due)),
+                        style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onOpenFinance, enabled = !loading) {
+                        Text(stringResource(R.string.manage_payments))
+                    }
+                }
+                val blockedIngredients = shortages.map { "stock_${it.supply.itemId}" }.toSet()
+                val otherAlerts = alerts.filterNot { it.id in blockedIngredients }
+                if (otherAlerts.isEmpty() && due == 0L) {
+                    Text(stringResource(R.string.home_no_actions), style = MaterialTheme.typography.bodySmall)
+                }
                 otherAlerts.forEach { alert ->
-                    CafeLedgerPanel {
-                            Text(alert.title, style = MaterialTheme.typography.titleSmall,
-                                color = if (alert.priority == 0) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurface)
-                            Text(alert.detail, style = MaterialTheme.typography.bodySmall)
-                            OutlinedButton(onClick = {
-                                if (alert.destination == "operations") onOpenOperations(alert.section)
-                                else onOpenFinance()
-                            }) { Text(if (alert.destination == "operations") "Open purchasing" else "Open finance") }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(alert.title, style = MaterialTheme.typography.titleSmall,
+                        color = if (alert.priority == 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurface)
+                    Text(alert.detail, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = {
+                        if (alert.destination == "operations") onOpenOperations(alert.section)
+                        else onOpenFinance()
+                    }) {
+                        Text(stringResource(if (alert.destination == "operations")
+                            R.string.go_purchasing else R.string.manage_payments))
                     }
                 }
             }
-            OutlinedButton(onClick = { showSettings = !showSettings }) {
-                Text(stringResource(if (showSettings) R.string.hide_settings else R.string.game_settings))
-            }
-            if (showSettings) {
-                CafeLedgerPanel {
-                    Text(stringResource(R.string.save_game), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.new_game_warning), style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { confirmNewGame = true }, enabled = !loading && speed == 0) {
-                        Text(stringResource(R.string.start_new))
-                    }
+            if (homeSection == 3) CafeLedgerPanel {
+                CafeGuideButton(stringResource(R.string.cafe_overview), R.string.guide_cafe)
+                Text(stringResource(R.string.save_game), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.new_game_warning), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { confirmNewGame = true }, enabled = !loading && speed == 0) {
+                    Text(stringResource(R.string.start_new))
                 }
             }
+
         }
     }
 }

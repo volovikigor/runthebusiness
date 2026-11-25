@@ -30,7 +30,7 @@
     <string name="guide_close">Got it</string>
     <string name="guide_intro_title">Your first month</string>
     <string name="guide_intro">Start with the menu and keep ingredients in stock. Watch what each sale earns and set aside money for bills. Your first milestone is to close a profitable month.</string>
-    <string name="guide_cafe">Use the shift and the overview to spot lost sales. If stock is the bottleneck, buy ingredients. If the team is overloaded, check Staff. Use Pause before making decisions.</string>
+    <string name="guide_cafe">To close a profitable month, replenish dishes that lose sales, then compare profit before and after changing prices. Hire when service capacity limits sales. Check upcoming bills and deposit cash before a shortfall. Once you reach the milestones, try to repeat the result while paying bills on time.</string>
     <string name="guide_pricing">Compare sales volume and profit before and after a price change. A discount can bring new groups. Make sure there is enough stock to serve them.</string>
     <string name="guide_purchasing">Choose how much stock to order and when to pay. Credit preserves cash today and creates a bill for later. Check shelf life before buying in bulk.</string>
     <string name="guide_inventory">Compare purchases, consumption, waste and closing stock. Open an ingredient to see movements by day. Reduce orders if stock repeatedly expires.</string>
@@ -335,4 +335,15 @@
     <string name="tomato">Tomato</string>
     <string name="salad_dressing">Salad dressing</string>
     <string name="kpi_groups_lost">Lost groups by cause</string>
+    <string name="home_menu">Menu</string>
+    <string name="home_shift">Shift</string>
+    <string name="home_actions">Actions</string>
+    <string name="home_settings">Settings</string>
+    <string name="home_no_shortages">All active dishes have stock for at least one serving.</string>
+    <string name="home_check_menu">Review availability in the menu details.</string>
+    <string name="home_payments_due">Payments due · %1$s</string>
+    <string name="home_no_actions">No urgent actions right now.</string>
+    <string name="home_after_goals">Milestones complete. Keep playing and try to repeat the result next month while covering bills on time.</string>
+    <string name="sales_completed_range">Units sold · completed Days %1$d–%2$d. Today is excluded.</string>
+    <string name="sales_no_closed_days">Units sold will appear after the first completed day.</string>
 </resources>

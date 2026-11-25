@@ -247,7 +247,6 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             0 -> {
                 Text(stringResource(R.string.menu_pricing), style = MaterialTheme.typography.titleLarge)
                 cafeSnapshot?.let { WeeklyDemandCard(it, products) }
-                Text(stringResource(R.string.sales_window), style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(
                     enabled = !busy && products.any { it.priceCents != CafePriceDemandRules.openingPriceCents(it.id) },
                     onClick = { confirmPriceReset = true }
@@ -264,6 +263,12 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         message = "11 new menu items added. Enable and stock the ones you want to sell."
                     } }, enabled = !busy) { Text(stringResource(R.string.expand_menu)) }
                 }
+                Text(
+                    if (currentGameDay <= 1) stringResource(R.string.sales_no_closed_days)
+                    else stringResource(R.string.sales_completed_range,
+                        (currentGameDay - 7).coerceAtLeast(1), currentGameDay - 1),
+                    style = MaterialTheme.typography.bodySmall
+                )
                 products.forEach { product ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

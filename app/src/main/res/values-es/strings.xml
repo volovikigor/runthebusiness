@@ -8,7 +8,7 @@
     <string name="guide_close">Entendido</string>
     <string name="guide_intro_title">Tu primer mes</string>
     <string name="guide_intro">Empieza con el menú y mantén los ingredientes en existencias. Revisa lo que deja cada venta y reserva dinero para las facturas. Tu primer objetivo es cerrar un mes con beneficios.</string>
-    <string name="guide_cafe">Usa el turno y el resumen para detectar ventas perdidas. Si faltan existencias, compra ingredientes. Si el equipo está saturado, revisa Personal. Pausa antes de tomar decisiones.</string>
+    <string name="guide_cafe">Para cerrar un mes con beneficios, repón los platos que pierden ventas y compara el beneficio antes y después de cambiar precios. Contrata si la capacidad limita las ventas. Revisa los pagos próximos e ingresa efectivo antes de que falte. Cuando alcances los objetivos, intenta repetir el resultado pagando a tiempo.</string>
     <string name="guide_pricing">Compara volumen de ventas y beneficio antes y después de cambiar un precio. Un descuento puede atraer nuevos grupos. Comprueba que haya existencias para atenderlos.</string>
     <string name="guide_purchasing">Decide cuánto pedir y cuándo pagar. Comprar a crédito conserva el efectivo hoy y crea una factura para más adelante. Revisa la caducidad antes de comprar en volumen.</string>
     <string name="guide_inventory">Compara compras, consumo, mermas y existencias finales. Abre un ingrediente para ver sus movimientos diarios. Reduce los pedidos si caduca con frecuencia.</string>
@@ -334,4 +334,15 @@
     <string name="tomato">Tomate</string>
     <string name="salad_dressing">Aliño de ensalada</string>
     <string name="kpi_groups_lost">Grupos perdidos por causa</string>
+    <string name="home_menu">Menú</string>
+    <string name="home_shift">Turno</string>
+    <string name="home_actions">Acciones</string>
+    <string name="home_settings">Ajustes</string>
+    <string name="home_no_shortages">Hay existencias para al menos una ración de cada plato activo.</string>
+    <string name="home_check_menu">Revisa la disponibilidad en los detalles del menú.</string>
+    <string name="home_payments_due">Pagos pendientes · %1$s</string>
+    <string name="home_no_actions">No hay acciones urgentes.</string>
+    <string name="home_after_goals">Objetivos logrados. Sigue jugando e intenta repetir el resultado el mes próximo y pagar las facturas a tiempo.</string>
+    <string name="sales_completed_range">Unidades vendidas · días cerrados %1$d–%2$d. Hoy queda fuera.</string>
+    <string name="sales_no_closed_days">Las ventas aparecen tras cerrar el primer día.</string>
 </resources>
