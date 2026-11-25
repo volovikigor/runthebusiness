@@ -188,6 +188,8 @@ fun CafeHomeScreen(
                 cashCents = cashPosition?.cashCents ?: 0L,
                 hasUrgentBills = paymentStatus?.rentShutdown == true ||
                     paymentStatus?.staffDisruption == true,
+                onOpenOperations = onOpenOperations,
+                onOpenFinance = onOpenFinance,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(verticalAlignment = Alignment.CenterVertically) {

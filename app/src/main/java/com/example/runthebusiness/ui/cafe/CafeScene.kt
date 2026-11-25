@@ -26,18 +26,20 @@ import com.example.runthebusiness.R
 import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.data.local.CafeOrderScene
 import com.example.runthebusiness.data.local.TimedCafeEvent
+import com.example.runthebusiness.ui.components.CafeLedgerOptions
+import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
 
-private enum class CafeView(@field:DrawableRes val art: Int, val description: String) {
-    ROOM(R.drawable.cafe_scene_room, "Minimalist café dining room with a sage service counter"),
-    COFFEE(R.drawable.cafe_scene_coffee, "Espresso machine at the coffee bar"),
-    KITCHEN(R.drawable.cafe_scene_kitchen, "Stainless steel kitchen prep area"),
-    DELIVERY(R.drawable.cafe_scene_delivery, "Produce crates at the café delivery entrance"),
-    PAYMENT(R.drawable.cafe_scene_payment, "Accounts desk and supplier invoices")
+private enum class CafeView(val label: String, @field:DrawableRes val art: Int, val description: String) {
+    ROOM("Room", R.drawable.cafe_scene_room, "Minimalist café dining room with a sage service counter"),
+    COFFEE("Coffee", R.drawable.cafe_scene_coffee, "Espresso machine at the coffee bar"),
+    KITCHEN("Kitchen", R.drawable.cafe_scene_kitchen, "Stainless steel kitchen prep area"),
+    DELIVERY("Delivery", R.drawable.cafe_scene_delivery, "Produce crates at the café delivery entrance"),
+    PAYMENT("Office", R.drawable.cafe_scene_payment, "Accounts desk and supplier invoices")
 }
 
 private data class SceneCue(val event: TimedCafeEvent, val views: List<CafeView>)
@@ -59,9 +61,13 @@ fun CafeScene(
     bankCents: Long,
     cashCents: Long,
     hasUrgentBills: Boolean,
+    onOpenOperations: (Int) -> Unit,
+    onOpenFinance: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var view by remember { mutableStateOf(CafeView.ROOM) }
+    var automaticView by remember { mutableStateOf(CafeView.ROOM) }
+    var pinnedView by rememberSaveable { mutableStateOf<CafeView?>(null) }
+    val view = pinnedView ?: automaticView
     val cues = buildList {
         if (latestPayment != null && latestPayment.time.day == time.day && latestPayment.time <= time) {
             add(SceneCue(latestPayment, listOf(CafeView.PAYMENT)))
@@ -79,29 +85,33 @@ fun CafeScene(
     }
     val latestCues by rememberUpdatedState(cues)
     val shownEvents = remember { mutableMapOf<CafeView, String>() }
-    LaunchedEffect(playing) {
+    LaunchedEffect(playing, pinnedView) {
+        if (pinnedView != null) {
+            automaticView = CafeView.ROOM
+            return@LaunchedEffect
+        }
         if (!playing) return@LaunchedEffect
-        if (view != CafeView.ROOM) delay(1_500)
-        view = CafeView.ROOM
+        if (automaticView != CafeView.ROOM) delay(1_500)
+        automaticView = CafeView.ROOM
         while (true) {
             val cue = snapshotFlow {
                 latestCues.firstOrNull { shownEvents[it.views.first()] != it.event.id }
             }.first { it != null } ?: continue
             shownEvents[cue.views.first()] = cue.event.id
             for (shot in cue.views) {
-                view = shot
+                automaticView = shot
                 delay(2_600)
             }
-            view = CafeView.ROOM
+            automaticView = CafeView.ROOM
             delay(1_400)
         }
     }
     val activity = when (view) {
         CafeView.ROOM -> if (isOpen) "$activeGuests guests · $tables tables · $seats seats" else "Dining room closed"
-        CafeView.COFFEE -> "Coffee order"
-        CafeView.KITCHEN -> "Kitchen order"
-        CafeView.DELIVERY -> "Delivery received"
-        CafeView.PAYMENT -> "Automatic bill payment"
+        CafeView.COFFEE -> if (pinnedView == null) "Coffee order" else "Coffee bar"
+        CafeView.KITCHEN -> if (pinnedView == null) "Kitchen order" else "Kitchen"
+        CafeView.DELIVERY -> if (pinnedView == null) "Delivery received" else "Receiving entrance"
+        CafeView.PAYMENT -> if (pinnedView == null) "Automatic bill payment" else "Office"
     }
 
     Surface(modifier, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -120,13 +130,18 @@ fun CafeScene(
                         style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
                 }
             }
-            Box(Modifier.fillMaxWidth().aspectRatio(1.5f).clipToBounds()) {
+            Box(Modifier.fillMaxWidth().aspectRatio(2f).clipToBounds()) {
                 Crossfade(targetState = view, animationSpec = tween(260), label = "Café view") { shot ->
                     SceneFrame(
                         view = shot,
                         hour = time.hour,
-                        active = shot == view && (shot != CafeView.ROOM || isOpen && activeGuests > 0),
-                        guestPresent = isOpen && activeGuests > 0,
+                        active = shot == view && if (shot == CafeView.ROOM) isOpen else pinnedView == null,
+                        roomArt = when {
+                            !isOpen -> R.drawable.cafe_scene_room
+                            activeGuests >= maxOf(5, seats / 2) -> R.drawable.cafe_scene_room_busy
+                            activeGuests >= 3 -> R.drawable.cafe_scene_room_steady
+                            else -> R.drawable.cafe_scene_room_quiet
+                        },
                         playing = playing
                     )
                 }
@@ -134,6 +149,36 @@ fun CafeScene(
                     .background(Color(0xCC121C22), MaterialTheme.shapes.small)
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                     color = Color.White, style = MaterialTheme.typography.labelMedium)
+            }
+            CafeLedgerOptions(CafeView.entries.map { it.label }, view.label) { label ->
+                pinnedView = CafeView.entries.first { it.label == label }
+            }
+            val destination = when (view) {
+                CafeView.ROOM -> null
+                CafeView.COFFEE -> "Menu prices"
+                CafeView.KITCHEN -> "Inventory"
+                CafeView.DELIVERY -> "Purchasing"
+                CafeView.PAYMENT -> "Bills"
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = pinnedView == null,
+                    onClick = { pinnedView = null },
+                    label = { Text("Auto camera") }
+                )
+                if (destination != null) {
+                    TextButton(onClick = {
+                        when (view) {
+                            CafeView.COFFEE -> onOpenOperations(0)
+                            CafeView.KITCHEN -> onOpenOperations(2)
+                            CafeView.DELIVERY -> onOpenOperations(1)
+                            CafeView.PAYMENT -> onOpenFinance()
+                            CafeView.ROOM -> Unit
+                        }
+                    }) { Text("Open $destination") }
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
@@ -161,7 +206,7 @@ private fun SceneMetric(label: String, value: String, modifier: Modifier) {
 private fun sceneMoney(cents: Long): String = "€%,.0f".format(Locale.ROOT, cents / 100.0)
 
 @Composable
-private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, guestPresent: Boolean, playing: Boolean) {
+private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, @DrawableRes roomArt: Int, playing: Boolean) {
     val moving = active && playing
     val phase = remember { Animatable(0f) }
     LaunchedEffect(active, playing) {
@@ -176,15 +221,16 @@ private fun SceneFrame(view: CafeView, hour: Int, active: Boolean, guestPresent:
         }
     }
     Box(Modifier.fillMaxSize()) {
-        Image(painterResource(view.art), contentDescription = view.description,
-            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer {
-                val drift = sin(phase.value * (2 * PI)).toFloat()
-                scaleX = 1.035f
-                scaleY = 1.035f
-                translationX = drift * size.width * 0.009f
-            })
-        if (view == CafeView.ROOM) {
-            RoomGuest(guestPresent, playing, Modifier.matchParentSize())
+        val art = if (view == CafeView.ROOM) roomArt else view.art
+        Crossfade(targetState = art, animationSpec = tween(720), label = "Dining room occupancy",
+            modifier = Modifier.fillMaxSize()) { frame ->
+            Image(painterResource(frame), contentDescription = view.description,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer {
+                    val drift = sin(phase.value * (2 * PI)).toFloat()
+                    scaleX = 1.035f
+                    scaleY = 1.035f
+                    translationX = drift * size.width * 0.009f
+                })
         }
         val shade = when (hour) {
             in 0..6, in 21..23 -> 0.45f
@@ -232,28 +278,5 @@ private fun SceneLight(phase: Animatable<Float, *>, tint: Color, x: Float, y: Fl
         val center = Offset(size.width * (x + shift * 0.04f), size.height * y)
         drawRect(Brush.radialGradient(listOf(tint.copy(alpha = 0.07f + 0.02f * shift), Color.Transparent),
             center = center, radius = size.width * 0.28f))
-    }
-}
-
-@Composable
-private fun RoomGuest(present: Boolean, playing: Boolean, modifier: Modifier) {
-    val visibility = remember { Animatable(if (present) 1f else 0f) }
-    LaunchedEffect(present, playing) {
-        if (playing) visibility.animateTo(if (present) 1f else 0f, tween(650))
-    }
-    BoxWithConstraints(modifier) {
-        Image(
-            painterResource(R.drawable.cafe_scene_guest),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.align(Alignment.BottomCenter)
-                .offset(x = maxWidth * 0.08f, y = -maxHeight * 0.08f)
-                .height(maxHeight * 0.56f)
-                .aspectRatio(0.40f, matchHeightConstraintsFirst = true)
-                .graphicsLayer {
-                    alpha = visibility.value
-                    translationX = (1f - visibility.value) * -size.width * 0.28f
-                }
-        )
     }
 }
