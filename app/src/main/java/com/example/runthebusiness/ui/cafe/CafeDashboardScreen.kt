@@ -14,6 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
+import com.example.runthebusiness.core.finance.CafeTaxPolicy
+import com.example.runthebusiness.industries.cafe.simulation.CafePriceDemandRules
+import kotlin.math.ceil
 import com.example.runthebusiness.data.local.*
 import com.example.runthebusiness.ui.components.CafeSectionScreen
 import com.example.runthebusiness.ui.components.CafeActionButton
@@ -32,6 +35,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     val inventoryRepo = remember(context) { CafeInventorySummaryRepository(context) }
     var inventory by remember { mutableStateOf<CafeInventorySummary?>(null) }
     var openIngredient by remember { mutableStateOf<String?>(null) }
+    var openMenuDetails by remember { mutableStateOf<String?>(null) }
     var selectedPack by remember { mutableStateOf<CafePurchasingRepository.Supply?>(null) }
     var deferredPayment by remember { mutableStateOf(false) }
     fun selectPack(supply: CafePurchasingRepository.Supply, defer: Boolean) {
@@ -143,8 +147,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
         } else when (section) {
             0 -> {
                 Text("Menu & pricing", style = MaterialTheme.typography.titleLarge)
-                Text("Change prices to influence the chance of a sale. Prices persist between sessions.",
-                    style = MaterialTheme.typography.bodySmall)
+                WeeklyDemandCard(currentGameDay)
+                Text("Sales cover up to seven completed days.", style = MaterialTheme.typography.bodySmall)
                 if (products.isEmpty()) {
                     Text("Create the starter menu first.")
                     CafeActionButton(onClick = { run { menu.seedMenu() } }, enabled = !busy) {
@@ -162,6 +166,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(product.name, style = MaterialTheme.typography.titleSmall)
+                            Text("${product.unitsSoldRecently} sold", style = MaterialTheme.typography.bodySmall)
                             TextButton(
                                 enabled = !busy,
                                 onClick = { run { expanded.setEnabled(product.id, !product.enabled) } },
@@ -181,10 +186,22 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                             onClick = { run { menu.updatePrice(product.id, (product.priceCents + 10L).coerceAtMost(5000L)) } }
                         ) { Text("+") }
                     }
+                    val itemIds = listOfNotNull(product.finishedStockItemId).ifEmpty {
+                        product.ingredients.map { it.first }
+                    }
+                    val packs = CafePurchasingRepository.supplies.filter { it.itemId in itemIds }
+                    if (packs.isNotEmpty()) {
+                        val selected = openMenuDetails == product.id
+                        TextButton(onClick = { openMenuDetails = if (selected) null else product.id }) {
+                            Text(if (selected) "Hide purchasing details" else "Purchasing details")
+                        }
+                        if (selected) MenuPurchasingDetails(product, packs)
+                    }
                 }
             }
             1 -> {
                 Text("Purchasing", style = MaterialTheme.typography.titleLarge)
+                WeeklyDemandCard(currentGameDay)
                 if (!realIngredients && products.isNotEmpty()) {
                     Text("Legacy placeholder inventory is still in use. Convert it to beans, milk and croissants before assessing margins.",
                         color = MaterialTheme.colorScheme.error)
@@ -374,3 +391,39 @@ private fun StockTableRow(label: String, values: List<String>, modifier: Modifie
         }
     }
 }
+
+@Composable
+private fun WeeklyDemandCard(today: Int) {
+    CafeLedgerPanel {
+        Text("Demand outlook", style = MaterialTheme.typography.titleSmall)
+        Text("Day 1 is Monday. Weekday lunches favor meals. Weekends pick up later, with more coffee and desserts.",
+            style = MaterialTheme.typography.bodySmall)
+        for (day in today..today + 2) {
+            val pattern = if (CafePriceDemandRules.isWeekend(day)) "Late morning and afternoon"
+                else "Morning and lunch"
+            Text("Day $day · $pattern", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchasingRepository.Supply>) {
+    CafeLedgerPanel {
+        packs.forEach { pack ->
+            val shelfLife = if (pack.shelfLifeDays > 0) " · ${pack.shelfLifeDays} days shelf life" else ""
+            Text("${pack.label} · ${stockQuantity(pack.quantity)} ${pack.unit} · ${menuPackMoney(pack.costCents)}$shelfLife",
+                style = MaterialTheme.typography.bodySmall)
+        }
+        if (product.finishedStockItemId != null) {
+            val pack = packs.single()
+            val units = ceil(pack.costCents * (100.0 + CafeTaxPolicy.hospitalityVatPercent) /
+                (100 * product.priceCents)).toLong()
+            Text("Sell $units to cover the pack before other expenses (sales excluding VAT).",
+                style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text("Ingredient packs can be shared with other dishes.", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+private fun menuPackMoney(cents: Long): String = "€%.2f".format(Locale.ROOT, cents / 100.0)

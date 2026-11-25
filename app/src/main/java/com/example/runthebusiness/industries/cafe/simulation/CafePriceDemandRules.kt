@@ -1,6 +1,6 @@
 package com.example.runthebusiness.industries.cafe.simulation
 
-/** Deterministic MVP demand. Prices are compared with each product's opening price,
+/** Deterministic MVP demand. Prices are compared with each product's market reference,
  * not a universal €3 reference (which unfairly penalized salads and sandwiches).
  * This is a gameplay heuristic, not an empirical demand model.
  */
@@ -15,6 +15,15 @@ object CafePriceDemandRules {
         "caesar_salad_001" to 1060L, "med_salad_001" to 1000L
     )
 
+    fun openingPriceCents(productId: String): Long = when (productId) {
+        "espresso_001" -> 225L
+        "cappuccino_001" -> 375L
+        "americano_001" -> 295L
+        "latte_001" -> 420L
+        "cheesecake_001" -> 500L
+        else -> referencePriceCents(productId)
+    }
+
     fun referencePriceCents(productId: String): Long = referencePrices[productId] ?: 300L
 
     fun accepts(arrivalId: String, productId: String, priceCents: Long): Boolean {
@@ -26,8 +35,10 @@ object CafePriceDemandRules {
         return bucket < probabilityPercent
     }
 
-    /** Per-group intent, stable for the same arrival across process restarts. */
-    fun wantsCategory(arrivalId: String, hour: Int, category: String): Boolean {
+    fun isWeekend(day: Int): Boolean = (day - 1) % 7 >= 5
+
+    /** Per-guest intent, stable for the same arrival across process restarts. */
+    fun wantsCategory(arrivalId: String, hour: Int, category: String, day: Int = 1): Boolean {
         val chance = when (category) {
             "FOOD" -> when (hour) {
                 in 11..14 -> 82
@@ -47,6 +58,11 @@ object CafePriceDemandRules {
             }
             else -> 100
         }
-        return Math.floorMod("$arrivalId:$category:intent".hashCode(), 100) < chance
+        val weeklyChange = when (category) {
+            "FOOD" -> if (isWeekend(day)) -10 else 4
+            "DESSERT" -> if (isWeekend(day)) 12 else -5
+            else -> 0
+        }
+        return Math.floorMod("$arrivalId:$category:intent".hashCode(), 100) < (chance + weeklyChange)
     }
 }

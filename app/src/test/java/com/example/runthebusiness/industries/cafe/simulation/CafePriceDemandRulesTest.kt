@@ -54,6 +54,16 @@ class CafePriceDemandRulesTest {
         )
     }
 
+    @Test fun weekendsShiftLunchDemandTowardDessert() {
+        val guests = (1..1000).map { "guest_$it" }
+        fun interested(day: Int, category: String) =
+            guests.count { CafePriceDemandRules.wantsCategory(it, 13, category, day) }
+
+        assertTrue(interested(1, "FOOD") > interested(6, "FOOD"))
+        assertTrue(interested(6, "DESSERT") > interested(1, "DESSERT"))
+        assertEquals(interested(6, "DESSERT"), interested(13, "DESSERT"))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun zeroPriceIsRejected() {
         CafePriceDemandRules.accepts("arrival_1", "espresso_001", 0L)

@@ -116,15 +116,15 @@ class CafeServiceRepository(context: Context) {
                         repeat(arrival.guests) { guest ->
                             val guestKey = "${arrival.id}_guest_$guest"
                             if (pastries.isNotEmpty() &&
-                                CafePriceDemandRules.wantsCategory(guestKey, now.hour, "PASTRY")) {
+                                CafePriceDemandRules.wantsCategory(guestKey, now.hour, "PASTRY", now.day)) {
                                 val shift = (offset + guest) % pastries.size
                                 val rotated = pastries.drop(shift) + pastries.take(shift)
                                 for (pastry in rotated) if (tryAdd(pastry)) break
                             }
                             val foodIntent = CafePriceDemandRules.wantsCategory(
-                                guestKey, now.hour, "FOOD")
+                                guestKey, now.hour, "FOOD", now.day)
                             val dessertIntent = CafePriceDemandRules.wantsCategory(
-                                guestKey, now.hour, "DESSERT")
+                                guestKey, now.hour, "DESSERT", now.day)
                             val category = when {
                                 foodIntent && dessertIntent ->
                                     if (now.hour in 11..14) "FOOD" else "DESSERT"
