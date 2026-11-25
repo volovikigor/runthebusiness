@@ -240,7 +240,10 @@ fun CafeHomeScreen(
         val cafe = state
         if (cafe == null) {
             Text("Welcome to Maison Café", style = MaterialTheme.typography.headlineMedium)
-            Text("Start your business to create the first café and its opening balance sheet.")
+            CafeLedgerPanel {
+                Text(stringResource(R.string.guide_intro_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.guide_intro), style = MaterialTheme.typography.bodyMedium)
+            }
             CafeActionButton(onClick = { onStartGame(false) }, enabled = !loading && time == null) {
                 Text("Start café")
             }
@@ -282,6 +285,7 @@ fun CafeHomeScreen(
                     Text(if (cafe.isOpen) "Close manually" else "Resume schedule")
                 }
             }
+            CafeGuideButton(stringResource(R.string.cafe_overview), R.string.guide_cafe)
             val shiftDay = if (cafe.time.hour < cafe.openingHour && cafe.time.day > 1) {
                 cafe.time.day - 1
             } else {

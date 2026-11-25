@@ -26,4 +26,19 @@
     <string name="goal_profitable_done">✓ Profitable month closed</string>
     <string name="goal_target">Earn %1$s net profit in a closed month</string>
     <string name="goal_target_done">✓ Earned %1$s net profit in a closed month</string>
+    <string name="guide_button">How to play</string>
+    <string name="guide_close">Got it</string>
+    <string name="guide_intro_title">Your first month</string>
+    <string name="guide_intro">Start with the menu and keep ingredients in stock. Watch what each sale earns and set aside money for bills. Your first milestone is to close a profitable month.</string>
+    <string name="guide_cafe">Use the shift and the overview to spot lost sales. If stock is the bottleneck, buy ingredients. If the team is overloaded, check Staff. Use Pause before making decisions.</string>
+    <string name="guide_pricing">Compare sales volume and profit before and after a price change. A discount can bring new groups. Make sure there is enough stock to serve them.</string>
+    <string name="guide_purchasing">Choose how much stock to order and when to pay. Credit preserves cash today and creates a bill for later. Check shelf life before buying in bulk.</string>
+    <string name="guide_inventory">Compare purchases, consumption, waste and closing stock. Open an ingredient to see movements by day. Reduce orders if stock repeatedly expires.</string>
+    <string name="guide_staff">Hire when groups are being lost to service capacity. Compare the extra wages with what those sales would earn. Staffing changes take effect the next day.</string>
+    <string name="guide_forecast">Check when the bank may run short. If there is money in the till, deposit it before a payment falls due. Forecast amounts depend on recent trading.</string>
+    <string name="guide_bills">Review due dates and choose which bills to pay now. Late rent, wages and supplier bills can disrupt trading. Deposits move cash from the till to the bank.</string>
+    <string name="guide_pl">Compare sales and expenses, then look at customer activity to explain the change. Profit includes accrued expenses such as wages and interest.</string>
+    <string name="guide_bs">Check what the café owns, owes and has accumulated. Watch how inventory and unpaid bills change between reporting dates.</string>
+    <string name="guide_cash">See where cash came from and where it went. Paying an old supplier invoice affects cash on the payment date. A transfer between till and bank leaves total cash unchanged.</string>
+    <string name="guide_journal">Open a transaction to see its accounts and amounts. Use the journal to trace a report figure back to its transaction.</string>
 </resources>
