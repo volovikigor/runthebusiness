@@ -64,6 +64,13 @@ interface AccountingDao {
         entryId: String
     ): List<JournalLineEntity>
 
+    @Query("""
+        SELECT * FROM business_events WHERE sessionId = :sessionId
+          AND eventType IN ('INVENTORY_PURCHASE', 'SUPPLIER_INVOICE')
+        ORDER BY gameDay DESC, gameHour DESC, gameMinute DESC, id DESC LIMIT 1
+    """)
+    suspend fun latestSupplierDelivery(sessionId: String): BusinessEventEntity?
+
     @Query("SELECT MAX(gameDay) FROM journal_entries WHERE sessionId = :sessionId AND id LIKE 'daily_close_%'")
     suspend fun latestCloseDayCandidate(sessionId: String): Int?
 
