@@ -48,7 +48,7 @@ private data class SceneCue(val event: TimedCafeEvent, val views: List<CafeView>
 fun CafeScene(
     name: String,
     time: GameTime,
-    playing: Boolean,
+    speed: Int,
     latestOrder: CafeOrderScene?,
     latestDelivery: TimedCafeEvent?,
     latestPayment: TimedCafeEvent?,
@@ -65,6 +65,7 @@ fun CafeScene(
     onOpenFinance: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val playing = speed > 0
     var automaticView by remember { mutableStateOf(CafeView.ROOM) }
     var pinnedView by rememberSaveable { mutableStateOf<CafeView?>(null) }
     val view = pinnedView ?: automaticView
@@ -85,12 +86,18 @@ fun CafeScene(
     }
     val latestCues by rememberUpdatedState(cues)
     val shownEvents = remember { mutableMapOf<CafeView, String>() }
-    LaunchedEffect(playing, pinnedView) {
+    var lastServiceView by remember { mutableStateOf<CafeView?>(null) }
+    LaunchedEffect(speed, pinnedView) {
         if (pinnedView != null) {
             automaticView = CafeView.ROOM
             return@LaunchedEffect
         }
         if (!playing) return@LaunchedEffect
+        val roomHold = when (speed) {
+            5 -> 4_800L
+            20 -> 4_000L
+            else -> 1_400L
+        }
         if (automaticView != CafeView.ROOM) delay(1_500)
         automaticView = CafeView.ROOM
         while (true) {
@@ -98,12 +105,22 @@ fun CafeScene(
                 latestCues.firstOrNull { shownEvents[it.views.first()] != it.event.id }
             }.first { it != null } ?: continue
             shownEvents[cue.views.first()] = cue.event.id
-            for (shot in cue.views) {
+            val service = cue.views.first() in setOf(CafeView.COFFEE, CafeView.KITCHEN)
+            val shots = if (speed >= 5 && service) {
+                listOf(cue.views.firstOrNull { it != lastServiceView } ?: cue.views.first())
+            } else cue.views
+            for (shot in shots) {
                 automaticView = shot
-                delay(2_600)
+                if (service) lastServiceView = shot
+                delay(when {
+                    !service -> 2_600L
+                    speed == 5 -> 3_200L
+                    speed == 20 -> 2_200L
+                    else -> 2_600L
+                })
             }
             automaticView = CafeView.ROOM
-            delay(1_400)
+            delay(roomHold)
         }
     }
     val activity = when (view) {

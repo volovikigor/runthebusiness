@@ -25,6 +25,7 @@ import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
 import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
 import com.example.runthebusiness.ui.cafe.CafeHomeScreen
 import com.example.runthebusiness.ui.cafe.CafeRunMusic
+import com.example.runthebusiness.ui.cafe.CafeMusicTrack
 import com.example.runthebusiness.ui.components.CafeBottomNavigation
 import com.example.runthebusiness.ui.theme.RunthebusinessTheme
 
@@ -69,8 +70,19 @@ class MainActivity : ComponentActivity() {
                 val jumping = jumpMode != null
                 val audioSettings = remember(context) { context.getSharedPreferences("cafe_audio", MODE_PRIVATE) }
                 var musicEnabled by remember { mutableStateOf(audioSettings.getBoolean("music", true)) }
+                var selectedTrack by remember {
+                    val savedTrack = audioSettings.getString("track", null)
+                    mutableStateOf(CafeMusicTrack.entries.firstOrNull { it.name == savedTrack })
+                }
+                var showMusic by remember { mutableStateOf(false) }
                 CafeRunMusic(context, musicEnabled && appForeground && selectedTab == 0 &&
-                    !restoring && !settingUp && (gameSpeed > 0 || jumping))
+                    !restoring && !settingUp && (gameSpeed > 0 || jumping), selectedTrack)
+                fun selectMusic(enabled: Boolean, track: CafeMusicTrack?) {
+                    musicEnabled = enabled
+                    selectedTrack = track
+                    audioSettings.edit().putBoolean("music", enabled).putString("track", track?.name).apply()
+                    showMusic = false
+                }
                 var skipMenu by remember { mutableStateOf(false) }
                 var progress by remember { mutableIntStateOf(0) }
                 var groups by remember { mutableIntStateOf(0) }
@@ -81,6 +93,7 @@ class MainActivity : ComponentActivity() {
                     gameSpeed = 0
                     jumpMode = null
                     skipMenu = false
+                    showMusic = false
                 }
                 fun navigateTab(tab: Int) {
                     if (selectedTab != tab && !settingUp && !restoring) {
@@ -184,11 +197,24 @@ class MainActivity : ComponentActivity() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(time?.let { "Day ${it.day} · %02d:%02d".format(it.hour, it.minute) } ?: "Maison Café",
                                     Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                                TextButton(onClick = {
-                                    musicEnabled = !musicEnabled
-                                    audioSettings.edit().putBoolean("music", musicEnabled).apply()
-                                }, contentPadding = PaddingValues(horizontal = 4.dp)) {
-                                    Text(if (musicEnabled) "Music on" else "Music off")
+                                Box {
+                                    TextButton(onClick = { showMusic = true },
+                                        contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                        Text(if (musicEnabled) "Music ▾" else "Music off ▾")
+                                    }
+                                    DropdownMenu(expanded = showMusic, onDismissRequest = { showMusic = false }) {
+                                        DropdownMenuItem(text = {
+                                            Text(if (musicEnabled && selectedTrack == null) "✓  Playlist" else "Playlist")
+                                        }, onClick = { selectMusic(true, null) })
+                                        CafeMusicTrack.entries.forEach { track ->
+                                            DropdownMenuItem(text = {
+                                                Text(if (musicEnabled && selectedTrack == track) "✓  ${track.title}" else track.title)
+                                            }, onClick = { selectMusic(true, track) })
+                                        }
+                                        DropdownMenuItem(text = {
+                                            Text(if (musicEnabled) "Off" else "✓  Off")
+                                        }, onClick = { selectMusic(false, selectedTrack) })
+                                    }
                                 }
                                 Box {
                                     TextButton(enabled = canControlTime && gameSpeed == 0,

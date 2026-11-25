@@ -169,7 +169,7 @@ fun CafeHomeScreen(
             CafeScene(
                 name = cafe.cafeName,
                 time = cafe.time,
-                playing = speed != 0,
+                speed = speed,
                 latestOrder = cafe.latestOrder,
                 latestPayment = cafe.latestPayment,
                 latestDelivery = cafe.latestDelivery,

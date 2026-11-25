@@ -11,15 +11,19 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import com.example.runthebusiness.R
 
-private val cafePlaylist = intArrayOf(R.raw.cafe_ambient, R.raw.cafe_morning_groove, R.raw.cafe_steady_service)
+internal enum class CafeMusicTrack(val title: String, val resource: Int) {
+    AFTER_OPENING("After Opening", R.raw.cafe_ambient),
+    MORNING_GROOVE("Morning Groove", R.raw.cafe_morning_groove),
+    STEADY_SERVICE("Steady Service", R.raw.cafe_steady_service)
+}
 
 private class PlaylistPosition(var track: Int = 0, var milliseconds: Int = 0)
 
 @Suppress("DEPRECATION")
 @Composable
-internal fun CafeRunMusic(context: Context, playing: Boolean) {
-    val position = remember { PlaylistPosition() }
-    DisposableEffect(context, playing) {
+internal fun CafeRunMusic(context: Context, playing: Boolean, track: CafeMusicTrack?) {
+    val position = remember(track) { PlaylistPosition() }
+    DisposableEffect(context, playing, track) {
         if (!playing) return@DisposableEffect onDispose { }
         val audio = context.getSystemService(AudioManager::class.java)
         val attributes = AudioAttributes.Builder()
@@ -30,15 +34,17 @@ internal fun CafeRunMusic(context: Context, playing: Boolean) {
         var disposed = false
         fun playTrack() {
             val current = runCatching {
-                MediaPlayer.create(context, cafePlaylist[position.track], attributes, 0)
+                val resource = (track ?: CafeMusicTrack.entries[position.track]).resource
+                MediaPlayer.create(context, resource, attributes, 0)
             }.getOrNull() ?: return
             player = current
             current.setVolume(0.34f, 0.34f)
+            current.isLooping = track != null
             current.setOnCompletionListener {
                 if (!disposed && player === current) {
                     current.release()
                     player = null
-                    position.track = (position.track + 1) % cafePlaylist.size
+                    position.track = (position.track + 1) % CafeMusicTrack.entries.size
                     position.milliseconds = 0
                     playTrack()
                 }
