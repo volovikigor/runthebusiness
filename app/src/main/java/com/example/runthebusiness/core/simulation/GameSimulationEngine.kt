@@ -1,6 +1,7 @@
 package com.example.runthebusiness.core.simulation
 
 import android.content.Context
+import com.example.runthebusiness.R
 import androidx.room.withTransaction
 import com.example.runthebusiness.data.local.CafeStaffRepository
 import com.example.runthebusiness.data.local.CafeServiceRepository
@@ -127,8 +128,8 @@ class GameSimulationEngine(context: Context) {
         val initial = checkNotNull(clock.loadGameTime(sessionId))
         if (mode == JumpMode.NEXT_OPENING) {
             val step = skipClosedHoursLocked(sessionId)
-                ?: return@withLock NextEventResult(initial, "No scheduled opening to skip to", 0)
-            return@withLock NextEventResult(step.time, "Reached café opening time", step.groupsServed)
+                ?: return@withLock NextEventResult(initial, appContext.getString(R.string.skip_no_opening), 0)
+            return@withLock NextEventResult(step.time, appContext.getString(R.string.skip_opening), step.groupsServed)
         }
         val calendarJump = mode == JumpMode.NEXT_DAY || mode == JumpMode.NEXT_WEEK || mode == JumpMode.NEXT_MONTH
         val knownAlerts = if (calendarJump)
@@ -203,7 +204,7 @@ class GameSimulationEngine(context: Context) {
                 alertChecks++
                 if (newDecision != null) {
                     if (mode == JumpMode.NEXT_DECISION || mode == JumpMode.NEXT_EVENT) {
-                        return@withLock result(latest, "Management alert · ${newDecision.title}", groups)
+                        return@withLock result(latest, appContext.getString(R.string.skip_decision, newDecision.title), groups)
                     }
                 }
             }
@@ -212,21 +213,21 @@ class GameSimulationEngine(context: Context) {
                 val newArrival = arrivals.recent(sessionId).firstOrNull { it.id !in previousArrivalIds }
                 arrivalMs += android.os.SystemClock.elapsedRealtime() - arrivalStarted
                 if (newArrival != null) {
-                    return@withLock result(latest, "Customer arrival · ${newArrival.guests} guests", groups)
+                    return@withLock result(latest, appContext.getString(R.string.skip_arrival, newArrival.guests), groups)
                 }
                 previousArrivalIds = arrivals.recent(sessionId).map { it.id }.toSet()
                 if (latest.day > initial.day) {
-                    return@withLock result(latest, "Day ${initial.day} closed", groups)
+                    return@withLock result(latest, appContext.getString(R.string.skip_day_closed, initial.day), groups)
                 }
             }
             val absoluteMinutes = (latest.day - 1L) * 1440L + latest.hour * 60L + latest.minute
             if (absoluteMinutes >= targetMinutes) {
-                return@withLock result(latest, "Calendar advance completed · ${groups} groups served", groups)
+                return@withLock result(latest, appContext.getString(R.string.skip_completed, groups), groups)
             }
         }
         result(latest,
-            if (mode == JumpMode.NEXT_DECISION) "No new management decisions within 14 days"
-            else "Time advance limit reached", groups)
+            if (mode == JumpMode.NEXT_DECISION) appContext.getString(R.string.skip_no_decisions)
+            else appContext.getString(R.string.skip_limit), groups)
     }
 
     suspend fun advanceToNextEvent(sessionId: String = "debug_session_001"): NextEventResult =

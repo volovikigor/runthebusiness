@@ -102,7 +102,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 try {
                     action()
                     reload()
-                } catch (e: Exception) { error = e.message ?: e.javaClass.simpleName }
+                } catch (e: Exception) {
+                    android.util.Log.w("Cafe", "Action failed", e)
+                    error = context.getString(R.string.operation_error)
+                }
                 finally { busy = false }
             }
         }
@@ -117,7 +120,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     confirmPriceReset = false
                     run {
                         val count = menu.resetPrices()
-                        message = "Prices reset for $count menu items."
+                        message = context.getString(R.string.prices_reset_message, count)
                     }
                 }) { Text(stringResource(R.string.reset_prices)) }
             },
@@ -142,13 +145,13 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.loss_price), Modifier.weight(1f))
                         IconButton(
-                            modifier = Modifier.semantics { contentDescription = "Decrease price by €0.10" },
+                            modifier = Modifier.semantics { contentDescription = context.getString(R.string.decrease_price) },
                             enabled = !busy && product.priceCents > 50L,
                             onClick = { run { menu.updatePrice(product.id, (product.priceCents - 10L).coerceAtLeast(50L)) } }
                         ) { Text("−") }
                         Text(menuPackMoney(product.priceCents), style = MaterialTheme.typography.titleSmall)
                         IconButton(
-                            modifier = Modifier.semantics { contentDescription = "Increase price by €0.10" },
+                            modifier = Modifier.semantics { contentDescription = context.getString(R.string.increase_price) },
                             enabled = !busy && product.priceCents < 5000L,
                             onClick = { run { menu.updatePrice(product.id, (product.priceCents + 10L).coerceAtMost(5000L)) } }
                         ) { Text("+") }
@@ -174,6 +177,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
     }
 
     selectedPack?.let { supply ->
+        val name = cafeProductName(supply.itemId, supply.label)
         val packs = packCountInput.toIntOrNull()?.takeIf { it in 1..99 }
         AlertDialog(
             onDismissRequest = { selectedPack = null },
@@ -190,10 +194,10 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         modifier = Modifier.fillMaxWidth()
                     )
                     if (packs != null) {
-                        Text("${stockQuantity(supply.quantity * packs)} ${supply.unit} total · ${menuPackMoney(supply.costCents * packs)}")
+                        Text(stringResource(R.string.pack_total, stockQuantity(supply.quantity * packs), supply.unit, menuPackMoney(supply.costCents * packs)))
                     }
                     Text(if (deferredPayment) {
-                        "Stock arrives now. Pay the supplier invoice in Finance → Bills on Day ${currentGameDay + supply.creditDays}."
+                        stringResource(R.string.supplier_invoice_day, currentGameDay + supply.creditDays)
                     } else stringResource(R.string.purchase_bank_now))
                 }
             },
@@ -206,8 +210,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         selectedPack = null
                         run {
                             purchasing.purchasePacks(supply.itemId, count, onCredit = invoice)
-                            message = if (invoice) "${supply.label} ordered · invoice in Bills"
-                                else "${supply.label} purchased"
+                            message = if (invoice) context.getString(R.string.supplier_ordered, name)
+                                else context.getString(R.string.supplier_purchased, name)
                         }
                     }
                 ) { Text(stringResource(if (deferredPayment) R.string.order_credit else R.string.pay_now)) }
@@ -260,7 +264,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 if (products.none { it.id == "caesar_salad_001" }) {
                     CafeActionButton(onClick = { run {
                         expanded.install()
-                        message = "11 new menu items added. Enable and stock the ones you want to sell."
+                        message = context.getString(R.string.menu_expanded)
                     } }, enabled = !busy) { Text(stringResource(R.string.expand_menu)) }
                 }
                 Text(
@@ -271,15 +275,16 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 )
                 products.forEach { product ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    val name = cafeProductName(product.id, product.name)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Column(Modifier.weight(1f)) {
-                            Text(cafeProductName(product.id, product.name), style = MaterialTheme.typography.titleSmall)
+                            Text(name, style = MaterialTheme.typography.titleSmall)
                             val status = cafeLabel(if (product.enabled) "On menu" else "Off menu")
                             Text(stringResource(R.string.items_sold, product.unitsSoldRecently, status), style = MaterialTheme.typography.bodySmall)
                         }
                         OutlinedButton(enabled = !busy, onClick = { openMenuProduct = product.id },
-                            modifier = Modifier.semantics { contentDescription = "Edit ${product.name} price and menu options" }
+                            modifier = Modifier.semantics { contentDescription = context.getString(R.string.edit_dish, name) }
                         ) { Text(menuPackMoney(product.priceCents)) }
                     }
                 }
@@ -305,7 +310,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     Text(stringResource(if (autoSettings) R.string.hide_auto_order else R.string.auto_order_settings))
                 }
                 if (autoSettings) {
-                    Text("Daily purchase budget: €%.0f".format(Locale.ROOT, autoPolicy.dailyBudgetCents / 100.0))
+                    Text(stringResource(R.string.daily_purchase_budget, menuPackMoney(autoPolicy.dailyBudgetCents)))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
                             autoPurchasing.setDailyBudget((autoPolicy.dailyBudgetCents - 5000L).coerceAtLeast(0L))
@@ -322,7 +327,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                     autoSelected = CafePurchasingRepository.supplies.filter {
                         autoPurchasing.enabled(it.itemId)
                     }.map { it.itemId }.toSet()
-                    message = "Auto purchasing enabled for core ingredients and kitchen supplies. Review individual switches and budget."
+                    message = context.getString(R.string.auto_purchase_enabled)
                 }) { Text(stringResource(R.string.auto_core)) }
                 }
                 if (supplierCreditBlocked) {
@@ -350,8 +355,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 }.forEach { supply ->
                     CafeLedgerPanel {
                         Text(cafeProductName(supply.itemId, supply.label), style = MaterialTheme.typography.titleMedium)
-                        Text("%.0f %s available · %.0f %s per pack".format(Locale.ROOT,
-                            stock[supply.itemId] ?: 0.0, supply.unit, supply.quantity, supply.unit),
+                        Text(stringResource(R.string.pack_available, stockQuantity(stock[supply.itemId] ?: 0.0),
+                            supply.unit, stockQuantity(supply.quantity)),
                             style = MaterialTheme.typography.bodySmall)
                         if (supply.shelfLifeDays > 0) {
                             Text(stringResource(R.string.shelf_days, supply.shelfLifeDays), style = MaterialTheme.typography.bodySmall)
@@ -372,7 +377,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.auto_order), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                             Switch(
-                                modifier = Modifier.semantics { contentDescription = "Auto-order ${supply.label}" },
+                                modifier = Modifier.semantics { contentDescription = context.getString(R.string.auto_order_item, supply.label) },
                                 checked = supply.itemId in autoSelected,
                                 onCheckedChange = { checked ->
                                     autoPurchasing.setItemEnabled(supply.itemId, checked)
@@ -387,10 +392,8 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
             3 -> staff?.let { team ->
                 Text(stringResource(R.string.loss_staff), style = MaterialTheme.typography.titleLarge)
                 CafeLedgerPanel {
-                    Text("Today · ${team.currentCount} employees · €%.2f per day".format(
-                        Locale.ROOT, team.currentCostCents / 100.0))
-                    Text("Day ${team.today + 1} · ${team.plannedCount} employees · €%.2f per day".format(
-                        Locale.ROOT, team.plannedCostCents / 100.0))
+                    Text(stringResource(R.string.staff_today, team.currentCount, menuPackMoney(team.currentCostCents)))
+                    Text(stringResource(R.string.staff_next, team.today + 1, team.plannedCount, menuPackMoney(team.plannedCostCents)))
                     Text(stringResource(R.string.daily_social),
                         style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -407,17 +410,16 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 Text(stringResource(R.string.service_capacity), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.hiring_help),
                     style = MaterialTheme.typography.bodySmall)
-                Text("Today %.1f · Tomorrow %.1f work minutes per 15-minute slot".format(
-                    Locale.ROOT, team.currentCapacity, team.plannedCapacity))
+                Text(stringResource(R.string.staff_minutes, team.currentCapacity, team.plannedCapacity))
                 if (team.today > 1) {
-                    Text("Day ${team.today - 1} · peak workload ${team.peakWorkload} work minutes per slot")
+                    Text(stringResource(R.string.staff_peak, team.today - 1, team.peakWorkload.toString()))
                     Text(stringResource(R.string.lost_capacity, team.capacityLosses))
-                    Text("Last 30 completed days · ${team.recentCapacityLosses} groups lost to staff capacity")
+                    Text(stringResource(R.string.staff_losses_window, team.recentCapacityLosses))
                 }
             }
             else -> inventory?.let { report ->
                 Text(stringResource(R.string.stock_balance), style = MaterialTheme.typography.titleLarge)
-                Text("Day ${report.fromDay}–${report.throughDay} · ending stock as of now",
+                Text(stringResource(R.string.stock_as_of_now, report.fromDay, report.throughDay),
                     style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(R.string.writeoffs, menuPackMoney(report.items.sumOf { it.total.wasteCents })),
                     style = MaterialTheme.typography.titleSmall)
@@ -437,9 +439,9 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                                     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
                                         Column {
                                             item.days.forEach { day ->
-                                                StockTableRow("Day ${day.day}", day.columns())
+                                                StockTableRow(stringResource(R.string.day_number, day.day), day.columns())
                                                 if (kotlin.math.abs(day.other) > 0.00001) {
-                                                    Text("Other movements ${stockQuantity(day.other)} ${item.unit}",
+                                                    Text(stringResource(R.string.stock_other_movements, stockQuantity(day.other), item.unit),
                                                         Modifier.padding(start = 10.dp, bottom = 4.dp),
                                                         style = MaterialTheme.typography.labelSmall)
                                                 }
@@ -481,7 +483,8 @@ private fun StockTableRow(label: String, values: List<String>, modifier: Modifie
 @Composable
 private fun WeeklyDemandCard(cafe: CafeDashboardSnapshot, products: List<CafeMenuItem>) {
     val today = cafe.time.day
-    val weekdayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val weekdays = java.text.DateFormatSymbols(locale).shortWeekdays
     val menu = products.filter { it.enabled && it.fulfillment != "BATCH_PRODUCED" }.map {
         CafePriceDemandRules.MenuPrice(it.id, it.type, it.priceCents)
     }
@@ -495,9 +498,10 @@ private fun WeeklyDemandCard(cafe: CafeDashboardSnapshot, products: List<CafeMen
                 cafe.openingHour, cafe.closingHour, cafe.seats, menu
             ) else emptyList()
             val promo = visits.count { it.preferredProductId != null }
-            val suffix = if (promo > 0) " · $promo promo groups" else ""
-            Text("${weekdayNames[(day - 1) % 7]} · Day $day · ${visits.sumOf { it.guests }} guests$suffix",
-                style = MaterialTheme.typography.bodySmall)
+            val weekday = weekdays[(day % 7) + 1]
+            val traffic = stringResource(R.string.forecast_traffic, weekday, day, visits.sumOf { it.guests })
+            val suffix = if (promo > 0) " · " + stringResource(R.string.forecast_promo, promo) else ""
+            Text(traffic + suffix, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -506,7 +510,8 @@ private fun WeeklyDemandCard(cafe: CafeDashboardSnapshot, products: List<CafeMen
 private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchasingRepository.Supply>) {
     CafeLedgerPanel {
         packs.forEach { pack ->
-            val shelfLife = if (pack.shelfLifeDays > 0) " · ${pack.shelfLifeDays} days shelf life" else ""
+            val shelfLife = if (pack.shelfLifeDays > 0)
+                " · " + stringResource(R.string.shelf_days, pack.shelfLifeDays) else ""
             Text("${cafeProductName(pack.itemId, pack.label)} · ${stockQuantity(pack.quantity)} ${pack.unit} · ${menuPackMoney(pack.costCents)}$shelfLife",
                 style = MaterialTheme.typography.bodySmall)
         }
@@ -514,7 +519,7 @@ private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchas
             val pack = packs.single()
             val units = ceil(pack.costCents * (100.0 + CafeTaxPolicy.hospitalityVatPercent) /
                 (100 * product.priceCents)).toLong()
-            Text("Sell $units to cover the pack before other expenses (sales excluding VAT).",
+            Text(stringResource(R.string.sell_to_cover_pack, units),
                 style = MaterialTheme.typography.bodySmall)
         } else {
             Text(stringResource(R.string.shared_packs), style = MaterialTheme.typography.bodySmall)
@@ -530,18 +535,18 @@ private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
         Text(stringResource(R.string.price_demand), style = MaterialTheme.typography.titleSmall)
         val recent = insights.recent
         if (recent != null) {
-            Text("Days ${recent.days.first}–${recent.days.last} · ${recent.sales.units} sold",
+            Text(stringResource(R.string.units_sold_range, recent.days.first, recent.days.last, recent.sales.units),
                 style = MaterialTheme.typography.bodySmall)
             val low = recent.sales.minPriceCents
             val high = recent.sales.maxPriceCents
             if (low != null && high != null) {
                 val price = if (low == high) menuPackMoney(low) else "${menuPackMoney(low)}–${menuPackMoney(high)}"
-                Text("Recorded sale price · $price", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.recorded_sale_price, price), style = MaterialTheme.typography.bodySmall)
             }
-            Text("Café traffic · ${recent.traffic.groups} groups · ${recent.traffic.guests} guests",
+            Text(stringResource(R.string.cafe_traffic_counts, recent.traffic.groups, recent.traffic.guests),
                 style = MaterialTheme.typography.bodySmall)
             if (recent.traffic.promotionGroups > 0) {
-                Text("Promotion · ${recent.traffic.promotionGroups} groups · ${recent.traffic.promotionStockLosses} lost to stock · ${recent.traffic.promotionStaffLosses} lost to staffing",
+                Text(stringResource(R.string.promotion_counts, recent.traffic.promotionGroups, recent.traffic.promotionStockLosses, recent.traffic.promotionStaffLosses),
                     style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -549,10 +554,10 @@ private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
         when {
             change == null -> Text(stringResource(R.string.price_new_comparison),
                 style = MaterialTheme.typography.bodySmall)
-            change.previousCents == change.currentCents -> Text("Day ${change.gameDay} ended at the previous price.",
+            change.previousCents == change.currentCents -> Text(stringResource(R.string.price_unchanged, change.gameDay),
                 style = MaterialTheme.typography.bodySmall)
             else -> {
-                Text("Day ${change.gameDay}: ${menuPackMoney(change.previousCents)} → ${menuPackMoney(change.currentCents)}",
+                Text(stringResource(R.string.price_day_change, change.gameDay, menuPackMoney(change.previousCents), menuPackMoney(change.currentCents)),
                     style = MaterialTheme.typography.bodySmall)
                 val before = insights.before
                 val after = insights.after

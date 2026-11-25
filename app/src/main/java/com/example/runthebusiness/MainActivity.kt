@@ -30,6 +30,8 @@ import com.example.runthebusiness.ui.cafe.CafeRunMusic
 import com.example.runthebusiness.ui.cafe.CafeMusicTrack
 import com.example.runthebusiness.ui.components.CafeBottomNavigation
 import com.example.runthebusiness.ui.theme.RunthebusinessTheme
+import com.example.runthebusiness.ui.theme.CafeAppearance
+import androidx.core.view.WindowCompat
 
 class MainActivity : ComponentActivity() {
     private var appForeground by mutableStateOf(false)
@@ -53,8 +55,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val styleSettings = getSharedPreferences("cafe_appearance", MODE_PRIVATE)
         setContent {
-            RunthebusinessTheme {
+            var appearance by remember {
+                val saved = styleSettings.getString("style", null)
+                mutableStateOf(CafeAppearance.entries.firstOrNull { it.name == saved } ?: CafeAppearance.MINIMAL)
+            }
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = appearance == CafeAppearance.MINIMAL
+                    isAppearanceLightNavigationBars = appearance == CafeAppearance.MINIMAL
+                }
+            }
+            RunthebusinessTheme(appearance = appearance) {
                 var selectedTab by remember { mutableIntStateOf(0) }
                 val tabHistory = remember { mutableStateListOf<Int>() }
                 var operationsSection by remember { mutableIntStateOf(0) }
@@ -116,7 +129,8 @@ class MainActivity : ComponentActivity() {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        clockError = e.message ?: e.javaClass.simpleName
+                        android.util.Log.w("Cafe", "Action failed", e)
+                        clockError = context.getString(R.string.operation_error)
                     } finally {
                         restoring = false
                     }
@@ -133,7 +147,8 @@ class MainActivity : ComponentActivity() {
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            clockError = e.message ?: e.javaClass.simpleName
+                            android.util.Log.w("Cafe", "Action failed", e)
+                            clockError = context.getString(R.string.operation_error)
                         } finally {
                             settingUp = false
                         }
@@ -175,7 +190,8 @@ class MainActivity : ComponentActivity() {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        clockError = e.message ?: e.javaClass.simpleName
+                        android.util.Log.w("Cafe", "Action failed", e)
+                        clockError = context.getString(R.string.operation_error)
                         gameSpeed = 0
                     } finally {
                         if (progressionJob === job) {
@@ -251,7 +267,7 @@ class MainActivity : ComponentActivity() {
                             }
                             if (jumping) {
                                 LinearProgressIndicator(Modifier.fillMaxWidth())
-                                Text("Simulating · $progress days · $groups groups", style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(R.string.simulation_progress, progress, groups), style = MaterialTheme.typography.bodySmall)
                             }
                             clockError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                             resultMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2) }
@@ -263,9 +279,9 @@ class MainActivity : ComponentActivity() {
                 ) { padding ->
                     if (restoring || settingUp || jumping) {
                         val message = when {
-                            restoring -> "Loading saved café…"
-                            settingUp -> "Starting café…"
-                            else -> "Simulating business…"
+                            restoring -> stringResource(R.string.restore_game)
+                            settingUp -> stringResource(R.string.starting_game)
+                            else -> stringResource(R.string.simulating_game)
                         }
                         Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { Text(message) }
                     } else when (selectedTab) {
@@ -273,6 +289,11 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(padding),
                             speed = gameSpeed,
                             time = time,
+                            appearance = appearance,
+                            onAppearanceChanged = {
+                                appearance = it
+                                styleSettings.edit().putString("style", it.name).apply()
+                            },
                             onStartGame = ::startGame,
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
                             onOpenFinance = { financeTarget = "Bills"; navigateTab(2) }

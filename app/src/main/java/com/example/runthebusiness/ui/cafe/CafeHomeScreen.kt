@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.example.runthebusiness.R
+import com.example.runthebusiness.ui.theme.CafeAppearance
 import com.example.runthebusiness.industries.cafe.CafeStartingConfiguration
 import com.example.runthebusiness.data.local.GameDatabase
 import com.example.runthebusiness.data.local.dao.CafeDailyNetProfit
@@ -195,6 +196,8 @@ fun CafeHomeScreen(
     modifier: Modifier = Modifier,
     speed: Int = 0,
     time: GameTime? = null,
+    appearance: CafeAppearance = CafeAppearance.MINIMAL,
+    onAppearanceChanged: (CafeAppearance) -> Unit = {},
     onStartGame: (Boolean) -> Unit = {},
     onOpenOperations: (Int) -> Unit = {},
     onOpenFinance: () -> Unit = {}
@@ -258,7 +261,8 @@ fun CafeHomeScreen(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                android.util.Log.w("Cafe", "Action failed", e)
+                error = context.getString(R.string.operation_error)
             } finally { loading = false }
         }
     }
@@ -311,6 +315,7 @@ fun CafeHomeScreen(
         } else {
             CafeScene(
                 name = cafe.cafeName,
+                appearance = appearance,
                 time = cafe.time,
                 speed = speed,
                 latestOrder = cafe.latestOrder,
@@ -393,7 +398,7 @@ fun CafeHomeScreen(
                             visible.forEach { shortage ->
                                 val supply = shortage.supply
                                 HorizontalDivider()
-                                Text("${cafeProductName(supply.itemId, supply.name)} · ${shortage.dishes.size} affected",
+                                Text(stringResource(R.string.affected_dishes, cafeProductName(supply.itemId, supply.name), shortage.dishes.size),
                                     style = MaterialTheme.typography.titleSmall)
                                 Text(shortage.dishes.map { cafeProductName(it.productId, it.name) }.joinToString(),
                                     style = MaterialTheme.typography.bodySmall)
@@ -478,6 +483,14 @@ fun CafeHomeScreen(
                 }
             }
             if (homeSection == 3) CafeLedgerPanel {
+                Text(stringResource(R.string.cafe_appearance), style = MaterialTheme.typography.titleMedium)
+                val appearances = CafeAppearance.entries.associateWith {
+                    stringResource(if (it == CafeAppearance.MINIMAL) R.string.appearance_minimal else R.string.appearance_deco)
+                }
+                CafeLedgerOptions(appearances.values.toList(), appearances.getValue(appearance)) { label ->
+                    onAppearanceChanged(appearances.entries.first { it.value == label }.key)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Text(stringResource(R.string.save_game), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.new_game_warning), style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { confirmNewGame = true }, enabled = !loading && speed == 0) {

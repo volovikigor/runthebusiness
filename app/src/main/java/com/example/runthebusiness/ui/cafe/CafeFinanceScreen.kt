@@ -123,7 +123,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 paymentStatus = consequencesRepo.load()
                 entries = journalRepo.journal().asReversed()
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                android.util.Log.w("Cafe", "Action failed", e)
+                error = context.getString(R.string.operation_error)
             } finally { busy = false }
         }
     }
@@ -132,7 +133,11 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
             busy = true
             error = null
             try { action(); refresh() }
-            catch (e: Exception) { error = e.message; busy = false }
+            catch (e: Exception) {
+                android.util.Log.w("Cafe", "Payment failed", e)
+                error = context.getString(R.string.operation_error)
+                busy = false
+            }
         }
     }
     depositInput?.let { input ->
@@ -161,7 +166,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                         depositInput = null
                         paymentAction {
                             cashRepo.transferCashToBank(cents)
-                            settlementMessage = "Deposited ${money(cents)} into bank"
+                            settlementMessage = context.getString(R.string.deposited_amount, money(cents))
                         }
                     }
                 ) { Text(stringResource(R.string.deposit)) }
@@ -289,8 +294,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     invoices.forEach { invoice ->
                         val overdue = today != null && invoice.dueDay < today
                         CafeLedgerPanel {
-                        FinanceAmountRow(invoice.label.removePrefix("Supplier invoice · "), invoice.amountCents)
-                        Text("Due Day ${invoice.dueDay}" + if (overdue) " · overdue" else "",
+                        FinanceAmountRow(supplierInvoiceLabel(invoice.label), invoice.amountCents)
+                        Text(stringResource(if (overdue) R.string.invoice_late else R.string.invoice_due, invoice.dueDay),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(enabled = !busy && position.bankCents >= invoice.amountCents,
@@ -304,8 +309,8 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                         CafeLedgerPanel {
                         FinanceAmountRow(bill.label, if (dueNow) bill.due else bill.accrued)
                         Text(
-                            if (dueNow) "Due since Day $dueDay · next cycle Day ${bill.nextDueDay}"
-                            else "Accrued so far · next cycle Day $dueDay",
+                            if (dueNow) stringResource(R.string.bill_due_cycle, dueDay, bill.nextDueDay)
+                            else stringResource(R.string.bill_accrued_cycle, dueDay),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -328,12 +333,9 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 CafeLedgerPanel {
                     HorizontalDivider()
                     Text(stringResource(R.string.early_settlement), style = MaterialTheme.typography.titleSmall)
-                    Text("Bank: €%.2f · Cash: €%.2f".format(Locale.ROOT,
-                        position.bankCents / 100.0, position.cashCents / 100.0))
-                    Text("Rent payable: €%.2f · %d days late".format(Locale.ROOT,
-                        position.rentPayableCents / 100.0, overdue))
-                    Text("Payroll payable: €%.2f · %d days late".format(Locale.ROOT,
-                        position.salariesPayableCents / 100.0, payrollLate))
+                    Text(stringResource(R.string.bank_and_till, money(position.bankCents), money(position.cashCents)))
+                    Text(stringResource(R.string.rent_due_late, money(position.rentPayableCents), overdue))
+                    Text(stringResource(R.string.payroll_due_late, money(position.salariesPayableCents), payrollLate))
                     if (payment?.rentShutdown == true) {
                         Text(stringResource(R.string.trade_blocked),
                             color = MaterialTheme.colorScheme.error)
@@ -363,13 +365,13 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     if (position.rentPayableCents > 0L) {
                         CafeActionButton(enabled = !busy && position.bankCents >= position.rentPayableCents,
                             onClick = { paymentAction { cashRepo.pay("2000") } }) {
-                            Text("Pay rent · €%.2f".format(Locale.ROOT, position.rentPayableCents / 100.0))
+                            Text(stringResource(R.string.pay_rent_amount, money(position.rentPayableCents)))
                         }
                     }
                     if (position.salariesPayableCents > 0L) {
                         CafeActionButton(enabled = !busy && position.bankCents >= position.salariesPayableCents,
                             onClick = { paymentAction { cashRepo.pay("2300") } }) {
-                            Text("Pay payroll · €%.2f".format(Locale.ROOT, position.salariesPayableCents / 100.0))
+                            Text(stringResource(R.string.pay_payroll_amount, money(position.salariesPayableCents)))
                         }
                     }
                 }
@@ -382,19 +384,23 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
         if (section == "Journal") {
             Text(stringResource(R.string.ledger_newest), style = MaterialTheme.typography.titleMedium)
             if (accountFilter != null) {
-                TextButton(onClick = { accountFilter = null }) { Text("Clear account $accountFilter") }
+                TextButton(onClick = { accountFilter = null }) { Text(stringResource(R.string.clear_account, accountFilter.orEmpty())) }
             }
-            CafeLedgerOptions(listOf("All days") + days.take(3).map { "Day $it" },
-                selectedDay?.let { "Day $it" } ?: "All days") { label ->
-                selectedDay = label.removePrefix("Day ").toIntOrNull()
+            val allDaysLabel = stringResource(R.string.label_all_days)
+            val dayLabels = (days.take(3) + listOfNotNull(selectedDay)).distinct().associateBy {
+                stringResource(R.string.day_number, it)
             }
-            Text("${filtered.size} entries", style = MaterialTheme.typography.labelMedium)
+            CafeLedgerOptions(listOf(allDaysLabel) + dayLabels.keys,
+                selectedDay?.let { stringResource(R.string.day_number, it) } ?: allDaysLabel) { label ->
+                selectedDay = dayLabels[label]
+            }
+            Text(stringResource(R.string.journal_entry_count, filtered.size), style = MaterialTheme.typography.labelMedium)
             filtered.take(100).forEach { entry ->
                 HorizontalDivider()
                 val expanded = expandedId == entry.id
                 Row(
                     Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel =
-                        if (expanded) "Collapse entry" else "Expand entry"
+                        stringResource(if (expanded) R.string.journal_collapse else R.string.journal_expand)
                     ) { expandedId = if (expanded) null else entry.id }
                         .heightIn(min = 48.dp).padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -412,10 +418,6 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                     CafeLedgerPanel {
                         HorizontalDivider()
                         FinanceTableRow("Account", listOf("Debit", "Credit"), heading = true)
-                        if (!entry.description.startsWith("Sale ") && !entry.description.startsWith("Cost of sale ")) {
-                            Text(entry.description, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
                         val legacy = entry.description.startsWith("Sale ") ||
                             entry.description.startsWith("Cost of sale ")
                         if (legacy) {
@@ -425,7 +427,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                             }
                         }
                         if (entry.id.startsWith("sale_")) expandedSale?.products?.forEach { item ->
-                            Text("${item.quantity} × ${cafeProductName(item.productId, item.productName)} · ${money(item.unitPriceCents)} each",
+                            Text(stringResource(R.string.journal_line_item, item.quantity, cafeProductName(item.productId, item.productName), money(item.unitPriceCents)),
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         if (entry.id.startsWith("cogs_")) expandedSale?.stock?.let { stock ->
@@ -447,7 +449,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                                             }
                                         else -> "units"
                                     }
-                                    Text("${movement.inventoryItemName}: $formattedQuantity $unit × " +
+                                    Text("${cafeProductName(movement.inventoryItemId, movement.inventoryItemName)}: $formattedQuantity $unit × " +
                                         "${money(movement.unitCostCents)}/$unit = ${money(amountCents)}",
                                         style = MaterialTheme.typography.bodySmall)
                                 }
@@ -455,13 +457,14 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                                     stock.filter { it.quantityDelta < 0.0 }
                                         .sumOf { -it.quantityDelta * it.unitCostCents }
                                 ).toLong()
-                                Text("Total ingredient / finished-goods cost: ${money(totalCents)}",
+                                Text(stringResource(R.string.journal_total_cost, money(totalCents)),
                                     style = MaterialTheme.typography.labelLarge)
                             }
                         }
                         expandedPurchase.forEach { movement ->
-                            Text("${movement.inventoryItemName}: %.0f received".format(
-                                Locale.ROOT, movement.quantityDelta),
+                            Text(stringResource(R.string.journal_received,
+                                cafeProductName(movement.inventoryItemId, movement.inventoryItemName),
+                                "%.0f".format(Locale.ROOT, movement.quantityDelta)),
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         entry.lines.forEach { line ->
@@ -757,13 +760,13 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
     FinanceReportTable("7-day cash forecast") {
         FinanceTableRow("Day", listOf("Cash", "Bank"), heading = true, modifier = inset, ruled = true)
         forecast.days.forEach { day ->
-            FinanceTableRow(if (day.day == today) "Today" else "Day ${day.day}",
+            FinanceTableRow(if (day.day == today) stringResource(R.string.label_today) else stringResource(R.string.day_number, day.day),
                 listOf(wholeEuros(day.cashCents), wholeEuros(day.bankCents)), modifier = inset, ruled = true)
         }
     }
     Text(stringResource(R.string.forecast_explain),
         style = MaterialTheme.typography.bodySmall)
-    FinanceReportTable("Upcoming payments") {
+    FinanceReportTable(stringResource(R.string.upcoming_payments)) {
         FinanceTableRow("Payment", listOf("Due", "Amount"), heading = true, modifier = inset,
             labelWeight = 2.5f, ruled = true)
         if (forecast.days.none { it.payments.isNotEmpty() }) {
@@ -772,21 +775,22 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
         }
         forecast.days.forEach { day ->
             day.payments.forEach { payment ->
-                val due = if (payment.dueDay < today) "Day ${payment.dueDay}\nOverdue" else "Day ${payment.dueDay}"
-                FinanceTableRow(payment.label, listOf(due, wholeEuros(payment.amountCents)), modifier = inset,
+                val due = stringResource(if (payment.dueDay < today) R.string.invoice_late else R.string.invoice_due, payment.dueDay)
+                FinanceTableRow(supplierInvoiceLabel(payment.label), listOf(due, wholeEuros(payment.amountCents)), modifier = inset,
                     labelWeight = 2.5f, ruled = true)
             }
         }
     }
     Text(
-        "Staff cost today ${wholeEuros(forecast.staffCostTodayCents)} · Day ${today + 1} ${wholeEuros(forecast.staffCostTomorrowCents)}",
+        stringResource(R.string.forecast_staff_cost, wholeEuros(forecast.staffCostTodayCents),
+            today + 1, wholeEuros(forecast.staffCostTomorrowCents)),
         style = MaterialTheme.typography.bodySmall
     )
     Text(
         if (forecast.historyDays > 0) {
-            "Sales and stock purchases use the last ${forecast.historyDays} completed days. Bills are assumed paid before trading. Corporate tax uses profit booked so far. Balances exclude deposits."
+            stringResource(R.string.forecast_history, forecast.historyDays)
         } else {
-            "Sales and stock purchases will be estimated after the first completed day."
+            stringResource(R.string.forecast_no_history)
         },
         style = MaterialTheme.typography.bodySmall
     )
@@ -807,18 +811,29 @@ private fun CashForecastSection(forecast: CafeCashForecast) {
 
 private fun money(cents: Long) = "€%.2f".format(Locale.ROOT, cents / 100.0)
 
-private fun journalHeading(id: String, description: String): String = when {
-    id.startsWith("sale_") -> "Customer sale"
-    id.startsWith("cogs_") -> "Cost of sale"
-    id.startsWith("purchase_") -> description.substringBefore(",")
-    else -> readableJournalTitle(description)
-}
-
-private fun readableJournalTitle(description: String): String = when {
-    description.startsWith("Cost of sale ") -> "Inventory consumed · product not recorded"
-    description.startsWith("Sale ") -> "Customer sale · product not recorded"
-    else -> description.replace(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}"), "transaction")
-}
+@Composable
+private fun journalHeading(id: String, description: String): String = stringResource(when {
+    id.startsWith("sale_") || description.startsWith("Sale ") -> R.string.journal_customer_sale
+    id.startsWith("cogs_") || description.startsWith("Cost of sale ") -> R.string.journal_cost_of_sale
+    id == "opening_loan" -> R.string.journal_initial_loan
+    id == "opening_equipment" -> R.string.journal_initial_equipment
+    id == "opening_inventory" -> R.string.journal_initial_stock
+    id.startsWith("loan_payment_") -> R.string.journal_starter_loan
+    description.startsWith("Credit line draw") -> R.string.journal_credit_draw
+    description.startsWith("Credit line repayment") -> R.string.journal_credit_repay
+    description.startsWith("Supplier invoice ·") -> R.string.journal_supplier_invoice
+    id.startsWith("purchase_") -> R.string.label_bank_purchase
+    id.startsWith("journal_expiry_") -> R.string.journal_inventory_expiry
+    id.startsWith("settlement_") -> R.string.journal_payment
+    id.startsWith("cash_deposit_") || description.startsWith("Deposit cash") -> R.string.journal_bank_deposit
+    "_loan_interest_" in id || "_credit_line_interest_" in id -> R.string.journal_interest_accrual
+    "_rent_" in id && id.startsWith("daily_close_") -> R.string.journal_rent_accrual
+    "_salary_" in id -> R.string.journal_salary_accrual
+    "_social_" in id -> R.string.journal_social_accrual
+    "_depreciation_" in id -> R.string.journal_depreciation_accrual
+    "_corporate_tax_" in id -> R.string.journal_tax_accrual
+    else -> R.string.label_journal_entry
+})
 
 
 @Composable
@@ -878,4 +893,15 @@ private fun CreditLinePanel(
             dismissButton = { TextButton(onClick = { drawing = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
+}
+
+
+@Composable
+private fun supplierInvoiceLabel(label: String): String {
+    val prefix = "Supplier invoice · "
+    if (!label.startsWith(prefix)) return cafeLabel(label)
+    val subject = label.removePrefix(prefix)
+    val product = subject.substringBefore(',')
+    val quantity = subject.substringAfter(',', "").trim()
+    return listOf(cafeLabel(product), quantity).filter { it.isNotBlank() }.joinToString(" · ")
 }

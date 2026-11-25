@@ -8,6 +8,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 
 private val Ink = Color(0xFF17243A)
 private val Pine = Color(0xFF285737)
@@ -61,16 +62,63 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF3A4D69)
 )
 
+enum class CafeAppearance { MINIMAL, ART_DECO }
+
+private val DecoColorScheme = darkColorScheme(
+    primary = Color(0xFFF3CB85),
+    onPrimary = Color(0xFF362406),
+    primaryContainer = Color(0xFF31574C),
+    onPrimaryContainer = Color(0xFFEBF7ED),
+    secondary = Color(0xFF9ECABB),
+    onSecondary = Color(0xFF163C33),
+    secondaryContainer = Color(0xFF33544C),
+    onSecondaryContainer = Color(0xFFE0FBF2),
+    tertiary = Color(0xFFF5CF8C),
+    tertiaryContainer = Color(0xFFF0BF71),
+    onTertiaryContainer = Color(0xFF382209),
+    background = Color(0xFF18120E),
+    onBackground = Color(0xFFFFEEDB),
+    surface = Color(0xFF241A14),
+    surfaceContainerLowest = Color(0xFF18120E),
+    surfaceContainerLow = Color(0xFF302319),
+    surfaceContainer = Color(0xFF38291F),
+    surfaceContainerHigh = Color(0xFF423027),
+    surfaceContainerHighest = Color(0xFF4D392D),
+    onSurface = Color(0xFFFFEEDB),
+    surfaceVariant = Color(0xFF43362D),
+    onSurfaceVariant = Color(0xFFD9C7B3),
+    outline = Color(0xFFBAA184),
+    outlineVariant = Color(0xFF665344),
+    error = Color(0xFFFFB5A9),
+    onError = Color(0xFF591A13)
+)
+
+private val decoTypography = Typography.copy(
+    headlineMedium = Typography.headlineMedium.copy(fontFamily = FontFamily.Serif),
+    titleLarge = Typography.titleLarge.copy(fontFamily = FontFamily.Serif)
+)
+
 @Composable
 fun RunthebusinessTheme(
     darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
+    appearance: CafeAppearance = CafeAppearance.MINIMAL,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
-        typography = Typography,
-        shapes = Shapes(extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(6.dp), medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(14.dp), extraLarge = RoundedCornerShape(18.dp)),
+        colorScheme = when {
+            appearance == CafeAppearance.ART_DECO -> DecoColorScheme
+            darkTheme -> DarkColorScheme
+            else -> LightColorScheme
+        },
+        typography = if (appearance == CafeAppearance.ART_DECO) decoTypography else Typography,
+        shapes = if (appearance == CafeAppearance.ART_DECO) {
+            Shapes(extraSmall = RoundedCornerShape(2.dp), small = RoundedCornerShape(4.dp),
+                medium = RoundedCornerShape(6.dp), large = RoundedCornerShape(8.dp), extraLarge = RoundedCornerShape(10.dp))
+        } else {
+            Shapes(extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(6.dp),
+                medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(14.dp), extraLarge = RoundedCornerShape(18.dp))
+        },
         content = content
     )
 }
