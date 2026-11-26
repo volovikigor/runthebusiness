@@ -36,8 +36,8 @@
     <string name="promotion_counts">Promotion · groups %1$d · lost to stock %2$d · lost to staffing %3$d</string>
     <string name="price_unchanged">Day %1$d ended at the previous price.</string>
     <string name="price_day_change">Day %1$d: %2$s → %3$s</string>
-    <string name="invoice_due">Due Day %1$d</string>
-    <string name="invoice_late">Overdue since Day %1$d</string>
+    <string name="invoice_due">Due · Day %1$d</string>
+    <string name="invoice_late">Late · Day %1$d</string>
     <string name="bank_and_till">Bank: %1$s · Cash: %2$s</string>
     <string name="rent_due_late">Rent payable: %1$s · days late: %2$d</string>
     <string name="payroll_due_late">Payroll payable: %1$s · days late: %2$d</string>
@@ -119,9 +119,9 @@
     <string name="forecast_traffic">%1$s · Day %2$d · guests: %3$d</string>
     <string name="forecast_promo">Groups attracted by promotions: %1$d</string>
     <string name="operation_error">The action could not be completed. Check the balance, available stock or payment terms.</string>
-    <string name="bill_due_cycle">Due since Day %1$d · next cycle Day %2$d</string>
-    <string name="bill_accrued_cycle">Accrued so far · next cycle Day %1$d</string>
+    <string name="bill_next_cycle">Next cycle · Day %1$d</string>
     <string name="tax_vat">VAT</string>
     <string name="bill_social">Social contributions</string>
     <string name="bill_corporate">Corporate income tax</string>
+    <string name="bill_paid_day">Paid · Day %1$d</string>
 </resources>

@@ -62,7 +62,7 @@
     <string name="learning_gap_example">Bank €200 · Till €500 · Bill €600.\nMove €400 from the till to the bank before paying. The transfer changes where the money is held. Total cash drops only when the bill is paid.</string>
     <string name="learning_credit_example">A €300 order paid in seven days leaves €300 available today. In Forecast, check whether the €300 invoice and any wages or rent still fit on the due date.</string>
     <string name="learning_line_body">Find Credit line under Finance → Forecast. If the forecast still shows a shortfall after reviewing stock purchases and till deposits, use the credit line for the amount needed and plan to repay it. Interest accrues daily on the outstanding draw. Check Forecast again after the draw.</string>
-    <string name="learning_line_example">If the gap is €250 and the line allows €1,000, draw €250. When bank funds recover, consider repaying it after checking the next bills.</string>
+    <string name="learning_line_example">If the gap is €250 and €1,000 is still available on the line, draw €250. When bank funds recover, consider repaying it after checking the next bills.</string>
     <string name="learning_loan_example">A €700 instalment has €600 of principal and €100 of interest.\nBank falls €700. Balance Sheet debt falls €600. The €100 interest is an expense in P&amp;L in the period it accrues.</string>
     <string name="learning_example">Example</string>
     <string name="learning_open_page">Open %1$s</string>

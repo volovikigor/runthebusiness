@@ -62,7 +62,7 @@
     <string name="learning_gap_example">Banco 200 € · Caja 500 € · Factura 600 €.\nPasa 400 € de caja al banco antes de pagar. El traspaso cambia dónde está el dinero. El efectivo total baja al pagar la factura.</string>
     <string name="learning_credit_example">Aplazar siete días un pedido de 300 € deja esos 300 € hoy. En Previsión comprueba si en la nueva fecha puedes pagar esa factura, nóminas y alquiler.</string>
     <string name="learning_line_body">Busca Línea de crédito en Finanzas → Previsión. Si queda un déficit tras revisar compras e ingresos de caja, usa solo el importe necesario y planifica su devolución. El saldo dispuesto devenga intereses diarios. Vuelve a revisar Previsión.</string>
-    <string name="learning_line_example">Si faltan 250 € y el límite es 1.000 €, usa 250 €. Cuando se recupere el saldo del banco, revisa las próximas facturas antes de devolverlo.</string>
+    <string name="learning_line_example">Si faltan 250 € y quedan 1.000 € disponibles en la línea, usa 250 €. Cuando se recupere el saldo del banco, revisa las próximas facturas antes de devolverlo.</string>
     <string name="learning_loan_example">Una cuota de 700 € incluye 600 € de principal y 100 € de intereses.\nEl banco baja 700 €. La deuda en Balance baja 600 €. Los 100 € de intereses son gasto del periodo en que se devengan.</string>
     <string name="learning_example">Ejemplo</string>
     <string name="learning_open_page">Abrir %1$s</string>

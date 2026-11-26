@@ -264,8 +264,9 @@ internal fun CafeFinanceScreen(
                     if (line.account.substringBefore(' ') == "1100") line.creditCents else 0L
                 }
                 CafeLedgerPanel {
-                    Text(stringResource(R.string.loan_last_paid, lastPayment.day, money(total)),
-                        style = MaterialTheme.typography.titleSmall)
+                    FinanceAmountRow(stringResource(R.string.loan_last_paid), total)
+                    Text(stringResource(R.string.bill_paid_day, lastPayment.day),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(onClick = {
                         openJournal("2100")
                         selectedDay = lastPayment.day
@@ -301,36 +302,42 @@ internal fun CafeFinanceScreen(
                     invoices.forEach { invoice ->
                         val overdue = today != null && invoice.dueDay < today
                         CafeLedgerPanel {
-                        FinanceAmountRow(supplierInvoiceLabel(invoice.label), invoice.amountCents)
-                        Text(stringResource(if (overdue) R.string.invoice_late else R.string.invoice_due, invoice.dueDay),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(enabled = !busy && position.bankCents >= invoice.amountCents,
-                            onClick = { paymentAction { cashRepo.paySupplier(invoice.id) } }
-                        ) { Text(stringResource(R.string.pay_supplier)) }
+                            FinanceAmountRow(supplierInvoiceLabel(invoice.label), invoice.amountCents)
+                            Text(stringResource(if (overdue) R.string.invoice_late else R.string.invoice_due, invoice.dueDay),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(enabled = !busy && position.bankCents >= invoice.amountCents,
+                                onClick = { paymentAction { cashRepo.paySupplier(invoice.id) } }
+                            ) { Text(stringResource(R.string.pay_supplier)) }
                         }
                     }
                     recurring.forEach { bill ->
                         val dueDay = if (dueNow) bill.nextDueDay - bill.periodDays else bill.nextDueDay
                         val overdue = dueNow && today != null && dueDay < today
                         CafeLedgerPanel {
-                        FinanceAmountRow(bill.label, if (dueNow) bill.due else bill.accrued)
-                        Text(
-                            if (dueNow) stringResource(R.string.bill_due_cycle, dueDay, bill.nextDueDay)
-                            else stringResource(R.string.bill_accrued_cycle, dueDay),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.auto_pay), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            Switch(checked = bill.automatic, enabled = !busy,
-                                onCheckedChange = { enabled -> paymentAction { billsRepo.setAutomatic(bill.account, enabled) } })
+                            FinanceAmountRow(bill.label, if (dueNow) bill.due else bill.accrued)
                             if (dueNow) {
-                                TextButton(enabled = !busy && position.bankCents >= bill.due,
-                                    onClick = { paymentAction { cashRepo.pay(bill.account, amountCents = bill.due) } }
-                                ) { Text(stringResource(R.string.pay_due)) }
+                                Text(
+                                    stringResource(if (overdue) R.string.invoice_late else R.string.invoice_due, dueDay),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        }
+                            Text(
+                                stringResource(R.string.bill_next_cycle, bill.nextDueDay),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.auto_pay), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                Switch(checked = bill.automatic, enabled = !busy,
+                                    onCheckedChange = { enabled -> paymentAction { billsRepo.setAutomatic(bill.account, enabled) } })
+                                if (dueNow) {
+                                    TextButton(enabled = !busy && position.bankCents >= bill.due,
+                                        onClick = { paymentAction { cashRepo.pay(bill.account, amountCents = bill.due) } }
+                                    ) { Text(stringResource(R.string.pay_due)) }
+                                }
+                            }
                         }
                     }
                 }
@@ -667,7 +674,7 @@ private fun OperatingBreakdown(current: FinancialPeriod, previous: FinancialPeri
             }
             if (expanded && mix.isNotEmpty()) {
                 Text(stringResource(R.string.strategy_sales_mix), style = MaterialTheme.typography.titleSmall)
-                FinanceTableRow("", listOf(cafeLabel("Current"), cafeLabel("Previous")), heading = true, ruled = true)
+                FinanceTableRow("", listOf("Current", "Previous"), heading = true, ruled = true)
                 mix.forEach { item ->
                     val now = current.salesMix.firstOrNull { it.productId == item.productId }?.units ?: 0L
                     val before = previous?.let { period ->
@@ -679,7 +686,7 @@ private fun OperatingBreakdown(current: FinancialPeriod, previous: FinancialPeri
             }
             if (expanded && ingredients.isNotEmpty()) {
                 Text(stringResource(R.string.strategy_ingredient_costs), style = MaterialTheme.typography.titleSmall)
-                FinanceTableRow("", listOf(cafeLabel("Current"), cafeLabel("Previous")), heading = true, ruled = true)
+                FinanceTableRow("", listOf("Current", "Previous"), heading = true, ruled = true)
                 ingredients.forEach { item ->
                     val scale = if (item.unit in setOf("g", "ml")) 100 else 1
                     fun cost(period: FinancialPeriod?): String {
@@ -779,7 +786,9 @@ private fun FinanceTableRow(
                 color = if (linked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
                 fontWeight = if (bold) FontWeight.SemiBold else null)
-            values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold || heading) }
+            values.forEach { value ->
+                LedgerAmount(if (heading) cafeLabel(value) else value, Modifier.weight(1f), bold = bold || heading)
+            }
         }
         if (ruled) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))

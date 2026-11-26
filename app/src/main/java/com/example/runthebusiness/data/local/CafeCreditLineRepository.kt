@@ -11,6 +11,11 @@ import java.util.UUID
 internal const val CREDIT_LINE_PRINCIPAL = "2120"
 internal const val CREDIT_LINE_INTEREST = "2121"
 
+internal val cafeCreditAccountNames = mapOf(
+    CREDIT_LINE_PRINCIPAL to "Credit line principal",
+    CREDIT_LINE_INTEREST to "Credit line interest payable"
+)
+
 data class CafeCreditLine(val principalCents: Long, val interestCents: Long) {
     val availableCents: Long get() = (LIMIT_CENTS - principalCents).coerceAtLeast(0L)
     val owedCents: Long get() = principalCents + interestCents
@@ -38,8 +43,7 @@ class CafeCreditLineRepository(context: Context) {
         val setup = db.gameSetupDao()
         val businessId = setup.getBusinesses(sessionId).single().id
         val accounts = setup.getAccounts(sessionId).map { it.code }.toSet()
-        val missingAccounts = listOf(CREDIT_LINE_PRINCIPAL to "Credit line principal",
-            CREDIT_LINE_INTEREST to "Credit line interest payable").filterNot { (code, _) -> code in accounts }
+        val missingAccounts = cafeCreditAccountNames.filterKeys { it !in accounts }
         if (missingAccounts.isNotEmpty()) {
             setup.insertAccounts(missingAccounts.map { (code, name) ->
                 LedgerAccountEntity(sessionId, businessId, code, name, "LIABILITY")

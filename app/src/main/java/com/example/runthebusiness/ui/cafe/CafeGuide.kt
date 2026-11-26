@@ -3,6 +3,7 @@ package com.example.runthebusiness.ui.cafe
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -200,6 +201,7 @@ internal fun CafeLearningGuide(
                                     style = MaterialTheme.typography.headlineSmall
                                 )
                             }
+                            if (chapter == CafeGuideChapter.ACCOUNTING) item { CafeGuideChart() }
                             items(guideLessons(chapter)) { lesson ->
                                 CafeLedgerPanel {
                                     Text(
@@ -217,18 +219,41 @@ internal fun CafeLearningGuide(
                                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 Text(stringResource(R.string.learning_example), style = MaterialTheme.typography.titleSmall)
                                                 Text(stringResource(example), style = MaterialTheme.typography.bodyLarge)
+                                                CafeGuideExampleTable(example)
                                             }
                                         }
                                     }
-                                    if (lesson.destination != null && onDestination != null) {
-                                        TextButton(onClick = { onDestination(lesson.destination) }) {
-                                            Text(stringResource(R.string.learning_open_page, stringResource(lesson.destination.title)))
+                                    val destination = lesson.destination?.takeIf { onDestination != null }
+                                    if (destination != null || lesson.related != null) {
+                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            destination?.let {
+                                                TextButton(
+                                                    onClick = { onDestination?.invoke(it) },
+                                                    contentPadding = PaddingValues(horizontal = 0.dp)
+                                                ) {
+                                                    Text(stringResource(R.string.learning_open_page, stringResource(it.title)))
+                                                }
+                                            }
+                                            lesson.related?.let { related ->
+                                                TextButton(
+                                                    onClick = { onChapter(related) },
+                                                    contentPadding = PaddingValues(horizontal = 0.dp)
+                                                ) { Text(stringResource(related.title)) }
+                                            }
                                         }
                                     }
-                                    lesson.related?.let { related ->
-                                        TextButton(onClick = { onChapter(related) }) { Text(stringResource(related.title)) }
-                                    }
                                 }
+                            }
+                            if (chapter == CafeGuideChapter.ACCOUNTING) {
+                                item {
+                                    Text(
+                                        stringResource(R.string.guide_entries_title),
+                                        Modifier.semantics { heading() },
+                                        style = MaterialTheme.typography.titleLarge
+                                    )
+                                    Text(stringResource(R.string.guide_entries_note), style = MaterialTheme.typography.bodyMedium)
+                                }
+                                items(guidePostings, key = { it.title }) { CafeGuidePosting(it) }
                             }
                         }
                     }

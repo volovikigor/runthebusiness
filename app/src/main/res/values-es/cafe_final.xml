@@ -36,8 +36,8 @@
     <string name="promotion_counts">Promoción · grupos %1$d · sin existencias %2$d · sin personal %3$d</string>
     <string name="price_unchanged">El día %1$d terminó con el precio anterior.</string>
     <string name="price_day_change">Día %1$d: %2$s → %3$s</string>
-    <string name="invoice_due">Vence el día %1$d</string>
-    <string name="invoice_late">Vencida desde el día %1$d</string>
+    <string name="invoice_due">Vence · día %1$d</string>
+    <string name="invoice_late">Vencida · día %1$d</string>
     <string name="bank_and_till">Banco: %1$s · Caja: %2$s</string>
     <string name="rent_due_late">Alquiler por pagar: %1$s · días de atraso: %2$d</string>
     <string name="payroll_due_late">Nóminas pendientes: %1$s · días de atraso: %2$d</string>
@@ -119,9 +119,9 @@
     <string name="forecast_traffic">%1$s · día %2$d · clientes: %3$d</string>
     <string name="forecast_promo">Grupos atraídos por promociones: %1$d</string>
     <string name="operation_error">No se pudo completar la acción. Revisa el saldo, las existencias o las condiciones de pago.</string>
-    <string name="bill_due_cycle">Pendiente desde el día %1$d · próximo ciclo el día %2$d</string>
-    <string name="bill_accrued_cycle">Devengado hasta ahora · próximo ciclo el día %1$d</string>
+    <string name="bill_next_cycle">Próximo ciclo · día %1$d</string>
     <string name="tax_vat">IVA</string>
     <string name="bill_social">Cotizaciones sociales</string>
     <string name="bill_corporate">Impuesto sobre beneficios</string>
+    <string name="bill_paid_day">Pagado · día %1$d</string>
 </resources>

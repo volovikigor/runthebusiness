@@ -8,6 +8,43 @@ internal object CafeStartingFactory {
 
     private val accounting = AccountingEngine()
 
+    val startingAccounts = listOf(
+        LedgerAccount("1000", "Cash", AccountType.ASSET),
+        LedgerAccount("1100", "Bank", AccountType.ASSET),
+        LedgerAccount("1200", "Card receivables", AccountType.ASSET),
+        LedgerAccount("1300", "Customer receivables", AccountType.ASSET),
+        LedgerAccount("1400", "Inventory", AccountType.ASSET),
+        LedgerAccount("1500", "Equipment", AccountType.ASSET),
+        LedgerAccount("1590", "Accumulated depreciation", AccountType.ASSET),
+        LedgerAccount("1600", "Input VAT", AccountType.ASSET),
+
+        LedgerAccount("2000", "Rent payable", AccountType.LIABILITY),
+        LedgerAccount("2010", "Supplier invoices payable", AccountType.LIABILITY),
+        LedgerAccount("2100", "Loan payable", AccountType.LIABILITY),
+        LedgerAccount("2110", "Interest payable", AccountType.LIABILITY),
+        LedgerAccount("2200", "Output VAT", AccountType.LIABILITY),
+        LedgerAccount("2300", "Salaries payable", AccountType.LIABILITY),
+        LedgerAccount("2400", "Social security payable", AccountType.LIABILITY),
+        LedgerAccount("2500", "Payroll withholding payable", AccountType.LIABILITY),
+        LedgerAccount("2600", "Corporate tax payable", AccountType.LIABILITY),
+
+        LedgerAccount("3000", "Owner equity", AccountType.EQUITY),
+        LedgerAccount("3100", "Retained earnings", AccountType.EQUITY),
+
+        LedgerAccount("4000", "Sales revenue", AccountType.REVENUE),
+
+        LedgerAccount("5000", "Cost of goods sold", AccountType.EXPENSE),
+        LedgerAccount("5100", "Spoilage expense", AccountType.EXPENSE),
+        LedgerAccount("5200", "Gross salaries", AccountType.EXPENSE),
+        LedgerAccount("5300", "Employer social security", AccountType.EXPENSE),
+        LedgerAccount("5400", "Rent expense", AccountType.EXPENSE),
+        LedgerAccount("5500", "Utilities and other expenses", AccountType.EXPENSE),
+        LedgerAccount("5600", "Depreciation expense", AccountType.EXPENSE),
+        LedgerAccount("5700", "Interest expense", AccountType.EXPENSE),
+        LedgerAccount("5800", "Corporate income tax expense", AccountType.EXPENSE),
+        LedgerAccount("5900", "Bank fees", AccountType.EXPENSE)
+    )
+
     fun create(
         config: StartingConfiguration = StartingConfiguration()
     ): SimulationState {
@@ -110,43 +147,6 @@ internal object CafeStartingFactory {
             nextPaymentAt = GameTime(day = 31, hour = 9)
         )
 
-        val accounts = listOf(
-            LedgerAccount("1000", "Cash", AccountType.ASSET),
-            LedgerAccount("1100", "Bank", AccountType.ASSET),
-            LedgerAccount("1200", "Card receivables", AccountType.ASSET),
-            LedgerAccount("1300", "Customer receivables", AccountType.ASSET),
-            LedgerAccount("1400", "Inventory", AccountType.ASSET),
-            LedgerAccount("1500", "Equipment", AccountType.ASSET),
-            LedgerAccount("1590", "Accumulated depreciation", AccountType.ASSET),
-            LedgerAccount("1600", "Input VAT", AccountType.ASSET),
-
-            LedgerAccount("2000", "Rent payable", AccountType.LIABILITY),
-            LedgerAccount("2010", "Supplier invoices payable", AccountType.LIABILITY),
-            LedgerAccount("2100", "Loan payable", AccountType.LIABILITY),
-            LedgerAccount("2110", "Interest payable", AccountType.LIABILITY),
-            LedgerAccount("2200", "Output VAT", AccountType.LIABILITY),
-            LedgerAccount("2300", "Salaries payable", AccountType.LIABILITY),
-            LedgerAccount("2400", "Social security payable", AccountType.LIABILITY),
-            LedgerAccount("2500", "Payroll withholding payable", AccountType.LIABILITY),
-            LedgerAccount("2600", "Corporate tax payable", AccountType.LIABILITY),
-
-            LedgerAccount("3000", "Owner equity", AccountType.EQUITY),
-            LedgerAccount("3100", "Retained earnings", AccountType.EQUITY),
-
-            LedgerAccount("4000", "Sales revenue", AccountType.REVENUE),
-
-            LedgerAccount("5000", "Cost of goods sold", AccountType.EXPENSE),
-            LedgerAccount("5100", "Spoilage expense", AccountType.EXPENSE),
-            LedgerAccount("5200", "Gross salaries", AccountType.EXPENSE),
-            LedgerAccount("5300", "Employer social security", AccountType.EXPENSE),
-            LedgerAccount("5400", "Rent expense", AccountType.EXPENSE),
-            LedgerAccount("5500", "Utilities and other expenses", AccountType.EXPENSE),
-            LedgerAccount("5600", "Depreciation expense", AccountType.EXPENSE),
-            LedgerAccount("5700", "Interest expense", AccountType.EXPENSE),
-            LedgerAccount("5800", "Corporate income tax expense", AccountType.EXPENSE),
-            LedgerAccount("5900", "Bank fees", AccountType.EXPENSE)
-        )
-
         var state = SimulationState(
             currentTime = startTime,
             businesses = listOf(business),
@@ -155,7 +155,7 @@ internal object CafeStartingFactory {
             equipment = listOf(equipment),
             inventory = listOf(inventoryItem),
             inventoryBatches = listOf(inventoryBatch),
-            ledgerAccounts = accounts,
+            ledgerAccounts = startingAccounts.map { it.copy() },
             loans = listOf(loan),
             financeConfiguration = FinanceConfiguration(
                 countryCode = config.countryCode,
