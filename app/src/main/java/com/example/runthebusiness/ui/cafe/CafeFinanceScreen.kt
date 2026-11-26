@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.runthebusiness.R
+import com.example.runthebusiness.data.local.FinancialPeriod
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.runthebusiness.data.local.CafeFinancialStatementsRepository
@@ -591,6 +592,7 @@ private fun ComparativeReport(
                     ComparisonRow("Excluding VAT", nowAverage, beforeAverage)
                 ))
             }
+            OperatingBreakdown(current, previous)
             OutlinedButton(onClick = { showDaily = !showDaily }) {
                 Text(stringResource(if (showDaily) R.string.hide_daily else R.string.show_daily))
             }
@@ -645,6 +647,50 @@ private fun ComparativeReport(
             }
             Text(stringResource(R.string.internal_deposits),
                 style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun OperatingBreakdown(current: FinancialPeriod, previous: FinancialPeriod?) {
+    CafeLedgerPanel {
+        Text(stringResource(R.string.strategy_margin_drivers), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.strategy_margin_hint), style = MaterialTheme.typography.bodyMedium)
+        val mix = (current.salesMix + previous?.salesMix.orEmpty()).distinctBy { it.productId }
+        val ingredients = (current.ingredientCosts + previous?.ingredientCosts.orEmpty()).distinctBy { it.ingredientId }
+        if (mix.isEmpty() && ingredients.isEmpty()) {
+            Text(stringResource(R.string.strategy_no_operating_data), style = MaterialTheme.typography.bodyMedium)
+        } else {
+            var expanded by remember { mutableStateOf(false) }
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(stringResource(if (expanded) R.string.strategy_hide_breakdown else R.string.strategy_show_breakdown))
+            }
+            if (expanded && mix.isNotEmpty()) {
+                Text(stringResource(R.string.strategy_sales_mix), style = MaterialTheme.typography.titleSmall)
+                FinanceTableRow("", listOf(cafeLabel("Current"), cafeLabel("Previous")), heading = true, ruled = true)
+                mix.forEach { item ->
+                    val now = current.salesMix.firstOrNull { it.productId == item.productId }?.units ?: 0L
+                    val before = previous?.let { period ->
+                        period.salesMix.firstOrNull { it.productId == item.productId }?.units ?: 0L
+                    }
+                    FinanceTableRow(cafeProductName(item.productId, item.productName),
+                        listOf(now.toString(), before?.toString() ?: "—"), ruled = true)
+                }
+            }
+            if (expanded && ingredients.isNotEmpty()) {
+                Text(stringResource(R.string.strategy_ingredient_costs), style = MaterialTheme.typography.titleSmall)
+                FinanceTableRow("", listOf(cafeLabel("Current"), cafeLabel("Previous")), heading = true, ruled = true)
+                ingredients.forEach { item ->
+                    val scale = if (item.unit in setOf("g", "ml")) 100 else 1
+                    fun cost(period: FinancialPeriod?): String {
+                        val cents = period?.ingredientCosts?.firstOrNull { it.ingredientId == item.ingredientId }?.unitCostCents
+                            ?: return "—"
+                        return "€%.2f".format(Locale.ROOT, cents * scale / 100)
+                    }
+                    val name = cafeProductName(item.ingredientId, item.ingredientName)
+                    FinanceTableRow("$name · $scale ${item.unit}", listOf(cost(current), cost(previous)), ruled = true)
+                }
+            }
         }
     }
 }

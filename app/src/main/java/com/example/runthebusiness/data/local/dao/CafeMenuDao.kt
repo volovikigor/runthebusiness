@@ -17,6 +17,15 @@ interface CafeMenuDao {
     @Query("SELECT * FROM cafe_price_changes WHERE productId = :productId ORDER BY gameDay DESC LIMIT 2")
     suspend fun latestPriceChanges(productId: String): List<CafePriceChangeEntity>
 
+    @Query("""
+        SELECT c.* FROM cafe_price_changes c JOIN cafe_products p ON p.id = c.productId
+        WHERE p.locationId = :locationId AND c.gameDay = (
+            SELECT MAX(h.gameDay) FROM cafe_price_changes h WHERE h.productId = c.productId
+        ) AND c.previousCents != c.currentCents
+        ORDER BY c.gameDay DESC, c.rowid DESC
+    """)
+    suspend fun latestChangedProducts(locationId: String): List<CafePriceChangeEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun savePriceChange(change: CafePriceChangeEntity)
 

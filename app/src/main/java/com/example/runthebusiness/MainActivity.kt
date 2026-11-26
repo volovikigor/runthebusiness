@@ -28,6 +28,7 @@ import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
 import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
 import com.example.runthebusiness.ui.cafe.CafeHomeScreen
 import com.example.runthebusiness.ui.cafe.CafeGuideChapter
+import com.example.runthebusiness.ui.cafe.CafeGuideDestination
 import com.example.runthebusiness.ui.cafe.CafeLearningGuide
 import com.example.runthebusiness.ui.cafe.CafeRunMusic
 import com.example.runthebusiness.ui.cafe.CafeMusicTrack
@@ -132,6 +133,35 @@ class MainActivity : ComponentActivity() {
                         pauseForNavigation()
                         selectedTab = tabHistory.removeAt(tabHistory.lastIndex)
                     }
+                }
+                var guideDestinationRequest by remember { mutableIntStateOf(0) }
+                fun openGuideDestination(destination: CafeGuideDestination) {
+                    guideOpen = false
+                    when (destination) {
+                        CafeGuideDestination.CAFE -> navigateTab(0)
+                        CafeGuideDestination.PRICING, CafeGuideDestination.PURCHASING,
+                        CafeGuideDestination.INVENTORY, CafeGuideDestination.STAFF -> {
+                            operationsSection = when (destination) {
+                                CafeGuideDestination.PURCHASING -> 1
+                                CafeGuideDestination.INVENTORY -> 2
+                                CafeGuideDestination.STAFF -> 3
+                                else -> 0
+                            }
+                            navigateTab(1)
+                        }
+                        else -> {
+                            financeTarget = when (destination) {
+                                CafeGuideDestination.BILLS -> "Bills"
+                                CafeGuideDestination.PROFIT -> "P&L"
+                                CafeGuideDestination.BALANCE -> "BS"
+                                CafeGuideDestination.CASH_FLOW -> "Cash Flow"
+                                CafeGuideDestination.JOURNAL -> "Journal"
+                                else -> "Forecast"
+                            }
+                            navigateTab(2)
+                        }
+                    }
+                    guideDestinationRequest++
                 }
                 LaunchedEffect(simulation) {
                     try {
@@ -316,16 +346,20 @@ class MainActivity : ComponentActivity() {
                             onOpenFinance = { financeTarget = "Bills"; navigateTab(2) },
                             onOpenGuide = { openGuide(null) }
                         )
-                        1 -> CafeDashboardScreen(
-                            modifier = Modifier.padding(padding),
-                            requestedSection = operationsSection,
-                            onOpenGuide = ::openGuide
-                        )
-                        2 -> CafeFinanceScreen(
-                            modifier = Modifier.padding(padding),
-                            requestedSection = financeTarget,
-                            onOpenGuide = ::openGuide
-                        )
+                        1 -> key(guideDestinationRequest) {
+                            CafeDashboardScreen(
+                                modifier = Modifier.padding(padding),
+                                requestedSection = operationsSection,
+                                onOpenGuide = ::openGuide
+                            )
+                        }
+                        2 -> key(guideDestinationRequest) {
+                            CafeFinanceScreen(
+                                modifier = Modifier.padding(padding),
+                                requestedSection = financeTarget,
+                                onOpenGuide = ::openGuide
+                            )
+                        }
                         else -> CafeFinanceScreen(modifier = Modifier.padding(padding), onOpenGuide = ::openGuide)
                     }
                 }
@@ -333,7 +367,8 @@ class MainActivity : ComponentActivity() {
                     CafeLearningGuide(
                         chapter = guideChapter,
                         onChapter = { guideChapter = it },
-                        onClose = { guideOpen = false }
+                        onClose = { guideOpen = false },
+                        onDestination = if (time != null && !restoring && !settingUp) ::openGuideDestination else null
                     )
                 }
             }
