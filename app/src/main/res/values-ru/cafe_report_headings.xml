@@ -1,0 +1,9 @@
+<resources>
+    <string name="table_current">Тек.</string>
+    <string name="table_previous">Пред.</string>
+    <string name="table_change">Разница</string>
+    <string name="table_bought">Закуп.</string>
+    <string name="table_used">Расход</string>
+    <string name="table_waste">Спис.</string>
+    <string name="table_stock_left">Остаток</string>
+</resources>

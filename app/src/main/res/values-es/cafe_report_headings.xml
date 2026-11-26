@@ -1,0 +1,9 @@
+<resources>
+    <string name="table_current">Actual</string>
+    <string name="table_previous">Ant.</string>
+    <string name="table_change">Cambio</string>
+    <string name="table_bought">Compra</string>
+    <string name="table_used">Uso</string>
+    <string name="table_waste">Merma</string>
+    <string name="table_stock_left">Final</string>
+</resources>

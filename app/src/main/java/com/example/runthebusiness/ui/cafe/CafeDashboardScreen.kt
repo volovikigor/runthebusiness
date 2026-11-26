@@ -1,5 +1,6 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.CafeTableHeading
 import com.example.runthebusiness.ui.components.cafeLabel
 import com.example.runthebusiness.ui.components.cafeProductName
 import androidx.compose.ui.res.stringResource
@@ -460,7 +461,12 @@ internal fun CafeDashboardScreen(
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
                         val tableWidth = maxWidth.coerceAtLeast(360.dp)
                         Column(Modifier.horizontalScroll(rememberScrollState()).width(tableWidth)) {
-                            StockTableRow("Ingredient", listOf("Start", "Bought", "Used", "Waste", "End"))
+                            StockTableRow(
+                                stringResource(R.string.ingredient),
+                                listOf(R.string.start_balance, R.string.table_bought, R.string.table_used,
+                                    R.string.table_waste, R.string.table_stock_left).map { stringResource(it) },
+                                heading = true
+                            )
                             report.items.forEach { item ->
                                 val expanded = openIngredient == item.id
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -502,13 +508,23 @@ private fun InventoryPeriod.columns(): List<String> =
     listOf(opening, purchased, consumed, writtenOff, closing).map(::stockQuantity)
 
 @Composable
-private fun StockTableRow(label: String, values: List<String>, modifier: Modifier = Modifier) {
+private fun StockTableRow(
+    label: String,
+    values: List<String>,
+    modifier: Modifier = Modifier,
+    heading: Boolean = false
+) {
     Row(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(cafeLabel(label), Modifier.weight(2.1f), style = MaterialTheme.typography.labelSmall)
-        values.forEach { value ->
-            Text(cafeLabel(value), Modifier.weight(1f), textAlign = TextAlign.End,
-                style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"))
+        if (heading) {
+            CafeTableHeading(label, Modifier.weight(2.1f))
+            values.forEach { CafeTableHeading(it, Modifier.weight(1f), numeric = true) }
+        } else {
+            Text(label, Modifier.weight(2.1f), style = MaterialTheme.typography.labelSmall)
+            values.forEach { value ->
+                Text(value, Modifier.weight(1f), textAlign = TextAlign.End,
+                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"))
+            }
         }
     }
 }

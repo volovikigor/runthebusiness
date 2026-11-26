@@ -1,5 +1,6 @@
 package com.example.runthebusiness.ui.components
 
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
@@ -22,7 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun CafeSectionScreen(
@@ -162,4 +166,18 @@ fun CafeActionButton(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ), content = content)
+}
+
+@Composable
+internal fun CafeTableHeading(text: String, modifier: Modifier = Modifier, numeric: Boolean = false) {
+    Text(
+        text,
+        modifier,
+        style = MaterialTheme.typography.labelMedium,
+        textAlign = if (numeric) TextAlign.End else TextAlign.Start,
+        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 12.sp, stepSize = 0.5.sp),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis
+    )
 }
