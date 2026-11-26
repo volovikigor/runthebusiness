@@ -1,5 +1,6 @@
 package com.example.runthebusiness.ui.cafe
 
+import com.example.runthebusiness.ui.components.CafeTableHeading
 import com.example.runthebusiness.ui.components.cafeLabel
 import com.example.runthebusiness.ui.components.cafeJournalAccount
 import com.example.runthebusiness.ui.components.cafeProductName
@@ -782,12 +783,23 @@ private fun FinanceTableRow(
         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(cafeJournalAccount(label) + if (linked) " ›" else "", Modifier.weight(labelWeight),
-                color = if (linked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                style = if (heading) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
-                fontWeight = if (bold) FontWeight.SemiBold else null)
-            values.forEach { value ->
-                LedgerAmount(if (heading) cafeLabel(value) else value, Modifier.weight(1f), bold = bold || heading)
+            if (heading) {
+                CafeTableHeading(cafeJournalAccount(label), Modifier.weight(labelWeight))
+                values.forEach { value ->
+                    val title = when (value) {
+                        "Current" -> stringResource(R.string.table_current)
+                        "Previous" -> stringResource(R.string.table_previous)
+                        "Change" -> stringResource(R.string.table_change)
+                        else -> cafeLabel(value)
+                    }
+                    CafeTableHeading(title, Modifier.weight(1f), numeric = true)
+                }
+            } else {
+                Text(cafeJournalAccount(label) + if (linked) " ›" else "", Modifier.weight(labelWeight),
+                    color = if (linked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (bold) FontWeight.SemiBold else null)
+                values.forEach { LedgerAmount(it, Modifier.weight(1f), bold = bold) }
             }
         }
         if (ruled) {
