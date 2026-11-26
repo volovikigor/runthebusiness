@@ -36,8 +36,8 @@
     <string name="promotion_counts">Акция · групп: %1$d · потери из-за запасов: %2$d · из-за персонала: %3$d</string>
     <string name="price_unchanged">День %1$d завершился с прежней ценой.</string>
     <string name="price_day_change">День %1$d: %2$s → %3$s</string>
-    <string name="invoice_due">Срок оплаты: день %1$d</string>
-    <string name="invoice_late">Просрочено с %1$d-го дня</string>
+    <string name="invoice_due">Срок · день %1$d</string>
+    <string name="invoice_late">Просрочено · день %1$d</string>
     <string name="bank_and_till">Счёт: %1$s · Касса: %2$s</string>
     <string name="rent_due_late">Аренда к оплате: %1$s · дней просрочки: %2$d</string>
     <string name="payroll_due_late">Зарплата к оплате: %1$s · дней просрочки: %2$d</string>
@@ -119,8 +119,7 @@
     <string name="forecast_traffic">%1$s · день %2$d · гостей: %3$d</string>
     <string name="forecast_promo">Групп по акциям: %1$d</string>
     <string name="operation_error">Не удалось выполнить действие. Проверьте остаток на счёте, запасы или условия оплаты.</string>
-    <string name="bill_due_cycle">К оплате с дня %1$d · следующий цикл: день %2$d</string>
-    <string name="bill_accrued_cycle">Начислено к текущему дню · следующий цикл: день %1$d</string>
+    <string name="bill_next_cycle">Следующий срок · день %1$d</string>
     <string name="tax_vat">НДС</string>
     <string name="bill_social">Социальные взносы</string>
     <string name="bill_corporate">Налог на прибыль</string>
@@ -129,4 +128,5 @@
     <string name="debug_refresh">Обновить</string>
     <string name="debug_seed">Записать начальные проводки</string>
     <string name="debug_empty">Записей нет</string>
+    <string name="bill_paid_day">Оплачено · день %1$d</string>
 </resources>
