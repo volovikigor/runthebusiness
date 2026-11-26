@@ -116,10 +116,7 @@ private fun CafeKpiPanel(
     val totalLosses = rankedLosses.sumOf { it.second }
     val colors = MaterialTheme.colorScheme
     CafeLedgerPanel {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.cafe_overview), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            CafeGuideButton(stringResource(R.string.guide_button), R.string.guide_cafe)
-        }
+        Text(stringResource(R.string.cafe_overview), style = MaterialTheme.typography.titleMedium)
         Text(
             if (window.isEmpty()) stringResource(R.string.kpi_no_days)
             else stringResource(R.string.kpi_days_range, window.first, window.last),
@@ -192,7 +189,7 @@ private fun KpiValue(label: String, value: String, modifier: Modifier, alert: Bo
 }
 
 @Composable
-fun CafeHomeScreen(
+internal fun CafeHomeScreen(
     modifier: Modifier = Modifier,
     speed: Int = 0,
     time: GameTime? = null,
@@ -200,7 +197,8 @@ fun CafeHomeScreen(
     onAppearanceChanged: (CafeAppearance) -> Unit = {},
     onStartGame: (Boolean) -> Unit = {},
     onOpenOperations: (Int) -> Unit = {},
-    onOpenFinance: () -> Unit = {}
+    onOpenFinance: () -> Unit = {},
+    onOpenGuide: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
     val dashboard = remember(context) { CafeDashboardRepository(context) }
@@ -296,13 +294,12 @@ fun CafeHomeScreen(
         val cafe = state
         if (cafe == null) {
             Text(stringResource(R.string.welcome), style = MaterialTheme.typography.headlineMedium)
+            OutlinedButton(onClick = onOpenGuide, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.learning_title))
+            }
             val opening = remember { CafeStartingConfiguration().business }
             CafeLedgerPanel {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.guide_intro_title), Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium)
-                    CafeGuideButton(stringResource(R.string.guide_button), R.string.guide_cafe)
-                }
+                Text(stringResource(R.string.guide_intro_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.guide_intro), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.opening_loan_brief, euro(opening.startingLoanCents)),
                     style = MaterialTheme.typography.bodyMedium)

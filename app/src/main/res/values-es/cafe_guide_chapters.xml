@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="learning_title">Guía del negocio</string>
+    <string name="learning_close">Cerrar</string>
+    <string name="learning_contents">Todos los capítulos</string>
+    <string name="learning_read_more">Abrir la guía</string>
+    <string name="learning_controls">Cómo funciona la partida</string>
+    <string name="learning_controls_summary">Abre la cafetería, pon el tiempo en marcha y encuentra las herramientas de gestión.</string>
+    <string name="learning_strategy">Estrategias para probar</string>
+    <string name="learning_strategy_summary">Prueba precios, compras y contratación, y comprueba qué cambia.</string>
+    <string name="learning_accounting">Contabilidad e informes</string>
+    <string name="learning_accounting_summary">Sigue una compra y una venta en los informes y el diario.</string>
+    <string name="learning_cash">Capital circulante y flujo de caja</string>
+    <string name="learning_cash_summary">Anticipa una falta de liquidez y compara formas de cubrirla.</string>
+    <string name="learning_cafe">Pulsa «Abrir cafetería» para crear el negocio. La cafetería abre según su horario. Usa ×1, ×5 o ×20 para avanzar y Pausa para decidir. En pausa puedes saltar al siguiente evento, decisión o día. Durante el salto se procesan ventas, entregas y pagos programados. En el resumen bajo la escena verás beneficio, grupos atendidos y motivos de pérdida. Intenta cerrar el primer mes con beneficio.</string>
+    <string name="learning_operations">En Precios, fija los precios y decide qué vender. En Compras, pide suministros y elige cuándo pagar. En Inventario, consulta consumo y mermas y abre un ingrediente para ver sus movimientos diarios. En Personal, revisa la capacidad y planifica contrataciones. Los cambios de plantilla se aplican al día siguiente.</string>
+    <string name="learning_finance">En Previsión puedes anticipar faltas de dinero en el banco y en Facturas revisar y pagar vencimientos. Resultados, Balance y Flujo de caja explican las cifras de los periodos seleccionados. Abre el Diario para ver sus asientos. La barra inferior cambia entre Cafetería, Operaciones y Finanzas, y los enlaces de las escenas llevan directamente a una sección.</string>
+    <string name="learning_appearance">Música y aspecto</string>
+    <string name="learning_appearance_body">El menú Música permite elegir una pista o silenciar el sonido. Cambia el tema visual en Cafetería → Ajustes durante la misma partida.</string>
+    <string name="learning_trial">Haz una comparación útil</string>
+    <string name="learning_trial_body">Toma varios días cerrados como referencia. Aplica un solo cambio y dale varios días. Anota unidades vendidas, margen bruto y motivos de pérdida de clientes. El resumen explica las pérdidas de servicio. En Finanzas → Resultados, comprueba si el margen adicional cubrió salarios y otros gastos. En Previsión, comprueba si queda dinero para pagar.</string>
+    <string name="learning_price_test">Prueba un cambio de precio</string>
+    <string name="learning_price_test_body">Ejemplo sin impuestos. A 4 € por plato y con un coste de ingredientes de 2 €, 30 ventas aportan 60 € de margen bruto. A 3,50 € necesitas 40 ventas para igualarlo. Prueba una pequeña rebaja en un plato con suficientes existencias y revisa Precios y el resumen. Si subes el precio, vigila los rechazos. El margen adicional por plato debe compensar las ventas perdidas.</string>
+    <string name="learning_capacity">Resuelve el cuello de botella</string>
+    <string name="learning_capacity_body">Si pierdes grupos porque falta un plato, pide el ingrediente y revisa fechas de entrega y caducidad. Si los perecederos caducan a menudo, prueba pedidos más pequeños. Si pierdes grupos por falta de capacidad del personal, compara el margen de las ventas recuperables con los salarios y las cotizaciones adicionales. Si contratar cuesta 40 € diarios y cada plato deja 2 € de margen, hacen falta 20 ventas adicionales para cubrir ese coste.</string>
+    <string name="learning_management">Contabilidad de gestión</string>
+    <string name="learning_management_body">Usa los datos operativos para elegir qué cambiar. Si subieron los ingresos, comprueba si atendiste a más grupos o si cada grupo gastó más. Si cayó el margen bruto, compara el coste de ingredientes y la mezcla de platos vendidos. En Inventario, concilia existencias iniciales más compras menos consumo y mermas con las existencias finales. El historial diario indica cuándo hubo pérdidas.</string>
+    <string name="learning_reports">Qué responde cada informe</string>
+    <string name="learning_reports_body">Resultados muestra qué ganó la cafetería tras gastos durante un periodo. Balance muestra activos, pasivos y patrimonio en una fecha. Flujo de caja explica de dónde vino el dinero y en qué se gastó. Compara periodos en Finanzas y usa los datos de clientes de Resultados para explicar las ventas. Toca una cuenta marcada con › en Resultados o Balance para abrir sus asientos.</string>
+    <string name="learning_postings">Sigue una factura y una venta</string>
+    <string name="learning_postings_body">Al recibir 120 € de suministros comprados a crédito, el diario carga existencias al debe y abona proveedores al haber. Al pagar, carga proveedores y abona banco. El pago aparece en Flujo de caja. Al vender un plato, el diario registra la venta y lleva el coste de los ingredientes consumidos de existencias a coste de ventas. Busca compra y venta en Diario y compara debe y haber.</string>
+    <string name="learning_gap">Detecta el déficit antes del vencimiento</string>
+    <string name="learning_gap_body">El capital circulante es el activo corriente, como efectivo y existencias, menos el pasivo corriente, como las deudas a proveedores. La previsión comprueba si habrá dinero al vencimiento. El dinero invertido en existencias vuelve al venderlas, mientras las facturas pendientes tienen vencimiento. Con 200 € en banco, 500 € en caja y una factura de 600 €, faltan 400 € en el banco. Ingresa 400 € de caja antes de pagar. El efectivo total queda igual. Revisa el saldo previsto en Previsión y la fecha en Facturas.</string>
+    <string name="learning_credit">Compara formas de cubrir el déficit</string>
+    <string name="learning_credit_body">Compras indica el plazo disponible: 7 días para productos de corta duración y 14 para el resto. Aplazar siete días un pedido de 300 € deja 300 € disponibles hoy. Comprueba si el banco podrá cubrir nóminas, alquiler y el pedido en su nueva fecha. Los impagos pueden afectar al negocio. Si sigue faltando dinero tras ingresar caja y revisar compras, usa de la línea de crédito solo lo necesario y planifica la devolución. El importe dispuesto devenga interés diario. Revisa Previsión después de cada cambio.</string>
+    <string name="learning_loan">Planifica el préstamo inicial</string>
+    <string name="learning_loan_body">La primera cuota vence el día 31 y las siguientes cada 30 días. Si una cuota de 700 € incluye 600 € de principal y 100 € de intereses, el banco baja 700 €. El principal reduce la deuda en Balance. Los 100 € de intereses son un gasto en Resultados. Compara Previsión, Balance y Flujo de caja alrededor del pago para ver los efectos.</string>
+    <string name="learning_forecast_hint">Comprueba la fecha y el importe del primer déficit previsto en el banco. Compara banco y caja y revisa los vencimientos en Facturas.</string>
+    <string name="learning_pricing_hint">Cambia el precio de un solo plato a la vez. Compara unidades, margen y grupos perdidos por precio, existencias o capacidad entre días cerrados.</string>
+</resources>
