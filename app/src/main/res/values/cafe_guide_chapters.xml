@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="learning_title">Business guide</string>
+    <string name="learning_close">Close</string>
+    <string name="learning_contents">All chapters</string>
+    <string name="learning_read_more">Read the guide</string>
+    <string name="learning_controls">Getting started</string>
+    <string name="learning_controls_summary">Open the café, run time and find the tools for each decision.</string>
+    <string name="learning_strategy">Strategies to try</string>
+    <string name="learning_strategy_summary">Test prices, stock and staffing, then see what changed.</string>
+    <string name="learning_accounting">Accounting and reports</string>
+    <string name="learning_accounting_summary">Follow a purchase and a sale through the reports and journal.</string>
+    <string name="learning_cash">Working capital and cash flow</string>
+    <string name="learning_cash_summary">Predict a shortfall and compare ways to cover it.</string>
+    <string name="learning_cafe">Start the café to create the business. It opens on schedule. Use ×1, ×5 or ×20 to run time and Pause to think. With time paused, Skip can take you to the next event, decision or day. Sales, deliveries and scheduled payments are processed during the skip. Below the scene, the café overview tracks profit, groups served and causes of lost sales. Aim for a profitable first month.</string>
+    <string name="learning_operations">In Pricing, set prices and choose what to sell. In Purchasing, order supplies and choose when to pay. In Inventory, check what was used or wasted and open individual ingredients for daily movements. In Staff, review capacity and plan hiring. Changes to staffing take effect the next day.</string>
+    <string name="learning_finance">Use Forecast to spot upcoming bank shortages, and Bills to review and pay what is due. P&amp;L, Balance Sheet and Cash Flow explain the results for the selected periods. Open the Journal for the entries behind those figures. The bottom bar switches between Café, Operations and Finance, and links in the café scenes can take you straight to a management section.</string>
+    <string name="learning_appearance">Music and appearance</string>
+    <string name="learning_appearance_body">The Music menu on the café screen lets you choose a track or mute sound. Switch visual themes in Café → Settings during the same game.</string>
+    <string name="learning_trial">Run a fair comparison</string>
+    <string name="learning_trial_body">Use a few completed days as a baseline. Make one change and give it several days. Record units sold, gross margin and reasons customers were lost. Café overview explains service losses. Finance → P&amp;L shows whether higher gross margin covered wages and other expenses. Finance → Forecast helps check whether the strategy also leaves enough money to pay.</string>
+    <string name="learning_price_test">Test a price change</string>
+    <string name="learning_price_test_body">Example with tax excluded. At €4 per dish and €2 ingredient cost, 30 sales earn €60 in gross margin. At €3.50 you need 40 sales to match that margin. Try a small cut on a well-stocked dish and check Pricing and the café overview. You can also try a higher price and watch for refusals. The extra margin per dish has to cover any sales lost.</string>
+    <string name="learning_capacity">Fix the bottleneck</string>
+    <string name="learning_capacity_body">If the café loses groups because a dish is unavailable, order the missing ingredient and check supply dates and shelf life. If perishable stock repeatedly expires, try smaller orders. If groups are regularly lost to staff capacity, compare the gross margin on recoverable sales with additional wages and employer contributions. For example, €40 in extra daily labour cost needs 20 extra sales at €2 gross margin each to break even on the hire.</string>
+    <string name="learning_management">Management accounting</string>
+    <string name="learning_management_body">Use operating data to choose what to change. If revenue rose, check whether more groups were served or each group spent more. If gross margin fell, compare ingredient costs and the mix of dishes sold. In Inventory, reconcile opening stock plus purchases minus consumption and waste with closing stock. Use the daily ingredient history to see when the losses occurred.</string>
+    <string name="learning_reports">What the reports answer</string>
+    <string name="learning_reports_body">P&amp;L tells you what the café earned after expenses in a period. Balance Sheet shows what it owns, owes and has in equity at a date. Cash Flow explains where money came from and where it went. Compare periods in Finance. Use the customer data in P&amp;L to put sales changes in context. Tap an account row marked › in P&amp;L or Balance Sheet to open its journal entries.</string>
+    <string name="learning_postings">Follow an invoice and a sale</string>
+    <string name="learning_postings_body">When €120 of supplies bought on credit arrive, the journal debits inventory and credits supplier payables. When you pay the invoice, it debits payables and credits the bank. The payment appears in Cash Flow. When a dish sells, the journal records the sale and moves the cost of the ingredients used from inventory to cost of sales. Find the purchase and sale in Journal and compare their debit and credit lines.</string>
+    <string name="learning_gap">Spot the gap before payday</string>
+    <string name="learning_gap_body">Working capital is current assets, such as cash and inventory, less short-term liabilities, such as supplier bills. The forecast focuses on whether money is available when payments fall due. Money tied up in inventory is released as you sell it, while unpaid bills still have due dates. For example, with €200 in the bank, €500 in the till and a €600 bill due, the bank is €400 short. Deposit €400 from the till before payment. The transfer leaves total cash unchanged. Check the projected bank balance in Forecast and confirm the due date in Bills.</string>
+    <string name="learning_credit">Compare ways to finance a gap</string>
+    <string name="learning_credit_body">Purchasing shows the available term: 7 days for short-lived supplies and 14 for others. Paying a €300 order in seven days can free up €300 today. Check whether the bank still covers wages, rent and the order on its new due date. Persistent late payments can disrupt the café. If the shortfall remains after deposits and purchasing changes, draw only what you need from the credit line and plan when to repay. Interest accrues daily on the amount drawn. Recheck Forecast after each change.</string>
+    <string name="learning_loan">Plan for the starter loan</string>
+    <string name="learning_loan_body">The first instalment is due on Day 31 and subsequent instalments every 30 days. In a sample €700 payment made up of €600 principal and €100 interest, the bank balance falls by €700. Principal reduces loan debt in Balance Sheet. The €100 interest is an expense in P&amp;L. Compare Forecast, Balance Sheet and Cash Flow around a payment to see all three effects.</string>
+    <string name="learning_forecast_hint">Check the date and amount of the first projected bank shortfall. Compare bank and till funds, then open Bills to see what is due.</string>
+    <string name="learning_pricing_hint">Try changing one dish at a time. Compare completed days for units sold, margin and groups lost to price, stock or capacity.</string>
+</resources>

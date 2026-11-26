@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import com.example.runthebusiness.data.local.GameRepository
 import com.example.runthebusiness.core.simulation.GameSimulationEngine
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import com.example.runthebusiness.ui.cafe.CafeDashboardScreen
 import com.example.runthebusiness.ui.cafe.CafeFinanceScreen
 import com.example.runthebusiness.ui.cafe.CafeHomeScreen
+import com.example.runthebusiness.ui.cafe.CafeGuideChapter
+import com.example.runthebusiness.ui.cafe.CafeLearningGuide
 import com.example.runthebusiness.ui.cafe.CafeRunMusic
 import com.example.runthebusiness.ui.cafe.CafeMusicTrack
 import com.example.runthebusiness.ui.components.CafeBottomNavigation
@@ -102,12 +105,20 @@ class MainActivity : ComponentActivity() {
                 var groups by remember { mutableIntStateOf(0) }
                 var resultMessage by remember { mutableStateOf<String?>(null) }
 
+                var guideOpen by rememberSaveable { mutableStateOf(false) }
+                var guideChapter by rememberSaveable { mutableStateOf<CafeGuideChapter?>(null) }
+
                 fun pauseForNavigation() {
                     progressionJob?.cancel()
                     gameSpeed = 0
                     jumpMode = null
                     skipMenu = false
                     showMusic = false
+                }
+                fun openGuide(chapter: CafeGuideChapter?) {
+                    pauseForNavigation()
+                    guideChapter = chapter
+                    guideOpen = true
                 }
                 fun navigateTab(tab: Int) {
                     if (selectedTab != tab && !settingUp && !restoring) {
@@ -264,6 +275,13 @@ class MainActivity : ComponentActivity() {
                                         }, label = { Text(label) })
                                 }
                             }
+                            if (time != null) {
+                                TextButton(
+                                    onClick = { openGuide(null) },
+                                    enabled = !restoring && !settingUp && !jumping,
+                                    modifier = Modifier.align(Alignment.End)
+                                ) { Text(stringResource(R.string.learning_title)) }
+                            }
                             if (jumping) {
                                 LinearProgressIndicator(Modifier.fillMaxWidth())
                                 Text(stringResource(R.string.simulation_progress, progress, groups), style = MaterialTheme.typography.bodySmall)
@@ -295,12 +313,28 @@ class MainActivity : ComponentActivity() {
                             },
                             onStartGame = ::startGame,
                             onOpenOperations = { section -> operationsSection = section; navigateTab(1) },
-                            onOpenFinance = { financeTarget = "Bills"; navigateTab(2) }
+                            onOpenFinance = { financeTarget = "Bills"; navigateTab(2) },
+                            onOpenGuide = { openGuide(null) }
                         )
-                        1 -> CafeDashboardScreen(modifier = Modifier.padding(padding), requestedSection = operationsSection)
-                        2 -> CafeFinanceScreen(modifier = Modifier.padding(padding), requestedSection = financeTarget)
-                        else -> CafeFinanceScreen(modifier = Modifier.padding(padding))
+                        1 -> CafeDashboardScreen(
+                            modifier = Modifier.padding(padding),
+                            requestedSection = operationsSection,
+                            onOpenGuide = ::openGuide
+                        )
+                        2 -> CafeFinanceScreen(
+                            modifier = Modifier.padding(padding),
+                            requestedSection = financeTarget,
+                            onOpenGuide = ::openGuide
+                        )
+                        else -> CafeFinanceScreen(modifier = Modifier.padding(padding), onOpenGuide = ::openGuide)
                     }
+                }
+                if (guideOpen) {
+                    CafeLearningGuide(
+                        chapter = guideChapter,
+                        onChapter = { guideChapter = it },
+                        onClose = { guideOpen = false }
+                    )
                 }
             }
         }

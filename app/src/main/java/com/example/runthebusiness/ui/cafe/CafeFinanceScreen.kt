@@ -47,7 +47,11 @@ import com.example.runthebusiness.data.local.CafeCashForecast
 import com.example.runthebusiness.data.local.CafeCashForecastRepository
 
 @Composable
-fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = "Forecast") {
+internal fun CafeFinanceScreen(
+    modifier: Modifier = Modifier,
+    requestedSection: String = "Forecast",
+    onOpenGuide: (CafeGuideChapter) -> Unit
+) {
     val context = LocalContext.current.applicationContext
     val forecastRepo = remember(context) { CafeCashForecastRepository(context) }
     var forecast by remember { mutableStateOf<CafeCashForecast?>(null) }
@@ -208,7 +212,7 @@ fun CafeFinanceScreen(modifier: Modifier = Modifier, requestedSection: String = 
                 "Cash Flow" -> R.string.guide_cash
                 "Journal" -> R.string.guide_journal
                 else -> R.string.guide_forecast
-            })
+            }, onOpenGuide)
         }
     ) {
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())

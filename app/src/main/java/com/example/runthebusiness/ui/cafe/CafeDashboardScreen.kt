@@ -34,7 +34,11 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0) {
+internal fun CafeDashboardScreen(
+    modifier: Modifier = Modifier,
+    requestedSection: Int = 0,
+    onOpenGuide: (CafeGuideChapter) -> Unit
+) {
     val context = LocalContext.current.applicationContext
     val menu = remember(context) { CafeMenuRepository(context) }
     val expanded = remember(context) { CafeExpandedMenuRepository(context) }
@@ -234,7 +238,7 @@ fun CafeDashboardScreen(modifier: Modifier = Modifier, requestedSection: Int = 0
                 1 -> R.string.guide_purchasing
                 3 -> R.string.guide_staff
                 else -> R.string.guide_inventory
-            })
+            }, onOpenGuide)
         }
     ) {
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
