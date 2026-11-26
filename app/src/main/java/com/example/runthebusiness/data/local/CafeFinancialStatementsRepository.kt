@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.example.runthebusiness.engine.model.GameTime
 import com.example.runthebusiness.data.local.dao.JournalWithLines
+import com.example.runthebusiness.data.local.dao.ProductSalesMix
+import com.example.runthebusiness.data.local.dao.IngredientSaleCost
 import com.example.runthebusiness.data.local.entity.LedgerAccountEntity
 
 data class FinancialLine(val code: String, val name: String, val amountCents: Long)
@@ -21,7 +23,9 @@ data class FinancialPeriod(
     val openingCashCents: Long,
     val closingCashCents: Long,
     val performance: List<CafeDayPerformance>,
-    val dailyResults: List<DailyProfitLoss>
+    val dailyResults: List<DailyProfitLoss>,
+    val salesMix: List<ProductSalesMix> = emptyList(),
+    val ingredientCosts: List<IngredientSaleCost> = emptyList()
 ) {
     val revenueCents get() = revenue.sumOf { it.amountCents }
     val expenseCents get() = expenses.sumOf { it.amountCents }
@@ -82,19 +86,31 @@ class CafeFinancialStatementsRepository(context: Context) {
         val journal = db.journalViewDao().getJournal(sessionId)
         val accounts = db.gameSetupDao().getAccounts(sessionId)
         val activity = performance.recent(sessionId, now.day - start + 1 + REPORT_MONTH_DAYS * 2)
-        fun period(days: IntRange) = financialPeriod(days, journal, accounts, activity)
+        val locationId = db.gameSetupDao().getBusinesses(sessionId).singleOrNull()
+            ?.let { db.businessLocationDao().getLocations(it.id).singleOrNull()?.id }
+        suspend fun withOperatingBreakdown(period: FinancialPeriod, cutoff: GameTime?): FinancialPeriod {
+            if (locationId == null) return period
+            val minute = cutoff?.let { it.hour * 60 + it.minute } ?: (24 * 60 - 1)
+            val sales = db.cafeSalesDao()
+            return period.copy(
+                salesMix = sales.productSalesMix(locationId, period.days.first, period.days.last, minute),
+                ingredientCosts = sales.ingredientSaleCosts(locationId, period.days.first, period.days.last, minute)
+            )
+        }
+        suspend fun period(days: IntRange, cutoff: GameTime? = null): FinancialPeriod =
+            withOperatingBreakdown(financialPeriod(days, journal, accounts, activity, cutoff), cutoff)
         val priorMonthToDate = priorCutoff?.let { cutoff ->
             val range = (start - REPORT_MONTH_DAYS)..cutoff.day
             val priorActivity = activity.filter { it.day < cutoff.day } +
                 performance.recent(sessionId, days = 1, through = cutoff)
-            financialPeriod(range, journal, accounts, priorActivity, cutoff)
+            withOperatingBreakdown(financialPeriod(range, journal, accounts, priorActivity, cutoff), cutoff)
         }
         val closed = if (priorCutoff == null) null else FinancialComparison(
             current = period((start - REPORT_MONTH_DAYS) until start),
             previous = if (start > REPORT_MONTH_DAYS * 2)
                 period((start - REPORT_MONTH_DAYS * 2) until (start - REPORT_MONTH_DAYS)) else null
         )
-        FinancialStatements(now, FinancialComparison(period(start..now.day), priorMonthToDate), closed)
+        FinancialStatements(now, FinancialComparison(period(start..now.day, now), priorMonthToDate), closed)
     }
 }
 

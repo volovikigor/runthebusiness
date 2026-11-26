@@ -32,10 +32,11 @@ fun CafeSectionScreen(
     selected: String,
     onSelect: (String) -> Unit,
     headerAction: @Composable () -> Unit = {},
+    scrollRequest: Int = 0,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scroll = rememberScrollState()
-    LaunchedEffect(selected) { scroll.scrollTo(0) }
+    LaunchedEffect(selected, scrollRequest) { scroll.scrollTo(0) }
     Column(modifier.fillMaxSize()) {
         CafeSectionHeader(title, sections, selected, onSelect, headerAction)
         Column(

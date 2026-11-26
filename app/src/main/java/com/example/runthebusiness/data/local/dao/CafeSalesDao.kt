@@ -9,8 +9,15 @@ import com.example.runthebusiness.data.local.entity.StockMovementEntity
 
 data class ProductUnitsSold(val productId: String, val units: Long)
 
-data class ProductSalesTotals(
-    val units: Long, val grossCents: Long, val minPriceCents: Long?, val maxPriceCents: Long?
+data class ProductSalesTotals(val units: Long, val grossCents: Long)
+
+data class ProductSalesMix(val productId: String, val productName: String, val units: Long)
+
+data class IngredientSaleCost(
+    val ingredientId: String,
+    val ingredientName: String,
+    val unit: String,
+    val unitCostCents: Double
 )
 
 @Dao
@@ -39,13 +46,36 @@ interface CafeSalesDao {
 
     @Query("""
         SELECT COALESCE(SUM(l.quantity), 0) AS units,
-            COALESCE(SUM(l.quantity * l.unitPriceCents), 0) AS grossCents,
-            MIN(l.unitPriceCents) AS minPriceCents, MAX(l.unitPriceCents) AS maxPriceCents
+            COALESCE(SUM(l.quantity * l.unitPriceCents), 0) AS grossCents
         FROM customer_order_lines l JOIN customer_orders o ON o.id = l.orderId
         WHERE o.locationId = :locationId AND l.productId = :productId
             AND o.gameDay BETWEEN :fromDay AND :throughDay
     """)
     suspend fun productSales(locationId: String, productId: String, fromDay: Int, throughDay: Int): ProductSalesTotals
+
+    @Query("""
+        SELECT l.productId, MAX(l.productName) AS productName, SUM(l.quantity) AS units
+        FROM customer_order_lines l JOIN customer_orders o ON o.id = l.orderId
+        WHERE o.locationId = :locationId AND o.gameDay BETWEEN :fromDay AND :throughDay
+            AND (o.gameDay < :throughDay OR o.gameHour * 60 + o.gameMinute <= :throughMinute)
+        GROUP BY l.productId
+        ORDER BY units DESC, productName
+    """)
+    suspend fun productSalesMix(locationId: String, fromDay: Int, throughDay: Int, throughMinute: Int): List<ProductSalesMix>
+
+    @Query("""
+        SELECT m.inventoryItemId AS ingredientId, MAX(m.inventoryItemName) AS ingredientName, i.unit,
+            SUM(m.quantityDelta * m.unitCostCents) / SUM(m.quantityDelta) AS unitCostCents
+        FROM stock_movements m
+        JOIN customer_orders o ON o.id = m.sourceId
+        JOIN inventory_items i ON i.id = m.inventoryItemId
+        WHERE m.sourceType = 'CUSTOMER_ORDER' AND m.quantityDelta < 0 AND o.locationId = :locationId
+            AND o.gameDay BETWEEN :fromDay AND :throughDay
+            AND (o.gameDay < :throughDay OR o.gameHour * 60 + o.gameMinute <= :throughMinute)
+        GROUP BY m.inventoryItemId, i.unit
+        ORDER BY ingredientName
+    """)
+    suspend fun ingredientSaleCosts(locationId: String, fromDay: Int, throughDay: Int, throughMinute: Int): List<IngredientSaleCost>
 
     @Query("SELECT * FROM stock_movements WHERE sourceId = :sourceId ORDER BY id")
     suspend fun getMovementsForSource(sourceId: String): List<StockMovementEntity>

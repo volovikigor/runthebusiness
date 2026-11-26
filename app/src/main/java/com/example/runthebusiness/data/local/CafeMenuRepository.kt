@@ -26,9 +26,9 @@ data class CafeMenuItem(
 )
 
 data class PriceObservation(val days: IntRange, val sales: ProductSalesTotals, val traffic: PriceWindowTraffic)
-data class MenuPriceInsights(
-    val recent: PriceObservation?,
-    val change: CafePriceChangeEntity?,
+data class MenuPriceComparison(
+    val change: CafePriceChangeEntity,
+    val hasBaseline: Boolean,
     val before: PriceObservation?,
     val after: PriceObservation?
 )
@@ -108,21 +108,21 @@ class CafeMenuRepository(context: Context) {
         return true
     }
 
-    suspend fun priceInsights(productId: String, sessionId: String = "debug_session_001"): MenuPriceInsights =
+    suspend fun priceComparisons(sessionId: String = "debug_session_001"): List<MenuPriceComparison> =
         db.withTransaction {
-            val business = setup.getBusinesses(sessionId).single()
+            val business = setup.getBusinesses(sessionId).singleOrNull() ?: return@withTransaction emptyList()
             val location = locations.getLocations(business.id).single()
             val today = checkNotNull(db.accountingDao().getSession(sessionId)).currentDay
-            val changes = menu.latestPriceChanges(productId)
-            val change = changes.firstOrNull()
-            val windows = change?.let { comparablePriceWindows(today, it.gameDay, changes.getOrNull(1)?.gameDay) }
-            suspend fun observe(days: IntRange): PriceObservation =
-                PriceObservation(days, db.cafeSalesDao().productSales(location.id, productId, days.first, days.last),
-                    db.cafeArrivalDao().priceWindowTraffic(location.id, productId, days.first, days.last))
-            MenuPriceInsights(
-                if (today > 1) observe((today - 7).coerceAtLeast(1) until today) else null,
-                change, windows?.let { observe(it.first) }, windows?.let { observe(it.second) }
-            )
+            menu.latestChangedProducts(location.id).map { change ->
+                val previous = menu.latestPriceChanges(change.productId).getOrNull(1)
+                val windows = comparablePriceWindows(today, change.gameDay, previous?.gameDay)
+                suspend fun observe(days: IntRange): PriceObservation = PriceObservation(
+                    days,
+                    db.cafeSalesDao().productSales(location.id, change.productId, days.first, days.last),
+                    db.cafeArrivalDao().priceWindowTraffic(location.id, days.first, days.last)
+                )
+                MenuPriceComparison(change, change.gameDay > (previous?.gameDay ?: 0) + 1, windows?.let { observe(it.first) }, windows?.let { observe(it.second) })
+            }
         }
 
     suspend fun loadMenu(sessionId: String = "debug_session_001"): List<CafeMenuItem> =

@@ -66,6 +66,9 @@ internal fun CafeDashboardScreen(
     val bills = remember(context) { CafePaymentRegisterRepository(context) }
     val scope = rememberCoroutineScope()
     var products by remember { mutableStateOf<List<CafeMenuItem>>(emptyList()) }
+    var priceComparisons by remember { mutableStateOf<List<MenuPriceComparison>>(emptyList()) }
+    var trackedProduct by remember { mutableStateOf<String?>(null) }
+    var priceScrollRequest by remember { mutableIntStateOf(0) }
     var stock by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var supplierCreditBlocked by remember { mutableStateOf(false) }
     var currentGameDay by remember { mutableIntStateOf(1) }
@@ -92,6 +95,7 @@ internal fun CafeDashboardScreen(
         realIngredients = inventorySetup.hasRealIngredients()
         kitchenInstalled = kitchen.installed()
         products = menu.loadMenu()
+        priceComparisons = menu.priceComparisons()
         stock = purchasing.stock()
         inventory = inventoryRepo.load()
         autoPolicy = autoPurchasing.policy()
@@ -133,10 +137,7 @@ internal fun CafeDashboardScreen(
     }
 
     products.firstOrNull { it.id == openMenuProduct }?.let { product ->
-        var insights by remember(product.id) { mutableStateOf<MenuPriceInsights?>(null) }
-        LaunchedEffect(product.id, product.priceCents, currentGameDay) {
-            insights = menu.priceInsights(product.id)
-        }
+        var proposedPrice by remember(product.id, product.priceCents) { mutableLongStateOf(product.priceCents) }
         val itemIds = listOfNotNull(product.finishedStockItemId).ifEmpty {
             product.ingredients.map { it.first }
         }
@@ -150,33 +151,49 @@ internal fun CafeDashboardScreen(
                         Text(stringResource(R.string.loss_price), Modifier.weight(1f))
                         IconButton(
                             modifier = Modifier.semantics { contentDescription = context.getString(R.string.decrease_price) },
-                            enabled = !busy && product.priceCents > 50L,
-                            onClick = { run { menu.updatePrice(product.id, (product.priceCents - 10L).coerceAtLeast(50L)) } }
+                            enabled = !busy && proposedPrice > 50L,
+                            onClick = { proposedPrice = (proposedPrice - 10L).coerceAtLeast(50L) }
                         ) { Text("−") }
-                        Text(menuPackMoney(product.priceCents), style = MaterialTheme.typography.titleSmall)
+                        Text(menuPackMoney(proposedPrice), style = MaterialTheme.typography.titleMedium)
                         IconButton(
                             modifier = Modifier.semantics { contentDescription = context.getString(R.string.increase_price) },
-                            enabled = !busy && product.priceCents < 5000L,
-                            onClick = { run { menu.updatePrice(product.id, (product.priceCents + 10L).coerceAtMost(5000L)) } }
+                            enabled = !busy && proposedPrice < 5000L,
+                            onClick = { proposedPrice = (proposedPrice + 10L).coerceAtMost(5000L) }
                         ) { Text("+") }
                     }
                     OutlinedButton(enabled = !busy, onClick = {
                         run { expanded.setEnabled(product.id, !product.enabled) }
                     }) { Text(stringResource(if (product.enabled) R.string.remove_menu else R.string.add_menu)) }
                     val openingPrice = CafePriceDemandRules.openingPriceCents(product.id)
-                    if (product.enabled && product.priceCents > openingPrice) {
+                    if (product.enabled && proposedPrice > openingPrice) {
                         Text(stringResource(R.string.above_opening_price),
                             style = MaterialTheme.typography.bodySmall)
                     }
-                    if (product.enabled && CafePriceDemandRules.discountTrafficWeight(product.id, product.priceCents) > 0) {
+                    if (product.enabled && CafePriceDemandRules.discountTrafficWeight(product.id, proposedPrice) > 0) {
                         Text(stringResource(R.string.promotion_workload),
                             style = MaterialTheme.typography.bodySmall)
                     }
-                    insights?.let { MenuPriceAnalytics(it) }
                     if (packs.isNotEmpty()) MenuPurchasingDetails(product, packs)
                 }
             },
-            confirmButton = { TextButton(onClick = { openMenuProduct = null }) { Text(stringResource(R.string.done)) } }
+            confirmButton = {
+                if (proposedPrice != product.priceCents) {
+                    CafeActionButton(enabled = !busy, onClick = {
+                        val priceToSave = proposedPrice
+                        run {
+                            menu.updatePrice(product.id, priceToSave)
+                            trackedProduct = product.id
+                            openMenuProduct = null
+                            priceScrollRequest++
+                        }
+                    }) { Text(stringResource(R.string.strategy_save_price)) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { openMenuProduct = null }) {
+                    Text(stringResource(if (proposedPrice == product.priceCents) R.string.done else R.string.cancel))
+                }
+            }
         )
     }
 
@@ -232,6 +249,7 @@ internal fun CafeDashboardScreen(
             section = sections.indexOf(label)
             message = null
         },
+        scrollRequest = priceScrollRequest,
         headerAction = {
             CafeGuideButton(sections.getOrElse(section) { sections[2] }, when (section) {
                 0 -> R.string.guide_pricing
@@ -256,6 +274,14 @@ internal fun CafeDashboardScreen(
         } else when (section) {
             0 -> {
                 Text(stringResource(R.string.menu_pricing), style = MaterialTheme.typography.titleLarge)
+                PriceResults(
+                    comparisons = priceComparisons,
+                    products = products,
+                    selectedId = trackedProduct,
+                    onSelect = { trackedProduct = it },
+                    onEdit = { openMenuProduct = it },
+                    busy = busy
+                )
                 cafeSnapshot?.let { WeeklyDemandCard(it, products) }
                 OutlinedButton(
                     enabled = !busy && products.any { it.priceCents != CafePriceDemandRules.openingPriceCents(it.id) },
@@ -429,6 +455,7 @@ internal fun CafeDashboardScreen(
                     style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(R.string.writeoffs, menuPackMoney(report.items.sumOf { it.total.wasteCents })),
                     style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.strategy_inventory_hint), style = MaterialTheme.typography.bodyMedium)
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
                         val tableWidth = maxWidth.coerceAtLeast(360.dp)
@@ -536,63 +563,82 @@ private fun MenuPurchasingDetails(product: CafeMenuItem, packs: List<CafePurchas
 private fun menuPackMoney(cents: Long): String = "€%.2f".format(Locale.ROOT, cents / 100.0)
 
 @Composable
-private fun MenuPriceAnalytics(insights: MenuPriceInsights) {
+private fun PriceResults(
+    comparisons: List<MenuPriceComparison>,
+    products: List<CafeMenuItem>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+    onEdit: (String) -> Unit,
+    busy: Boolean
+) {
     CafeLedgerPanel {
-        Text(stringResource(R.string.price_demand), style = MaterialTheme.typography.titleSmall)
-        val recent = insights.recent
-        if (recent != null) {
-            Text(stringResource(R.string.units_sold_range, recent.days.first, recent.days.last, recent.sales.units),
-                style = MaterialTheme.typography.bodySmall)
-            val low = recent.sales.minPriceCents
-            val high = recent.sales.maxPriceCents
-            if (low != null && high != null) {
-                val price = if (low == high) menuPackMoney(low) else "${menuPackMoney(low)}–${menuPackMoney(high)}"
-                Text(stringResource(R.string.recorded_sale_price, price), style = MaterialTheme.typography.bodySmall)
-            }
-            Text(stringResource(R.string.cafe_traffic_counts, recent.traffic.groups, recent.traffic.guests),
-                style = MaterialTheme.typography.bodySmall)
-            if (recent.traffic.promotionGroups > 0) {
-                Text(stringResource(R.string.promotion_counts, recent.traffic.promotionGroups, recent.traffic.promotionStockLosses, recent.traffic.promotionStaffLosses),
-                    style = MaterialTheme.typography.bodySmall)
-            }
+        Text(stringResource(R.string.strategy_price_results), style = MaterialTheme.typography.titleMedium)
+        val comparison = comparisons.firstOrNull { it.change.productId == selectedId } ?: comparisons.firstOrNull()
+        if (comparison == null) {
+            Text(stringResource(R.string.strategy_price_empty), style = MaterialTheme.typography.bodyMedium)
+            return@CafeLedgerPanel
         }
-        val change = insights.change
-        when {
-            change == null -> Text(stringResource(R.string.price_new_comparison),
-                style = MaterialTheme.typography.bodySmall)
-            change.previousCents == change.currentCents -> Text(stringResource(R.string.price_unchanged, change.gameDay),
-                style = MaterialTheme.typography.bodySmall)
-            else -> {
-                Text(stringResource(R.string.price_day_change, change.gameDay, menuPackMoney(change.previousCents), menuPackMoney(change.currentCents)),
-                    style = MaterialTheme.typography.bodySmall)
-                val before = insights.before
-                val after = insights.after
-                if (before != null && after != null) {
-                    PriceComparisonRow("Completed days",
-                        "${before.days.first}–${before.days.last}", "${after.days.first}–${after.days.last}")
-                    PriceComparisonRow("Units sold", before.sales.units.toString(), after.sales.units.toString())
-                    PriceComparisonRow("Sales incl. VAT", menuPackMoney(before.sales.grossCents),
-                        menuPackMoney(after.sales.grossCents))
-                    PriceComparisonRow("Café groups", before.traffic.groups.toString(), after.traffic.groups.toString())
-                    PriceComparisonRow("Café guests", before.traffic.guests.toString(), after.traffic.guests.toString())
-                    PriceComparisonRow("Groups lost to staffing", before.traffic.staffLosses.toString(),
-                        after.traffic.staffLosses.toString())
-                    Text(stringResource(R.string.matching_windows),
-                        style = MaterialTheme.typography.bodySmall)
-                } else {
-                    Text(stringResource(R.string.needs_closed_day),
-                        style = MaterialTheme.typography.bodySmall)
+        val change = comparison.change
+        val product = products.firstOrNull { it.id == change.productId } ?: return@CafeLedgerPanel
+        var showProducts by remember { mutableStateOf(false) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(cafeProductName(product.id, product.name), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            TextButton(enabled = !busy, onClick = { onEdit(product.id) }) { Text(stringResource(R.string.strategy_edit_price)) }
+        }
+        if (comparisons.size > 1) {
+            Box {
+                OutlinedButton(onClick = { showProducts = true }) { Text(stringResource(R.string.strategy_changed_dishes)) }
+                DropdownMenu(expanded = showProducts, onDismissRequest = { showProducts = false }) {
+                    comparisons.forEach { item ->
+                        val dish = products.firstOrNull { it.id == item.change.productId }
+                        if (dish != null) DropdownMenuItem(
+                            text = { Text(cafeProductName(dish.id, dish.name)) },
+                            onClick = {
+                                showProducts = false
+                                onSelect(dish.id)
+                            }
+                        )
+                    }
                 }
             }
         }
+        Text(
+            stringResource(R.string.price_day_change, change.gameDay, menuPackMoney(change.previousCents), menuPackMoney(change.currentCents)),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        val before = comparison.before
+        val after = comparison.after
+        if (before == null || after == null) {
+            Text(stringResource(if (comparison.hasBaseline) R.string.strategy_wait_for_close else R.string.strategy_no_baseline),
+                style = MaterialTheme.typography.bodyMedium)
+            return@CafeLedgerPanel
+        }
+
+        PriceResultRow("", stringResource(R.string.strategy_before), stringResource(R.string.strategy_after), heading = true)
+        PriceResultRow(
+            stringResource(R.string.strategy_days),
+            "${before.days.first}–${before.days.last}", "${after.days.first}–${after.days.last}"
+        )
+        PriceResultRow(stringResource(R.string.units_sold), before.sales.units.toString(), after.sales.units.toString())
+        PriceResultRow(stringResource(R.string.strategy_sales_vat), menuPackMoney(before.sales.grossCents), menuPackMoney(after.sales.grossCents))
+        Text(stringResource(R.string.strategy_cafe_groups), style = MaterialTheme.typography.titleSmall)
+        PriceResultRow(stringResource(R.string.strategy_arrived), before.traffic.groups.toString(), after.traffic.groups.toString())
+        PriceResultRow(stringResource(R.string.strategy_declined), before.traffic.priceLosses.toString(), after.traffic.priceLosses.toString())
+        PriceResultRow(stringResource(R.string.strategy_stock_losses), before.traffic.stockLosses.toString(), after.traffic.stockLosses.toString())
+        PriceResultRow(stringResource(R.string.strategy_staff_losses), before.traffic.staffLosses.toString(), after.traffic.staffLosses.toString())
+        Text(stringResource(R.string.strategy_window_note), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
-private fun PriceComparisonRow(label: String, before: String, after: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        val style = MaterialTheme.typography.bodySmall
-        Text(cafeLabel(label), Modifier.weight(1f), style = style)
-        Text("$before → $after", style = style, textAlign = TextAlign.End)
+private fun PriceResultRow(label: String, before: String, after: String, heading: Boolean = false) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val style = if (heading) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
+            Text(label, Modifier.weight(1.5f), style = style)
+            Text(before, Modifier.weight(1f), style = style, textAlign = TextAlign.End)
+            Text(after, Modifier.weight(1f), style = style, textAlign = TextAlign.End)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

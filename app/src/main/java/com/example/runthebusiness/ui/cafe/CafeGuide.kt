@@ -39,32 +39,70 @@ import com.example.runthebusiness.R
 import com.example.runthebusiness.ui.components.CafeLedgerPanel
 import com.example.runthebusiness.ui.components.cafeLabel
 
-internal enum class CafeGuideChapter(
+internal enum class CafeGuideChapter(@field:StringRes val title: Int, @field:StringRes val summary: Int) {
+    CONTROLS(R.string.learning_controls, R.string.learning_controls_summary),
+    STRATEGY(R.string.learning_strategy, R.string.learning_strategy_summary),
+    ACCOUNTING(R.string.learning_accounting, R.string.learning_accounting_summary),
+    CASH(R.string.learning_cash, R.string.learning_cash_summary)
+}
+
+internal enum class CafeGuideDestination(@field:StringRes val title: Int) {
+    CAFE(R.string.cafe),
+    PRICING(R.string.pricing),
+    PURCHASING(R.string.purchasing),
+    INVENTORY(R.string.inventory),
+    STAFF(R.string.staff),
+    FORECAST(R.string.forecast),
+    BILLS(R.string.bills),
+    PROFIT(R.string.pl),
+    BALANCE(R.string.bs),
+    CASH_FLOW(R.string.cash_flow),
+    JOURNAL(R.string.journal)
+}
+
+private data class GuideLesson(
     @field:StringRes val title: Int,
-    @field:StringRes val summary: Int,
-    val lessons: List<Pair<Int, Int>>
-) {
-    CONTROLS(R.string.learning_controls, R.string.learning_controls_summary, listOf(
-        R.string.cafe to R.string.learning_cafe,
-        R.string.operations to R.string.learning_operations,
-        R.string.finance to R.string.learning_finance,
-        R.string.learning_appearance to R.string.learning_appearance_body
-    )),
-    STRATEGY(R.string.learning_strategy, R.string.learning_strategy_summary, listOf(
-        R.string.learning_trial to R.string.learning_trial_body,
-        R.string.learning_price_test to R.string.learning_price_test_body,
-        R.string.learning_capacity to R.string.learning_capacity_body
-    )),
-    ACCOUNTING(R.string.learning_accounting, R.string.learning_accounting_summary, listOf(
-        R.string.learning_management to R.string.learning_management_body,
-        R.string.learning_reports to R.string.learning_reports_body,
-        R.string.learning_postings to R.string.learning_postings_body
-    )),
-    CASH(R.string.learning_cash, R.string.learning_cash_summary, listOf(
-        R.string.learning_gap to R.string.learning_gap_body,
-        R.string.learning_credit to R.string.learning_credit_body,
-        R.string.learning_loan to R.string.learning_loan_body
-    ))
+    @field:StringRes val body: Int,
+    @field:StringRes val example: Int? = null,
+    val destination: CafeGuideDestination? = null,
+    val related: CafeGuideChapter? = null
+)
+
+private fun guideLessons(chapter: CafeGuideChapter): List<GuideLesson> = when (chapter) {
+    CafeGuideChapter.CONTROLS -> listOf(
+        GuideLesson(R.string.cafe, R.string.learning_cafe, destination = CafeGuideDestination.CAFE),
+        GuideLesson(R.string.learning_skip_title, R.string.learning_skip_body, R.string.learning_skip_example),
+        GuideLesson(R.string.learning_navigation_title, R.string.learning_navigation_body),
+        GuideLesson(R.string.learning_appearance, R.string.learning_appearance_body),
+        GuideLesson(R.string.pricing, R.string.learning_pricing_page, destination = CafeGuideDestination.PRICING, related = CafeGuideChapter.STRATEGY),
+        GuideLesson(R.string.purchasing, R.string.learning_purchasing_page, destination = CafeGuideDestination.PURCHASING, related = CafeGuideChapter.CASH),
+        GuideLesson(R.string.inventory, R.string.learning_inventory_page, destination = CafeGuideDestination.INVENTORY, related = CafeGuideChapter.ACCOUNTING),
+        GuideLesson(R.string.staff, R.string.learning_staff_page, destination = CafeGuideDestination.STAFF, related = CafeGuideChapter.STRATEGY),
+        GuideLesson(R.string.forecast, R.string.learning_forecast_page, destination = CafeGuideDestination.FORECAST, related = CafeGuideChapter.CASH),
+        GuideLesson(R.string.bills, R.string.learning_bills_page, destination = CafeGuideDestination.BILLS, related = CafeGuideChapter.CASH),
+        GuideLesson(R.string.pl, R.string.learning_pl_page, destination = CafeGuideDestination.PROFIT, related = CafeGuideChapter.ACCOUNTING),
+        GuideLesson(R.string.bs, R.string.learning_bs_page, destination = CafeGuideDestination.BALANCE, related = CafeGuideChapter.ACCOUNTING),
+        GuideLesson(R.string.cash_flow, R.string.learning_cash_page, destination = CafeGuideDestination.CASH_FLOW, related = CafeGuideChapter.CASH),
+        GuideLesson(R.string.journal, R.string.learning_journal_page, destination = CafeGuideDestination.JOURNAL, related = CafeGuideChapter.ACCOUNTING)
+    )
+    CafeGuideChapter.STRATEGY -> listOf(
+        GuideLesson(R.string.learning_trial, R.string.learning_trial_body, destination = CafeGuideDestination.PRICING),
+        GuideLesson(R.string.learning_price_test, R.string.learning_price_test_body, R.string.learning_price_example, CafeGuideDestination.PRICING),
+        GuideLesson(R.string.learning_capacity, R.string.learning_capacity_body, R.string.learning_capacity_example, CafeGuideDestination.STAFF)
+    )
+    CafeGuideChapter.ACCOUNTING -> listOf(
+        GuideLesson(R.string.learning_management, R.string.learning_management_body, R.string.learning_revenue_example, CafeGuideDestination.PROFIT),
+        GuideLesson(R.string.strategy_margin_drivers, R.string.learning_margin_body, R.string.learning_margin_example, CafeGuideDestination.PROFIT),
+        GuideLesson(R.string.inventory, R.string.learning_inventory_decision, R.string.learning_inventory_example, CafeGuideDestination.INVENTORY),
+        GuideLesson(R.string.learning_reports, R.string.learning_reports_body, R.string.learning_period_example, CafeGuideDestination.PROFIT),
+        GuideLesson(R.string.learning_postings, R.string.learning_postings_body, R.string.learning_postings_example, CafeGuideDestination.JOURNAL)
+    )
+    CafeGuideChapter.CASH -> listOf(
+        GuideLesson(R.string.learning_gap, R.string.learning_gap_body, R.string.learning_gap_example, CafeGuideDestination.FORECAST),
+        GuideLesson(R.string.learning_credit, R.string.learning_credit_body, R.string.learning_credit_example, CafeGuideDestination.PURCHASING),
+        GuideLesson(R.string.credit_line_title, R.string.learning_line_body, R.string.learning_line_example, CafeGuideDestination.FORECAST),
+        GuideLesson(R.string.learning_loan, R.string.learning_loan_body, R.string.learning_loan_example, CafeGuideDestination.BILLS)
+    )
 }
 
 @Composable
@@ -106,7 +144,12 @@ internal fun CafeGuideButton(title: String, @StringRes message: Int, onOpenGuide
 }
 
 @Composable
-internal fun CafeLearningGuide(chapter: CafeGuideChapter?, onChapter: (CafeGuideChapter?) -> Unit, onClose: () -> Unit) {
+internal fun CafeLearningGuide(
+    chapter: CafeGuideChapter?,
+    onChapter: (CafeGuideChapter?) -> Unit,
+    onClose: () -> Unit,
+    onDestination: ((CafeGuideDestination) -> Unit)?
+) {
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
@@ -157,14 +200,34 @@ internal fun CafeLearningGuide(chapter: CafeGuideChapter?, onChapter: (CafeGuide
                                     style = MaterialTheme.typography.headlineSmall
                                 )
                             }
-                            items(chapter.lessons) { (title, body) ->
+                            items(guideLessons(chapter)) { lesson ->
                                 CafeLedgerPanel {
                                     Text(
-                                        stringResource(title),
+                                        stringResource(lesson.title),
                                         Modifier.semantics { heading() },
                                         style = MaterialTheme.typography.titleMedium
                                     )
-                                    Text(stringResource(body), style = MaterialTheme.typography.bodyLarge)
+                                    Text(stringResource(lesson.body), style = MaterialTheme.typography.bodyLarge)
+                                    lesson.example?.let { example ->
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = MaterialTheme.shapes.small,
+                                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                        ) {
+                                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text(stringResource(R.string.learning_example), style = MaterialTheme.typography.titleSmall)
+                                                Text(stringResource(example), style = MaterialTheme.typography.bodyLarge)
+                                            }
+                                        }
+                                    }
+                                    if (lesson.destination != null && onDestination != null) {
+                                        TextButton(onClick = { onDestination(lesson.destination) }) {
+                                            Text(stringResource(R.string.learning_open_page, stringResource(lesson.destination.title)))
+                                        }
+                                    }
+                                    lesson.related?.let { related ->
+                                        TextButton(onClick = { onChapter(related) }) { Text(stringResource(related.title)) }
+                                    }
                                 }
                             }
                         }
